@@ -1,0 +1,7 @@
+services:
+  memdb:
+    image: memdb:latest
+    container_name: memdb
+    ports:
+      - '7899:7899'
+
