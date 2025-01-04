@@ -12,7 +12,7 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
-#include "threadbase.hpp"
+#include "util/threadbase.hpp"
 
 class Logger: public ThreadBase<std::string> {
 public:
@@ -34,7 +34,7 @@ public:
         output_log(formatted_message, level);
     }
 
-    void on_msg(const std::variant<std::string>& msg) override;
+    void on_msg(const std::shared_ptr<std::variant<std::string>> msg) override;
 
 private:
     Logger() = default;
@@ -53,5 +53,7 @@ private:
     std::string format_message(const std::string& format_str, const std::initializer_list<std::string>& args);
     void output_log(const std::string& message, LogLevel level);
 };
+
+extern Logger& logger; // 声明全局变量
 
 #endif // LOGGER_HPP

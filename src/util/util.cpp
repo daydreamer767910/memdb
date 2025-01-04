@@ -3,6 +3,12 @@
 /*
 | Message Length (4 bytes) | Message Type (4 bytes) | Payload Data (variable length) |
 */
+void print_packet(const uint8_t* packet, size_t length) {
+    for (size_t i = 0; i < length; ++i) {
+        std::cout << std::hex << static_cast<int>(packet[i]) << " ";
+    }
+    std::cout << std::endl;
+}
 
 void print_packet(const std::vector<uint8_t>& packet) {
     std::cout << "Packed data: ";

@@ -20,7 +20,7 @@ enum class task_status {
 // 定义输出运算符
 std::ostream& operator<<(std::ostream& os, const task_status& status);
 
-template <typename... T>
+template <typename... MSG>
 class ThreadBase {
 public:
     virtual ~ThreadBase(){
@@ -59,7 +59,7 @@ public:
 	}
 
     // 发送消息接口
-    virtual void sendmsg(const std::variant<T...>& msg) {
+    virtual void sendmsg(const std::shared_ptr<std::variant<MSG...>> msg) {
 		{
 			std::lock_guard<std::mutex> lock(queue_mutex_);
 			msg_queue_.emplace(msg);
@@ -81,20 +81,11 @@ protected:
         this->thread_ = std::thread(&ThreadBase::process, this);
 	}
     // 处理消息接口
-    virtual void on_msg(const std::variant<T...>& msg) {
+    virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) {
         std::cout << "ThreadBase::on_msg ..." << std::endl;
     };
 
-private:
-    // 成员变量
-    std::queue<std::variant<T...>> msg_queue_;            // 消息队列
-    std::mutex queue_mutex_;                  // 队列的互斥锁
-    std::condition_variable cond_var_;       // 条件变量，用于线程同步
-    std::thread thread_;                      // 线程
-    task_status status_;                            
-    
-
-    void process() {
+    virtual void process() {
         while (true) {
             std::unique_lock<std::mutex> lock(this->queue_mutex_);
             
@@ -114,6 +105,15 @@ private:
             }
         }
     }
+
+private:
+    // 成员变量
+    std::queue<std::shared_ptr<std::variant<MSG...>>> msg_queue_;            // 消息队列
+    std::mutex queue_mutex_;                  // 队列的互斥锁
+    std::condition_variable cond_var_;       // 条件变量，用于线程同步
+    std::thread thread_;                      // 线程
+    task_status status_;                            
+    
 };
 
 #endif

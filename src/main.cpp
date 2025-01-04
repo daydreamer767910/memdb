@@ -8,13 +8,16 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <uv.h>
-#include "memtable.hpp"
-#include "memdatabase.hpp"
-#include "tcpserver.hpp"
-#include "logger.hpp"
+#include "dbcore/memtable.hpp"
+#include "dbcore/memdatabase.hpp"
+#include "net/tcpserver.hpp"
+#include "log/logger.hpp"
+#include "server/dbservice.hpp"
+
+Logger& logger = Logger::get_instance(); // 定义全局变量
+TransportSrv& transportSrv = TransportSrv::get_instance(); // 定义全局变量
 
 int main() {
-    auto& logger = Logger::get_instance();
     // 输出到文件
     logger.set_log_file("./log/mdbsrv.log");
     // 启用/禁用控制台输出
@@ -22,6 +25,8 @@ int main() {
     logger.start();
     logger.log(Logger::LogLevel::INFO, "mdbsrv started ");
 
+    DBService dbsrv;
+    dbsrv.start();
 
     MemDatabase::ptr& db = MemDatabase::getInstance();
     // Create table from JSON
@@ -50,16 +55,16 @@ int main() {
 
     // Create index
     users->addIndex("name");
-    users->showIndexs();
+    //users->showIndexs();
     // Query by index
     Field userName = std::string("Alice");
     const auto& queryRows = users->queryByIndex("name", userName);
     std::cout << "query Alice:" << users->rowsToJson(queryRows).dump(4) << std::endl;
     
-    users->showTable();
-    users->showRows();
-    users1->showTable();
-    users1->showRows();
+    //users->showTable();
+    //users->showRows();
+    //users1->showTable();
+    //users1->showRows();
     // Save to JSON file
     users1->exportToFile("./data/users-1.dat");
     users->exportToFile("./data/users.dat");

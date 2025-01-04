@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y \
 
 # 复制项目源代码
 COPY src /mdb/src
-
+COPY CMakeLists.txt /mdb/CMakeLists.txt
 COPY etc /mdb/etc
 COPY data /mdb/data
 
@@ -45,7 +45,7 @@ COPY data /mdb/data
 WORKDIR /mdb/build
 
 # 构建 C++ 库
-RUN cmake ../src && make && make install
+RUN cmake .. && make && make install
 
 
 #############################
@@ -65,7 +65,8 @@ COPY --from=build /mdb/data/ /mdb/data
 
 VOLUME /mdb/etc
 
-ENV PATH="/mdb/bin:$PATH"
+ENV PATH="/mdb/bin:$PATH" \
+    LD_LIBRARY_PATH="/mdb/lib"
 
 RUN groupadd --gid "$GROUP_ID"  "$DOCKER_USER" && \
     useradd -d /mdb --uid "$USER_ID"  --gid "$GROUP_ID"  "$DOCKER_USER" && \
@@ -90,10 +91,10 @@ LABEL description="Mdb Server"
 
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
-     /mdb/bin/mdbsrv /mdb/bin/mdbsrv
+     /mdb/build/bin/mdbsrv /mdb/bin/mdbsrv
 
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
-     /mdb/lib/ /mdb/lib
+     /mdb/build/lib/ /mdb/lib
 
 CMD ["mdbsrv"]

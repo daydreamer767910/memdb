@@ -1,5 +1,5 @@
 #include "memtable.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 
 MemTable::MemTable(const std::string& tableName, const std::vector<Column>& columns)
     : name(tableName), columns(columns) {

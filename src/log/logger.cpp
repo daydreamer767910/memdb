@@ -69,12 +69,12 @@ void Logger::output_log(const std::string& message, LogLevel level) {
     std::ostringstream oss;
     oss << "PID[" << std::this_thread::get_id() << "]";
     std::string threadIdStr = oss.str();
-    const auto& msg = get_timestamp() + threadIdStr + prefix + message;
+    const auto msg = std::make_shared<std::variant<std::string>>(get_timestamp() + threadIdStr + prefix + message);
     //std::cout << "sendmsg:" << msg << std::endl;
     sendmsg(msg);
 }
 
-void Logger::on_msg(const std::variant<std::string>& msg) {
+void Logger::on_msg(const std::shared_ptr<std::variant<std::string>> msg) {
     std::visit([this](auto&& message) {
         using T = std::decay_t<decltype(message)>;
         if constexpr (std::is_same_v<T, std::string>) {
@@ -86,7 +86,7 @@ void Logger::on_msg(const std::variant<std::string>& msg) {
                 log_file_ << message << std::endl;
             }
         }
-    }, msg);
+    }, *msg);
 }
 
 
