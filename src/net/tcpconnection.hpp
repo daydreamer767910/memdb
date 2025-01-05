@@ -20,15 +20,12 @@
 #include "transportsrv.hpp"
 
 
-using MsgType = std::tuple<int , int ,std::vector<char>>;
-using ThreadMsg = std::variant<MsgType>;
-
-class TcpConnection: public ThreadBase<MsgType> {
+class TcpConnection: public ThreadBase<int> {
 public:
     // TcpConnection 构造函数
     TcpConnection(uv_tcp_t* client, int transport_id) 
         : client_(client) , transport_id_(transport_id),
-        timer(10000, 30000, [this]() {
+        timer(60000, 60000, [this]() {
             this->on_timer();
         }){
 		client_->data = this;
@@ -50,9 +47,10 @@ private:
     char read_buf[512];
     char write_buf[512];
 
-
+    //timer for keep alive
     void on_timer();
-	void on_msg(const std::shared_ptr<ThreadMsg> msg) override;
+	
+    void process() override;
 
     int32_t write(const char* data,ssize_t length);
     // 写入客户端的回调

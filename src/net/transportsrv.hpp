@@ -21,6 +21,8 @@ class TransportSrv {
 public:
     static TransportSrv& get_instance();
 	std::shared_ptr<Transport> get_transport(int port_id);
+	//获取所有打开的 port_id 列表
+    std::vector<int> get_all_ports();
 	int open_new_port(size_t buffer_size);
 	void close_port(int port_id);
 private:

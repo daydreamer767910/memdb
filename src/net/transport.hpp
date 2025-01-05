@@ -39,63 +39,13 @@ public:
         : app_to_tcp_(buffer_size), tcp_to_app_(buffer_size) {}
 
     // 1. APP 缓存到下行 CircularBuffer
-    bool appSend(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout) {
-        std::string serialized = json_data.dump();
-        size_t total_size = serialized.size();
-        size_t segment_id = 0;
-
-        size_t offset = 0;
-        while (offset < total_size) {
-            size_t chunk_size = std::min(total_size - offset, segment_size_);
-
-            Msg msg;
-            msg.header.length = chunk_size + sizeof(MsgFooter);
-            msg.header.msg_id = msg_id;
-            msg.header.segment_id = segment_id++;
-
-            msg.payload.assign(serialized.begin() + offset, serialized.begin() + offset + chunk_size);
-            msg.footer.checksum = calculateChecksum(msg.payload);
-
-            std::vector<char> network_data = serializeMsg(msg);
-            if (!app_to_tcp_.write(network_data.data(), network_data.size(), timeout)) {
-                return false; // 写入超时
-            }
-            offset += chunk_size;
-        }
-        return true;
-    }
-
+    int appSend(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout);
     // 2. TCP 读取下行 CircularBuffer
-    bool tcpReadFromApp(char* buffer, size_t size, std::chrono::milliseconds timeout) {
-        return app_to_tcp_.read(buffer, size, timeout);
-    }
-
+    int tcpReadFromApp(char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 3. TCP 缓存到上行 CircularBuffer
-    bool tcpReceive(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
-        return tcp_to_app_.write(buffer, size, timeout);
-    }
-
+    int tcpReceive(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    bool appReceive(json& json_data, std::chrono::milliseconds timeout) {
-        std::vector<char> temp_buffer(segment_size_);
-        std::string reconstructed_data;
-
-        while (true) {
-            if (!tcp_to_app_.read(temp_buffer.data(), temp_buffer.size(), timeout)) {
-                return false; // 读取超时
-            }
-
-            Msg msg = deserializeMsg(temp_buffer);
-            reconstructed_data.append(msg.payload.begin(), msg.payload.end());
-
-            if (msg.header.segment_id == 0) { // 最后一段
-                break;
-            }
-        }
-
-        json_data = json::parse(reconstructed_data);
-        return true;
-    }
+    int appReceive(json& json_data, std::chrono::milliseconds timeout);
 
 	void resetBuffers() {
 		app_to_tcp_.clear();

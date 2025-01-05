@@ -45,5 +45,5 @@ install(TARGETS mdb mdbsrv
 )
 
 # 安装头文件
-#install(FILES ${HEADERS} DESTINATION include)
+install(FILES ${HEADERS} DESTINATION include)
 

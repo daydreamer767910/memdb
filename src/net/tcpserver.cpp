@@ -89,7 +89,7 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 
 // 处理事务
 void TcpServer::on_timer() {
-	logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer in: {}", connection_count );
+	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer in: {}", connection_count );
 	std::lock_guard<std::mutex> lock(mutex_);
 	while (connection_count >= 10) { //连接数太多需要清理停止的connection
 		auto it = std::find_if(connections_.begin(), connections_.end(),
@@ -103,6 +103,19 @@ void TcpServer::on_timer() {
 			break;
 		}
 	} 
-	logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer out: {}", connection_count );
+	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer out: {}", connection_count );
 }
 
+void TcpServer::on_msg(const std::shared_ptr<ThreadMsg> msg) {
+	std::visit([this](auto&& message) {
+		using T = std::decay_t<decltype(message)>;
+		if constexpr (std::is_same_v<T, MsgType>) {
+			// 处理事务,
+			int msg_type = std::get<0>(message);
+			int length = std::get<1>(message);
+			std::vector<char> buffer = std::get<2>(message);
+
+			
+		}
+	}, *msg);
+}

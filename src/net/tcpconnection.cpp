@@ -1,6 +1,7 @@
 #include "tcpconnection.hpp"
 #include "log/logger.hpp"
-
+#include "server/dbservice.hpp"
+#include "util/util.hpp"
 
 void TcpConnection::start(uv_tcp_t* client) {
 	client_ = client;
@@ -29,6 +30,8 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 		free(write_req);
 		stop();
 	}
+	printf("TCP[%d] SEND: \r\n", transport_id_);
+	print_packet(reinterpret_cast<const uint8_t*>(data),length);
 	return ret;
 }
 
@@ -45,58 +48,45 @@ void TcpConnection::on_write(uv_write_t* req, int status) {
 
 // 读取客户端数据的回调
 void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
-	logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read in");
+	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read in");
 	auto* connection = static_cast<TcpConnection*>(client->data);
 	if (nread < 0) {
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
 		if (nread == UV_EOF) connection->stop();
 	} else {
-		// 将数据添加到任务队列进行后续处理
-		std::vector<char> buffer(nread);
-		std::memcpy(buffer.data() , buf->base, nread);
-        int length = nread;        // 读取的长度
-		int msg_type = 1; //send to up layer
-		connection->sendmsg(std::make_shared<ThreadMsg>(std::make_tuple(msg_type, length, buffer)));
-		
-		connection->write("ack",3);
+		auto channel_ptr = transportSrv.get_transport(connection->transport_id_);
+		if (!channel_ptr) {
+			logger.log(Logger::LogLevel::WARNING, "transport is unavailable for TCP recv");
+			connection->write("internal err",12);
+		}
+		else if (channel_ptr->tcpReceive(buf->base, nread, std::chrono::milliseconds(1000)) < 0) {
+			logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
+			connection->write("buffer full, data discarded",27);
+		} else {
+			connection->write("ack",3);
+		}
 		connection->keep_alive_cnt = 0;
 	}
-	logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
+	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }
 
-void TcpConnection::on_msg(const std::shared_ptr<ThreadMsg> msg) {
-	std::visit([this](auto&& message) {
-		using T = std::decay_t<decltype(message)>;
-		if constexpr (std::is_same_v<T, MsgType>) {
-			// 处理事务,
-			int msg_type = std::get<0>(message);
-			int length = std::get<1>(message);
-			std::vector<char> buffer = std::get<2>(message);
-
-			std::cout << "on_msg:" << length << " [" << std::string(buffer.begin(), buffer.end()) << "]\n";
-			auto channel_ptr = transportSrv.get_transport(transport_id_);
-			if (msg_type == 1) { //to app
-				// Write socket data to CircularBuffer
-				if (channel_ptr && !channel_ptr->tcpReceive(buffer.data(), length, std::chrono::milliseconds(1000))) {
-					logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
-				}
-				//notify app layer, tbd
-			} else { //to socket
-				while(length > 0) {
-					size_t len = std::min(static_cast<size_t>(length), sizeof(write_buf));
-					//read from circular buffer
-					if (channel_ptr && channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(1000))) {
-						//send to client socket
-						write(write_buf,len);
-						length -= len;
-					} else {
-						logger.log(Logger::LogLevel::WARNING, "[TCP] No message available in CircularBuffer");
-						break; // Avoid infinite loop
-					}
-				}
-			}
+void TcpConnection::process() {
+	while (true) {
+		auto channel_ptr = transportSrv.get_transport(transport_id_);
+		if (!channel_ptr) {
+			logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
+			this->stop();
+			break;
 		}
-	}, *msg);
+		int len = sizeof(write_buf);
+		//read from circular buffer
+		len = channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(1000));
+		//std::cout << "TcpConnection::process:" << len << std::endl;
+		if (len>0) {
+			//send to client socket
+			write(write_buf,len);
+		}
+	}
 }
 
 void TcpConnection::on_timer() {
@@ -111,4 +101,5 @@ void TcpConnection::on_timer() {
 		write("keep alive checking", 20);
 	}
 	keep_alive_cnt++;
+
 }

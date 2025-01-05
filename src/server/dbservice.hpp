@@ -12,31 +12,27 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
+#include <variant>
+#include "util/threadbase.hpp"
 #include "net/transport.hpp"
+#include "util/timer.hpp"
 
-class DBService : public ThreadBase<int>{
+using DBMsg = std::variant<std::tuple<int,int>>;
+class DBService : public ThreadBase<std::tuple<int,int>>{
 public:
-	explicit DBService() :channel_(4096) {
-		
-	}
-	
+	static DBService& get_instance();
 private:
-    Transport channel_;
-	virtual void process() override{
-        while (true) {
-			json jsonData;
-            if(channel_.appReceive(jsonData,std::chrono::milliseconds(500))) {
-				std::cout << "appReceive:" << jsonData.dump(4) << std::endl;
-				MemDatabase::ptr& db = MemDatabase::getInstance();
-				static uint32_t id = 0;
-				auto users = db->getTable("users");
-				Field userName = std::string("Alice");
-				const auto& queryRows = users->queryByIndex("name", userName);
-				//std::cout << "query Alice:" << users->rowsToJson(queryRows).dump(4) << std::endl;
-				channel_.appSend(users->rowsToJson(queryRows),id++,std::chrono::milliseconds(1500));
-			}
-        }
-    }
+	DBService() :timer(3000, 3000, [this]() {
+        this->on_timer();
+    }) {
+
+	};
+    void on_msg(const std::shared_ptr<DBMsg> msg) override;
+	void on_timer();
+
+
+	Timer timer;//定期task
 };
+extern DBService& dbSrv; // 声明全局变量
 
 #endif

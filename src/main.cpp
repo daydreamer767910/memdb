@@ -16,6 +16,7 @@
 
 Logger& logger = Logger::get_instance(); // 定义全局变量
 TransportSrv& transportSrv = TransportSrv::get_instance(); // 定义全局变量
+DBService& dbSrv = DBService::get_instance(); // 定义全局变量
 
 int main() {
     // 输出到文件
@@ -25,8 +26,7 @@ int main() {
     logger.start();
     logger.log(Logger::LogLevel::INFO, "mdbsrv started ");
 
-    DBService dbsrv;
-    dbsrv.start();
+    dbSrv.start();
 
     MemDatabase::ptr& db = MemDatabase::getInstance();
     // Create table from JSON

@@ -26,6 +26,16 @@ std::shared_ptr<Transport> TransportSrv::get_transport(int port_id) {
     return nullptr; // Return nullptr if not found
 }
 
+std::vector<int> TransportSrv::get_all_ports() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<int> port_ids;
+    port_ids.reserve(ports_.size()); // 预分配空间
+    for (const auto& [port_id, _] : ports_) {
+        port_ids.push_back(port_id);
+    }
+    return port_ids;
+}
+
 int TransportSrv::open_new_port(size_t buffer_size) {
 	std::lock_guard<std::mutex> lock(mutex_);
 	ports_count++;
