@@ -11,18 +11,23 @@
 #include <atomic>
 #include <sstream>
 
-enum class task_status {
-    INIT,
-    IDLE,
-    RUNNING,
-    TERMINITATE
-};
-// 定义输出运算符
-std::ostream& operator<<(std::ostream& os, const task_status& status);
 
 template <typename... MSG>
 class ThreadBase {
 public:
+    enum class task_status {
+        INIT,
+        IDLE,
+        RUNNING,
+        TERMINATE
+    };
+    // 定义输出运算符
+    friend std::ostream& operator<<(std::ostream& os, const task_status& status) {
+        static const char* status_strings[] = { "INIT", "IDLE", "RUNNING", "TERMINATE" };
+        os << status_strings[static_cast<int>(status)];
+        return os;
+    }
+
     virtual ~ThreadBase(){
         terminate();
         if (this->thread_.joinable()) {
@@ -52,9 +57,9 @@ public:
     virtual void terminate() {
 		{
 			std::lock_guard<std::mutex> lock(queue_mutex_);
-			this->status_ = task_status::TERMINITATE;
+			this->status_ = task_status::TERMINATE;
 		}
-        std::cout << "thread --> TERMINITATE\n";
+        std::cout << "thread --> TERMINATE\n";
         this->cond_var_.notify_one(); 
 	}
 
@@ -69,6 +74,14 @@ public:
 
     bool is_idle() {
         return task_status::IDLE == this->status_;
+    }
+
+    bool is_terminate() {
+        return task_status::TERMINATE == this->status_;
+    }
+
+    bool is_running() {
+        return task_status::RUNNING == this->status_;
     }
 
     std::string get_status() {
@@ -90,10 +103,10 @@ protected:
             std::unique_lock<std::mutex> lock(this->queue_mutex_);
             
             this->cond_var_.wait(lock, [this]() { 
-                return !this->msg_queue_.empty() || task_status::TERMINITATE == this->status_; 
+                return !this->msg_queue_.empty() || this->is_terminate(); 
             });
 
-            if (task_status::TERMINITATE == this->status_) {
+            if (this->is_terminate()) {
                 break;  // 退出线程
             } 
             // 如果有消息，处理消息

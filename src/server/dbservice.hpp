@@ -28,6 +28,7 @@ private:
 
 	};
     void on_msg(const std::shared_ptr<DBMsg> msg) override;
+	void process() override;
 	void on_timer();
 
 

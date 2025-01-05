@@ -6,7 +6,7 @@
 // 初始化连接计数
 std::atomic<int> TcpServer::connection_count(0);
 
-TcpServer::TcpServer(const char* ip, int port):	timer(10000, 10000, [this]() {
+TcpServer::TcpServer(const char* ip, int port):	timer(1000, 1000, [this]() {
         this->on_timer();
     }) {
 	loop_ = uv_default_loop();
@@ -66,9 +66,14 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 							[](const std::pair<uv_tcp_t*, std::shared_ptr<TcpConnection>>& pair) {
 									return pair.second->is_idle(); });
 			if (it != tcp_server->connections_.end()) {
-				uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-				tcp_server->connections_[client] = it->second; //更新map,增加新的k,旧的v
-				tcp_server->connections_.erase(it); //更新map,删除旧的k,v
+				//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+				if (it->first == client) {
+					//no need to update the map
+				} else {
+					tcp_server->connections_[client] = it->second; //更新map,增加新的k,旧的v
+					tcp_server->connections_.erase(it); //更新map,删除旧的k,v
+					std::cout << "map size: " << tcp_server->connections_.size() << std::endl;
+				}
 				it->second->start(client);  // 使用已停止的客户端实例，重新启动
 				logger.log(Logger::LogLevel::INFO,"Reusing stopped connection for new client.");
 			} else {
@@ -91,14 +96,26 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 void TcpServer::on_timer() {
 	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer in: {}", connection_count );
 	std::lock_guard<std::mutex> lock(mutex_);
-	while (connection_count >= 10) { //连接数太多需要清理停止的connection
+	while (true) { //清理停止的connection
 		auto it = std::find_if(connections_.begin(), connections_.end(),
-                           [](const auto& pair) { return pair.second->is_idle(); });
+                           [](const auto& pair) { return pair.second->is_terminate(); });
 		if (it != connections_.end()) {
 			connection_count--;
-			uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+			//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
 			connections_.erase(it);
-			logger.log(Logger::LogLevel::INFO, "An idle connection erased {} connections remain", connection_count );
+			logger.log(Logger::LogLevel::INFO, "Terminate connection erased {} connections remain", connection_count );
+		} else {
+			break;
+		}
+	}
+	while (connection_count>=5) { //IDLE连接数太多需要清理IDLE的connection
+		auto it = std::find_if(connections_.begin(), connections_.end(),
+                           [](const auto& pair) { return pair.second->is_idle() ; });
+		if (it != connections_.end()) {
+			connection_count--;
+			//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+			connections_.erase(it);
+			logger.log(Logger::LogLevel::INFO, "Idle connection erased {} connections remain", connection_count );
 		} else {
 			break;
 		}

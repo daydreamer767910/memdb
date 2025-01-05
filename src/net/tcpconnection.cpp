@@ -17,11 +17,15 @@ void TcpConnection::start(uv_tcp_t* client) {
 void TcpConnection::stop() {
 	timer.stop();
 	ThreadBase::stop();
-	//uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+	uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
 }
 
 // 写入客户端
 int32_t TcpConnection::write(const char* data,ssize_t length) {
+	if (uv_is_closing((uv_handle_t*)client_)) {
+        std::cerr << "Stream is closing, cannot write.\n";
+        return -1;
+    }
 	uv_write_t* write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
 	uv_buf_t buf = uv_buf_init(const_cast<char*>(data), length);
 	int32_t ret = uv_write(write_req, (uv_stream_t*)client_, &buf, 1, on_write);
@@ -37,6 +41,7 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 
 // 写入客户端的回调
 void TcpConnection::on_write(uv_write_t* req, int status) {
+	printf("on_write[%d]\n",status);
 	if (status) {
 		logger.log(Logger::LogLevel::ERROR,"Write error {}: {}",status,uv_strerror(status));
 	}
@@ -72,6 +77,9 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 
 void TcpConnection::process() {
 	while (true) {
+		if (this->is_terminate()) {
+			break;  // 退出线程
+		}
 		auto channel_ptr = transportSrv.get_transport(transport_id_);
 		if (!channel_ptr) {
 			logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
@@ -82,21 +90,22 @@ void TcpConnection::process() {
 		//read from circular buffer
 		len = channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(1000));
 		//std::cout << "TcpConnection::process:" << len << std::endl;
-		if (len>0) {
+		if (len>0 && this->is_running()) {
 			//send to client socket
 			write(write_buf,len);
+			keep_alive_cnt = 0;
 		}
 	}
 }
 
 void TcpConnection::on_timer() {
-	if(keep_alive_cnt>3) {
+	if(keep_alive_cnt>2) {
 		this->stop();
 		logger.log(Logger::LogLevel::INFO, "Keep alive no resp for {} times, kick off the connect",keep_alive_cnt-1);
 		keep_alive_cnt = 0;
 	} 
 	
-	if (!this->is_idle() && keep_alive_cnt>0) {
+	if (this->is_running() && keep_alive_cnt>0) {
 		logger.log(Logger::LogLevel::INFO,"Processing{} keep alive {}",this->get_status(),keep_alive_cnt);
 		write("keep alive checking", 20);
 	}

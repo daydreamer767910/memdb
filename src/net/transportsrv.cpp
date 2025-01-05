@@ -50,6 +50,7 @@ void TransportSrv::close_port(int port_id) {
 	// 使用 unordered_map 的 find 方法快速查找
     auto it = ports_.find(port_id);
     if (it != ports_.end()) {
+        std::cout << "port[" << port_id << "] erased" << std::endl;
         ports_.erase(it);  // 从容器中移除
         --ports_count;     // 更新端口计数
     }

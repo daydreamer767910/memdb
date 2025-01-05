@@ -25,7 +25,7 @@ public:
     // TcpConnection 构造函数
     TcpConnection(uv_tcp_t* client, int transport_id) 
         : client_(client) , transport_id_(transport_id),
-        timer(60000, 60000, [this]() {
+        timer(10000, 10000, [this]() {
             this->on_timer();
         }){
 		client_->data = this;
@@ -38,6 +38,7 @@ public:
 
     void start(uv_tcp_t* client);
     void stop() override;
+
 private:
     int transport_id_;
     uv_tcp_t* client_;  // 当前连接的 TCP 客户端
