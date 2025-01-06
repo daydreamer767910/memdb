@@ -6,10 +6,10 @@
 // 初始化连接计数
 std::atomic<int> TcpServer::connection_count(0);
 
-TcpServer::TcpServer(const char* ip, int port):	timer(1000, 1000, [this]() {
+TcpServer::TcpServer(const char* ip, int port):	loop_(uv_default_loop()),
+	timer(loop_, 1000, 1000, [this]() {
         this->on_timer();
     }) {
-	loop_ = uv_default_loop();
     uv_ip4_addr(ip, port, &addr);
     uv_tcp_init(loop_, &server);
     uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);

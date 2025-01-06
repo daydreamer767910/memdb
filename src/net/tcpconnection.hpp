@@ -24,7 +24,7 @@ public:
     // TcpConnection 构造函数
     TcpConnection(uv_loop_t* loop, uv_tcp_t* client, int transport_id) 
         : loop_(loop), client_(client) , transport_id_(transport_id),
-        timer(60000, 60000, [this]() {
+        timer(loop,60000, 60000, [this]() {
             this->on_timer();
         }){
 		client_->data = this;

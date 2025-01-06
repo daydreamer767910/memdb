@@ -10,9 +10,8 @@ public:
     using TimerCallback = std::function<void()>;
 
     // 构造函数：初始化定时器
-    Timer( uint64_t timeout, uint64_t repeat, TimerCallback callback)
-        : callback_(std::move(callback)) ,timeout_(timeout), repeat_(repeat) {
-        loop_ = uv_default_loop();
+    Timer(uv_loop_t* loop,uint64_t timeout, uint64_t repeat, TimerCallback callback)
+        : loop_(loop), callback_(std::move(callback)) ,timeout_(timeout), repeat_(repeat) {
         // 初始化 timer handle
         timer_ = new uv_timer_t();
         uv_timer_init(loop_, timer_);

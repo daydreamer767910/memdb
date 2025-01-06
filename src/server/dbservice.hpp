@@ -22,7 +22,7 @@ class DBService : public ThreadBase<std::tuple<int,int>>{
 public:
 	static DBService& get_instance();
 private:
-	DBService() :timer(3000, 3000, [this]() {
+	DBService() :timer(uv_default_loop(), 3000, 3000, [this]() {
         this->on_timer();
     }) {
 

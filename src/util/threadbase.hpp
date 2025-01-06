@@ -95,7 +95,7 @@ protected:
 	}
     // 处理消息接口
     virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) = 0;
-
+private:
     virtual void process() {
         while (true) {
             std::unique_lock<std::mutex> lock(this->queue_mutex_);
