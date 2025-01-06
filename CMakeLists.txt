@@ -20,12 +20,12 @@ add_definitions(-DDEBUG)
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
 # 添加各个子模块
-add_subdirectory(src/client)
-add_subdirectory(src/server)
-add_subdirectory(src/dbcore)
-add_subdirectory(src/log)
-add_subdirectory(src/net)
-add_subdirectory(src/util)
+add_subdirectory(src/client ${CMAKE_BINARY_DIR}/client)
+add_subdirectory(src/server ${CMAKE_BINARY_DIR}/server)
+add_subdirectory(src/dbcore ${CMAKE_BINARY_DIR}/dbcore)
+add_subdirectory(src/log ${CMAKE_BINARY_DIR}/log)
+add_subdirectory(src/net ${CMAKE_BINARY_DIR}/net)
+add_subdirectory(src/util ${CMAKE_BINARY_DIR}/util)
 
 # 安装目标
 install(TARGETS client mdbsrv net
