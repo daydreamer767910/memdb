@@ -1,6 +1,5 @@
 #include "tcpconnection.hpp"
 #include "log/logger.hpp"
-#include "server/dbservice.hpp"
 #include "util/util.hpp"
 
 void TcpConnection::start(uv_tcp_t* client) {
