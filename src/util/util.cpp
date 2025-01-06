@@ -4,18 +4,45 @@
 | Message Length (4 bytes) | Message Type (4 bytes) | Payload Data (variable length) |
 */
 void print_packet(const uint8_t* packet, size_t length) {
-    for (size_t i = 0; i < length; ++i) {
-        std::cout << std::hex << static_cast<int>(packet[i]) << " ";
-    }
-    std::cout << std::endl;
+    std::vector<unsigned char> packet_unsigned(packet, packet+length);
+    print_packet(packet_unsigned);
 }
 
 void print_packet(const std::vector<uint8_t>& packet) {
     std::cout << "Packed data: ";
-    for (auto byte : packet) {
-        std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
+    for (size_t i = 0; i < packet.size(); ++i) {
+        unsigned char byte = packet[i];
+
+        // 打印十六进制表示
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte << " ";
+
+        // 每16字节换行
+        if ((i + 1) % 16 == 0) {
+            std::cout << "  ";
+            for (size_t j = i - 15; j <= i; ++j) {
+                std::cout << (std::isprint(packet[j]) ? (char)packet[j] : '.');
+            }
+            std::cout << std::endl;
+        }
     }
-    std::cout << std::endl;
+
+    // 如果没有刚好16字节一行的部分，处理最后的字符显示
+    if (packet.size() % 16 != 0) {
+        size_t pad = 16 - (packet.size() % 16);
+        for (size_t i = 0; i < pad; ++i) {
+            std::cout << "   ";
+        }
+        std::cout << "  ";
+        for (size_t i = packet.size() - packet.size() % 16; i < packet.size(); ++i) {
+            std::cout << (std::isprint(packet[i]) ? (char)packet[i] : '.');
+        }
+        std::cout << std::endl;
+    }
+}
+
+void print_packet(const std::vector<char>& packet) {
+    std::vector<unsigned char> packet_unsigned(packet.begin(), packet.end());
+    print_packet(packet_unsigned);
 }
 
 std::vector<uint8_t> pack_data(const json& payload, uint32_t message_type) {

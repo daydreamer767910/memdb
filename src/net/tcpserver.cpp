@@ -77,7 +77,7 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 				logger.log(Logger::LogLevel::INFO,"Reusing stopped connection for new client.");
 			} else if (connection_count < 5) {
 				connection_count++;
-				int port_id = transportSrv.open_new_port(4096);
+				int port_id = TransportSrv::get_instance().open_new_port(4096);
 				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
 				tcp_server->connections_.emplace(client, connection);
 				connection->start(client);

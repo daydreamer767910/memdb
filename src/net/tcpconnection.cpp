@@ -7,7 +7,7 @@ void TcpConnection::start(uv_tcp_t* client) {
 	client_->data = this;
 	keep_alive_cnt = 0;
 	timer.start();
-	auto channel_ptr = transportSrv.get_transport(transport_id_);
+	auto channel_ptr = TransportSrv::get_instance().get_transport(transport_id_);
 	if (channel_ptr) channel_ptr->resetBuffers();
 	uv_read_start((uv_stream_t*)client_, on_alloc_buffer, on_read);
 
@@ -67,7 +67,7 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
 		if (nread == UV_EOF) connection->stop();
 	} else {
-		auto channel_ptr = transportSrv.get_transport(connection->transport_id_);
+		auto channel_ptr = TransportSrv::get_instance().get_transport(connection->transport_id_);
 		if (!channel_ptr) {
 			logger.log(Logger::LogLevel::WARNING, "transport is unavailable for TCP recv");
 			connection->write("internal err",12);
@@ -84,7 +84,7 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 }
 
 void TcpConnection::on_pull() {
-	auto channel_ptr = transportSrv.get_transport(transport_id_);
+	auto channel_ptr = TransportSrv::get_instance().get_transport(transport_id_);
 	if (!channel_ptr) {
 		logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
 		stop();

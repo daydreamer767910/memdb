@@ -12,7 +12,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 	std::visit([this](auto&& message) {
 		auto [msg_type,transport] = message;
 		//logger.log(Logger::LogLevel::INFO, "dbservice on_msg {} {}",msg_type,transport);
-		auto channel_ptr = transportSrv.get_transport(transport);
+		auto channel_ptr = TransportSrv::get_instance().get_transport(transport);
 		if (msg_type == 1 && channel_ptr) { 
 			json jsonData;
 			MemDatabase::ptr& db = MemDatabase::getInstance();
@@ -35,12 +35,12 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 void DBService::process() {
 	while (true) {
 		json jsonData;
-		auto port_ids = transportSrv.get_all_ports();
+		auto port_ids = TransportSrv::get_instance().get_all_ports();
 		if (this->is_terminate()) {
 			break;  // 退出线程
 		}
 		for (int port_id : port_ids) {
-			auto channel_ptr = transportSrv.get_transport(port_id);
+			auto channel_ptr = TransportSrv::get_instance().get_transport(port_id);
 			if (!channel_ptr) continue;
 			int ret = channel_ptr->appReceive(jsonData, std::chrono::milliseconds(1000));
 			if (ret<0) {
@@ -50,6 +50,7 @@ void DBService::process() {
 				}
 			} else {
 				//parse the json
+				std::cout << "APP RECV:" << jsonData.dump(4) << std::endl;
 			}
 		}
 	}
@@ -57,7 +58,7 @@ void DBService::process() {
 
 // 处理事务
 void DBService::on_timer() {
-	auto port_ids = transportSrv.get_all_ports();
+	auto port_ids = TransportSrv::get_instance().get_all_ports();
 
 	for (int port_id : port_ids) {
 		//this->sendmsg(std::make_shared<DBMsg>(std::make_tuple(1,port_id)));

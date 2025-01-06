@@ -35,6 +35,11 @@ struct Msg {
 
 class Transport {
 public:
+    enum class BufferType {
+        APP2TCP,
+        TCP2APP,
+        ALLTYPE
+    };
     Transport(size_t buffer_size)
         : app_to_tcp_(buffer_size), tcp_to_app_(buffer_size) {}
 
@@ -47,9 +52,15 @@ public:
     // 4. APP 读取上行 CircularBuffer
     int appReceive(json& json_data, std::chrono::milliseconds timeout);
 
-	void resetBuffers() {
-		app_to_tcp_.clear();
-		tcp_to_app_.clear();
+	void resetBuffers(BufferType type = BufferType::ALLTYPE) {
+        if (BufferType::ALLTYPE == type) {
+            app_to_tcp_.clear();
+		    tcp_to_app_.clear();
+        } else if (BufferType::APP2TCP == type) {
+            app_to_tcp_.clear();
+        } else if (BufferType::TCP2APP == type) {
+            tcp_to_app_.clear();
+        }
 	}
 
 private:

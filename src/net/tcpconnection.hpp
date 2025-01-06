@@ -34,7 +34,7 @@ public:
     }
 
     virtual ~TcpConnection() {
-        transportSrv.close_port(transport_id_);
+        TransportSrv::get_instance().close_port(transport_id_);
     }
 
     void start(uv_tcp_t* client);

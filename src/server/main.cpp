@@ -15,7 +15,7 @@
 #include "server/dbservice.hpp"
 
 Logger& logger = Logger::get_instance(); // 定义全局变量
-TransportSrv& transportSrv = TransportSrv::get_instance(); // 定义全局变量
+
 DBService& dbSrv = DBService::get_instance(); // 定义全局变量
 
 int main() {

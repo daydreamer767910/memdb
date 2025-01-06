@@ -34,6 +34,5 @@ private:
 	std::unordered_map<int, std::shared_ptr<Transport>> ports_;
 };
 
-extern TransportSrv& transportSrv; // 声明全局变量
 
 #endif

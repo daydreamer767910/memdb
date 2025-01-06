@@ -88,7 +88,7 @@ int Transport::appSend(const json& json_data, uint32_t msg_id, std::chrono::mill
 		size_t chunk_size = std::min(total_size - offset, segment_size_);
 
 		Msg msg;
-		msg.header.length = chunk_size + sizeof(MsgFooter);
+		msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
 		msg.header.msg_id = msg_id;
 		msg.header.segment_id = segment_id++;
 
@@ -117,6 +117,8 @@ int Transport::tcpReadFromApp(char* buffer, size_t size, std::chrono::millisecon
 
 
 int Transport::tcpReceive(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
+	//std::cout << "tcpReceive: \n";
+	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
 	return tcp_to_app_.write(buffer, size, timeout);
 }
 
@@ -132,17 +134,19 @@ int Transport::appReceive(json& json_data, std::chrono::milliseconds timeout) {
 			return -1; // 超时
 		}
 		dataLen = ntohl(dataLen);
-		if (dataLen > segment_size_) {
+		if (dataLen > segment_size_ || dataLen <= sizeof(uint32_t)) {
 			//somthing is wrong with the packet
-			std::cout << "wrong Msg size:" << dataLen << std::endl;
+			std::cout << "wrong Msg size:" << dataLen << " skip the data" << std::endl;
 			return -2;
 		}
 
 		if (tcp_to_app_.read(temp_buffer.data(), dataLen, timeout)<0) {
+			std::cout << "read timeout\n";
 			return -1; // 读取超时
 		}
 
 		Msg msg = deserializeMsg(temp_buffer);
+
 		reconstructed_data.append(msg.payload.begin(), msg.payload.end());
 
 		if (msg.header.segment_id == 0) { // 最后一段
