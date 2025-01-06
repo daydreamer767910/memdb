@@ -11,7 +11,7 @@ public:
 
     // 构造函数：初始化定时器
     Timer( uint64_t timeout, uint64_t repeat, TimerCallback callback)
-        : timeout_(timeout), repeat_(repeat), callback_(std::move(callback)) {
+        : callback_(std::move(callback)) ,timeout_(timeout), repeat_(repeat) {
         loop_ = uv_default_loop();
         // 初始化 timer handle
         timer_ = new uv_timer_t();
@@ -77,6 +77,7 @@ private:
     TimerCallback callback_;
     uint64_t timeout_;
     uint64_t repeat_;
+    
 
     // 定时器触发回调（静态方法）
     static void onTimerCallback(uv_timer_t* handle) {

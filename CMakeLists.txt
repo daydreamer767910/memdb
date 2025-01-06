@@ -28,6 +28,10 @@ target_include_directories(mdbsrv PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(mdb PRIVATE nlohmann_json::nlohmann_json ${UV_LIBRARIES})
 target_link_libraries(mdbsrv PRIVATE mdb ${UV_LIBRARIES})
 
+# 添加调试宏和编译选项
+target_compile_definitions(mdbsrv PRIVATE UV_DEBUG)
+target_compile_options(mdbsrv PRIVATE -g -O0 -Wall -Wextra)
+
 # 指定输出目录
 set_target_properties(mdb PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib

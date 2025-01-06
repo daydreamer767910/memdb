@@ -20,24 +20,21 @@
 #include "transport.hpp"
 #include "tcpconnection.hpp"
 
-using MsgType = std::tuple<int , int ,std::vector<char>>;
-using ThreadMsg = std::variant<MsgType>;
 
 // TCP 服务器类
-class TcpServer : public ThreadBase<MsgType>{
+class TcpServer {
 public:
     TcpServer(const char* ip, int port);
 	~TcpServer();
     // 启动服务器
-    void start() override;
+    void start();
 
     // 处理新连接
     static void on_new_connection(uv_stream_t* server, int status);
 
-    // 处理事务（在新线程中运行）
+    // 处理事务
     void on_timer();
 
-    void on_msg(const std::shared_ptr<ThreadMsg> msg) override;
 private:
     uv_loop_t* loop_;
     uv_tcp_t server;

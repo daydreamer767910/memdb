@@ -55,7 +55,7 @@ std::pair<uint32_t, json> unpack_data(const std::vector<uint8_t>& packet) {
     }
 
     // 解析消息长度（前 4 字节，不包括自身长度）
-    uint32_t length = (packet[0] << 24) | (packet[1] << 16) | (packet[2] << 8) | packet[3];
+    //uint32_t length = (packet[0] << 24) | (packet[1] << 16) | (packet[2] << 8) | packet[3];
 
     // 解析消息类型（接着 4 字节）
     uint32_t message_type = (packet[4] << 24) | (packet[5] << 16) | (packet[6] << 8) | packet[7];

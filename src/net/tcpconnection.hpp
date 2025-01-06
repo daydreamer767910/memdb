@@ -16,20 +16,21 @@
 #include <unordered_map>
 #include <algorithm>
 #include "util/timer.hpp"
-#include "util/threadbase.hpp"
 #include "transportsrv.hpp"
 
 
-class TcpConnection: public ThreadBase<int> {
+class TcpConnection {
 public:
     // TcpConnection 构造函数
-    TcpConnection(uv_tcp_t* client, int transport_id) 
-        : client_(client) , transport_id_(transport_id),
-        timer(10000, 10000, [this]() {
+    TcpConnection(uv_loop_t* loop, uv_tcp_t* client, int transport_id) 
+        : loop_(loop), client_(client) , transport_id_(transport_id),
+        timer(60000, 60000, [this]() {
             this->on_timer();
         }){
 		client_->data = this;
         keep_alive_cnt = 0;
+        idle_handle_ = nullptr;
+        status_ = 0;
     }
 
     virtual ~TcpConnection() {
@@ -37,11 +38,18 @@ public:
     }
 
     void start(uv_tcp_t* client);
-    void stop() override;
+    void stop();
+    bool is_idle() {
+        return status_ == 0;
+    }
 
 private:
-    int transport_id_;
+    uv_loop_t* loop_;
     uv_tcp_t* client_;  // 当前连接的 TCP 客户端
+    uv_idle_t* idle_handle_;
+    int status_;
+
+    int transport_id_;
     Timer timer;//for keep alive
 
     int keep_alive_cnt;
@@ -50,15 +58,17 @@ private:
 
     //timer for keep alive
     void on_timer();
+
+    void on_pull();
 	
-    void process() override;
+    static void process(uv_idle_t* handle);
 
     int32_t write(const char* data,ssize_t length);
     // 写入客户端的回调
     static void on_write(uv_write_t* req, int status);
 	static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
 	// 分配内存的回调
-    static void on_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+    static void on_alloc_buffer(uv_handle_t* handle, size_t /*suggested_size*/, uv_buf_t* buf) {
         buf->base = reinterpret_cast<TcpConnection*>(handle->data)->read_buf;
         buf->len = sizeof(reinterpret_cast<TcpConnection*>(handle->data)->read_buf);
     }

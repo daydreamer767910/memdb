@@ -43,7 +43,7 @@ std::string Logger::get_timestamp() {
 
 std::string Logger::format_message(const std::string& format_str, const std::initializer_list<std::string>& args) {
     std::ostringstream oss;
-    size_t index = 0;
+    //size_t index = 0;
     auto arg_it = args.begin();
 
     for (size_t i = 0; i < format_str.size(); ++i) {

@@ -42,7 +42,7 @@ void TcpServer::start() {
 	}
 	logger.log(Logger::LogLevel::INFO,"TCP server listening on 0.0.0.0:{}",ntohs(addr.sin_port));
 	//std::cout << "TCP server listening on " << "0.0.0.0" << ":" << ntohs(addr.sin_port) << std::endl;
-	ThreadBase::start();
+	//ThreadBase::start();
 	//timer.start();
 	// Run the event loop
     uv_run(loop_, UV_RUN_DEFAULT);
@@ -61,28 +61,30 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 	{
 		std::lock_guard<std::mutex> lock(tcp_server->mutex_);
 
-		if (uv_accept(server, (uv_stream_t*)client) == 0 && connection_count < 50) {
+		if (uv_accept(server, (uv_stream_t*)client) == 0 ) {
 			auto it = std::find_if(tcp_server->connections_.begin(), tcp_server->connections_.end(),
 							[](const std::pair<uv_tcp_t*, std::shared_ptr<TcpConnection>>& pair) {
 									return pair.second->is_idle(); });
 			if (it != tcp_server->connections_.end()) {
 				//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-				if (it->first == client) {
-					//no need to update the map
-				} else {
-					tcp_server->connections_[client] = it->second; //更新map,增加新的k,旧的v
-					tcp_server->connections_.erase(it); //更新map,删除旧的k,v
-					std::cout << "map size: " << tcp_server->connections_.size() << std::endl;
-				}
-				it->second->start(client);  // 使用已停止的客户端实例，重新启动
+				auto connection = it->second;
+				uv_handle_t* old_handle = (uv_handle_t*)it->first;
+				tcp_server->connections_.erase(it); //更新map,删除旧的k,v
+				std::cout << "close old connection!!!\n";
+				uv_close(old_handle, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+				tcp_server->connections_[client] = connection; //更新map,增加新的k,旧的v
+				connection->start(client);  // 使用已停止的客户端实例，重新启动
 				logger.log(Logger::LogLevel::INFO,"Reusing stopped connection for new client.");
-			} else {
+			} else if (connection_count < 5) {
 				connection_count++;
 				int port_id = transportSrv.open_new_port(4096);
-				auto connection = std::make_shared<TcpConnection>(client,port_id);
+				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
 				tcp_server->connections_.emplace(client, connection);
 				connection->start(client);
 				logger.log(Logger::LogLevel::INFO,"Created a new client for new connection.");
+			} else {
+				uv_close((uv_handle_t*)client, nullptr);
+				delete client;
 			}
 		} else {
 			uv_close((uv_handle_t*)client, nullptr);
@@ -96,25 +98,15 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 void TcpServer::on_timer() {
 	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer in: {}", connection_count );
 	std::lock_guard<std::mutex> lock(mutex_);
-	while (true) { //清理停止的connection
-		auto it = std::find_if(connections_.begin(), connections_.end(),
-                           [](const auto& pair) { return pair.second->is_terminate(); });
-		if (it != connections_.end()) {
-			connection_count--;
-			//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-			connections_.erase(it);
-			logger.log(Logger::LogLevel::INFO, "Terminate connection erased {} connections remain", connection_count );
-		} else {
-			break;
-		}
-	}
-	while (connection_count>=5) { //IDLE连接数太多需要清理IDLE的connection
+	
+	while (connection_count>=3) { //IDLE连接数太多需要清理IDLE的connection
 		auto it = std::find_if(connections_.begin(), connections_.end(),
                            [](const auto& pair) { return pair.second->is_idle() ; });
 		if (it != connections_.end()) {
 			connection_count--;
-			//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+			uv_handle_t* old_handle = (uv_handle_t*)it->first;
 			connections_.erase(it);
+			uv_close(old_handle, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
 			logger.log(Logger::LogLevel::INFO, "Idle connection erased {} connections remain", connection_count );
 		} else {
 			break;
@@ -123,16 +115,3 @@ void TcpServer::on_timer() {
 	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer out: {}", connection_count );
 }
 
-void TcpServer::on_msg(const std::shared_ptr<ThreadMsg> msg) {
-	std::visit([this](auto&& message) {
-		using T = std::decay_t<decltype(message)>;
-		if constexpr (std::is_same_v<T, MsgType>) {
-			// 处理事务,
-			int msg_type = std::get<0>(message);
-			int length = std::get<1>(message);
-			std::vector<char> buffer = std::get<2>(message);
-
-			
-		}
-	}, *msg);
-}

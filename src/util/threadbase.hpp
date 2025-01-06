@@ -94,9 +94,7 @@ protected:
         this->thread_ = std::thread(&ThreadBase::process, this);
 	}
     // 处理消息接口
-    virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) {
-        std::cout << "ThreadBase::on_msg ..." << std::endl;
-    };
+    virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) = 0;
 
     virtual void process() {
         while (true) {

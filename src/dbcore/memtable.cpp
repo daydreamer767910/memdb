@@ -138,7 +138,7 @@ void MemTable::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
 
 void MemTable::addIndex(const std::string& columnName) {
     Index index;
-    for (int i = 0; i < rows.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
         if (rows[i].find(columnName) != rows[i].end()) {
             index[rows[i].at(columnName)].insert(i);
         }

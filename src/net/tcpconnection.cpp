@@ -6,18 +6,27 @@
 void TcpConnection::start(uv_tcp_t* client) {
 	client_ = client;
 	client_->data = this;
+	keep_alive_cnt = 0;
 	timer.start();
 	auto channel_ptr = transportSrv.get_transport(transport_id_);
 	if (channel_ptr) channel_ptr->resetBuffers();
 	uv_read_start((uv_stream_t*)client_, on_alloc_buffer, on_read);
-	ThreadBase::start();
+
+	idle_handle_ = (uv_idle_t*)malloc(sizeof(uv_idle_t));
+	idle_handle_->data = this;
+    uv_idle_init(loop_, idle_handle_);
+    uv_idle_start(idle_handle_, process);
+	status_ = 1;
+
 	logger.log(Logger::LogLevel::INFO,"connection started");
 }
 
 void TcpConnection::stop() {
+	status_ = 0;
+	keep_alive_cnt = 0;
 	timer.stop();
-	ThreadBase::stop();
-	uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+	uv_idle_stop(idle_handle_);  // 停止轮询
+    free(idle_handle_);  // 释放内存
 }
 
 // 写入客户端
@@ -75,38 +84,36 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }
 
-void TcpConnection::process() {
-	while (true) {
-		if (this->is_terminate()) {
-			break;  // 退出线程
-		}
-		auto channel_ptr = transportSrv.get_transport(transport_id_);
-		if (!channel_ptr) {
-			logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
-			this->stop();
-			break;
-		}
-		int len = sizeof(write_buf);
-		//read from circular buffer
-		len = channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(1000));
-		//std::cout << "TcpConnection::process:" << len << std::endl;
-		if (len>0 && this->is_running()) {
-			//send to client socket
-			write(write_buf,len);
-			keep_alive_cnt = 0;
-		}
+void TcpConnection::on_pull() {
+	auto channel_ptr = transportSrv.get_transport(transport_id_);
+	if (!channel_ptr) {
+		logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
+		stop();
+		return;
 	}
+	int len = sizeof(write_buf);
+	//read from circular buffer
+	len = channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(50));
+	//std::cout << "TcpConnection::process:" << len << std::endl;
+	if (len>0) {
+		//send to client socket
+		write(write_buf,len);
+		keep_alive_cnt = 0;
+	}
+}
+
+void TcpConnection::process(uv_idle_t* handle) {
+	TcpConnection* connection_ptr = static_cast<TcpConnection*>(handle->data);
+	if (connection_ptr) connection_ptr->on_pull();
 }
 
 void TcpConnection::on_timer() {
 	if(keep_alive_cnt>2) {
 		this->stop();
 		logger.log(Logger::LogLevel::INFO, "Keep alive no resp for {} times, kick off the connect",keep_alive_cnt-1);
-		keep_alive_cnt = 0;
-	} 
-	
-	if (this->is_running() && keep_alive_cnt>0) {
-		logger.log(Logger::LogLevel::INFO,"Processing{} keep alive {}",this->get_status(),keep_alive_cnt);
+		
+	} else if ( keep_alive_cnt>0) {
+		logger.log(Logger::LogLevel::INFO,"Processing keep alive {}",keep_alive_cnt);
 		write("keep alive checking", 20);
 	}
 	keep_alive_cnt++;
