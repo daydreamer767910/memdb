@@ -60,11 +60,19 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 			} else {
 				//std::cout << "appSend: " << ret << std::endl;
 			}*/
+		} else if (msg_type == 0 && channel_ptr) {
+			int ret = channel_ptr->appSend(jsonData, transport, std::chrono::milliseconds(1000));
+			if (ret<0) {
+				logger.log(Logger::LogLevel::WARNING, "appSend fail, data full");
+			} else {
+				//std::cout << "appSend: " << ret << std::endl;
+			}
 		}
 	}, *msg);
 }
 
 void DBService::process() {
+	static auto start = std::chrono::high_resolution_clock::now();
 	while (true) {
 		json jsonData;
 		auto port_ids = TransportSrv::get_instance().get_all_ports();
@@ -74,7 +82,7 @@ void DBService::process() {
 		for (int port_id : port_ids) {
 			auto channel_ptr = TransportSrv::get_instance().get_transport(port_id);
 			if (!channel_ptr) continue;
-			int ret = channel_ptr->appReceive(jsonData, std::chrono::milliseconds(1000));
+			int ret = channel_ptr->appReceive(jsonData, std::chrono::milliseconds(50));
 			if (ret<0) {
 				//logger.log(Logger::LogLevel::WARNING, "appReceive fail {}", ret);
 				if (ret == -2) {
@@ -85,6 +93,15 @@ void DBService::process() {
 				std::cout << "APP RECV:" << jsonData.dump(4) << std::endl;
 				this->handle_task(port_id,jsonData);
 			}
+		}
+		auto end = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+		if (duration.count() > 2000) {
+			for (int port_id : port_ids) {
+				jsonData["timer"] = "2s timer";
+				this->on_msg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
+			}
+			start = end;
 		}
 	}
 }

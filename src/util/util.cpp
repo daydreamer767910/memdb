@@ -9,7 +9,7 @@ void print_packet(const uint8_t* packet, size_t length) {
 }
 
 void print_packet(const std::vector<uint8_t>& packet) {
-    std::cout << "Packed data: ";
+    //std::cout << "Packed data: ";
     for (size_t i = 0; i < packet.size(); ++i) {
         unsigned char byte = packet[i];
 
@@ -99,6 +99,22 @@ std::pair<uint32_t, json> unpack_data(const std::vector<uint8_t>& packet) {
 
     return {message_type, payload};
 }
+
+std::string get_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+    std::time_t seconds = millis / 1000;
+    std::tm tm = *std::localtime(&seconds);
+    std::stringstream ss;
+
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    ss << "." << std::setw(3) << std::setfill('0') << (millis % 1000);  // 毫秒部分
+
+    return ss.str();
+}
+
 
 std::time_t stringToTimeT(const std::string& dateTimeStr) {
 	std::vector<std::string> formats = {

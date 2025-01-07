@@ -18,13 +18,14 @@
 #include "util/timer.hpp"
 #include "transportsrv.hpp"
 
-
+#define TCP_KEEPALIVE_TIMER 60000 //ms
+#define TCP_BUFFER_SIZE 512
 class TcpConnection {
 public:
     // TcpConnection 构造函数
     TcpConnection(uv_loop_t* loop, uv_tcp_t* client, int transport_id) 
         : loop_(loop), client_(client) , transport_id_(transport_id),
-        timer(loop,60000, 60000, [this]() {
+        timer(loop,TCP_KEEPALIVE_TIMER, TCP_KEEPALIVE_TIMER, [this]() {
             this->on_timer();
         }){
 		client_->data = this;
@@ -34,10 +35,10 @@ public:
     }
 
     virtual ~TcpConnection() {
-        TransportSrv::get_instance().close_port(transport_id_);
+        
     }
 
-    void start(uv_tcp_t* client);
+    void start(uv_tcp_t* client, int transport_id);
     void stop();
     bool is_idle() {
         return status_ == 0;
@@ -48,13 +49,12 @@ private:
     uv_tcp_t* client_;  // 当前连接的 TCP 客户端
     uv_idle_t* idle_handle_;
     int status_;
-
     int transport_id_;
     Timer timer;//for keep alive
 
     int keep_alive_cnt;
-    char read_buf[512];
-    char write_buf[512];
+    char read_buf[TCP_BUFFER_SIZE];
+    char write_buf[TCP_BUFFER_SIZE];
 
     //timer for keep alive
     void on_timer();

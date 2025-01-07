@@ -2,9 +2,10 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 
-void TcpConnection::start(uv_tcp_t* client) {
+void TcpConnection::start(uv_tcp_t* client, int transport_id) {
 	client_ = client;
 	client_->data = this;
+	transport_id_ = transport_id;
 	keep_alive_cnt = 0;
 	timer.start();
 	auto channel_ptr = TransportSrv::get_instance().get_transport(transport_id_);
@@ -25,7 +26,13 @@ void TcpConnection::stop() {
 	keep_alive_cnt = 0;
 	timer.stop();
 	uv_idle_stop(idle_handle_);  // 停止轮询
-    free(idle_handle_);  // 释放内存
+	if (idle_handle_) {
+		free(idle_handle_);  // 释放内存
+	}
+	if (client_) {
+		uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
+	}
+	TransportSrv::get_instance().close_port(transport_id_);
 }
 
 // 写入客户端
@@ -42,7 +49,7 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 		free(write_req);
 		stop();
 	}
-	printf("TCP[%d] SEND: \r\n", transport_id_);
+	printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
 	print_packet(reinterpret_cast<const uint8_t*>(data),length);
 	return ret;
 }
@@ -67,6 +74,8 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
 		if (nread == UV_EOF) connection->stop();
 	} else {
+		printf("[%s]TCP[%d] RECV: \r\n", get_timestamp().c_str(), connection->transport_id_);
+		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
 		auto channel_ptr = TransportSrv::get_instance().get_transport(connection->transport_id_);
 		if (!channel_ptr) {
 			logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
@@ -108,12 +117,11 @@ void TcpConnection::process(uv_idle_t* handle) {
 
 void TcpConnection::on_timer() {
 	if(keep_alive_cnt>2) {
+		logger.log(Logger::LogLevel::INFO, "No keepalive resp {} times, kick off the client",keep_alive_cnt-1);
 		this->stop();
-		logger.log(Logger::LogLevel::INFO, "Keep alive no resp for {} times, kick off the connect",keep_alive_cnt-1);
-		
 	} else if ( keep_alive_cnt>0) {
 		logger.log(Logger::LogLevel::INFO,"Processing keep alive {}",keep_alive_cnt);
-		//write("keep alive checking", 20);
+		write("keep alive checking", 20);
 	}
 	keep_alive_cnt++;
 

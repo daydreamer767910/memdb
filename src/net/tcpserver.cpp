@@ -24,10 +24,6 @@ TcpServer::~TcpServer() {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto& [tcp, connection] : connections_) {
 			connection->stop();
-            // 关闭 uv_tcp_t，并在回调中释放内存
-            uv_close((uv_handle_t*)tcp, [](uv_handle_t* handle) {
-                delete (uv_tcp_t*)handle;
-            });
         }
         connections_.clear(); // 清空 map
     }
@@ -42,9 +38,7 @@ void TcpServer::start() {
 		return;
 	}
 	logger.log(Logger::LogLevel::INFO,"TCP server listening on 0.0.0.0:{}",ntohs(addr.sin_port));
-	//std::cout << "TCP server listening on " << "0.0.0.0" << ":" << ntohs(addr.sin_port) << std::endl;
-	//ThreadBase::start();
-	//timer.start();
+	
 	// Run the event loop
     uv_run(loop_, UV_RUN_DEFAULT);
 }
@@ -58,7 +52,7 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
         std::cerr << "New connection error: " << uv_strerror(status) << std::endl;
         return;
     }
-	logger.log(Logger::LogLevel::INFO, "TcpServer::on_new_connection in");
+	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_new_connection in");
 	auto* tcp_server = static_cast<TcpServer*>(server->data);
     uv_tcp_t* client = new uv_tcp_t;
     uv_tcp_init(tcp_server->loop_, client);
@@ -66,26 +60,31 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 		std::lock_guard<std::mutex> lock(tcp_server->mutex_);
 
 		if (uv_accept(server, (uv_stream_t*)client) == 0 ) {
-			auto it = std::find_if(tcp_server->connections_.begin(), tcp_server->connections_.end(),
-							[](const std::pair<uv_tcp_t*, std::shared_ptr<TcpConnection>>& pair) {
-									return pair.second->is_idle(); });
-			if (it != tcp_server->connections_.end()) {
-				//uv_close((uv_handle_t*)it->first, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-				auto connection = it->second;
-				uv_handle_t* old_handle = (uv_handle_t*)it->first;
-				tcp_server->connections_.erase(it); //更新map,删除旧的k,v
-				std::cout << "close old connection!!!\n";
-				uv_close(old_handle, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-				tcp_server->connections_[client] = connection; //更新map,增加新的k,旧的v
-				connection->start(client);  // 使用已停止的客户端实例，重新启动
-				logger.log(Logger::LogLevel::INFO,"Reusing stopped connection for new client.");
-			} else if (connection_count < 5) {
+			struct sockaddr_storage client_addr;
+			int addr_len = sizeof(client_addr);
+			char client_ip[INET6_ADDRSTRLEN] = {0};
+			int client_port = 0;
+			if (uv_tcp_getpeername(client, (struct sockaddr*)&client_addr, &addr_len) == 0) {
+				if (client_addr.ss_family == AF_INET) {
+					struct sockaddr_in* addr = (struct sockaddr_in*)&client_addr;
+					uv_ip4_name(addr, client_ip, sizeof(client_ip));
+					client_port = ntohs(addr->sin_port);
+				} else if (client_addr.ss_family == AF_INET6) {
+					struct sockaddr_in6* addr = (struct sockaddr_in6*)&client_addr;
+					uv_ip6_name(addr, client_ip, sizeof(client_ip));
+					client_port = ntohs(addr->sin6_port);
+				}
+			} else {
+				fprintf(stderr, "Failed to get client address\n");
+			}
+			if (connection_count < TcpServer::max_connection_num) {
 				connection_count++;
-				int port_id = TransportSrv::get_instance().open_new_port(4096);
+				int port_id = TransportSrv::get_instance().open_new_port(TcpServer::transport_buff_szie);
 				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
 				tcp_server->connections_.emplace(client, connection);
-				connection->start(client);
-				logger.log(Logger::LogLevel::INFO,"Created a new client for new connection.");
+				connection->start(client, port_id);
+				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
+					client_ip, client_port, port_id);
 			} else {
 				uv_close((uv_handle_t*)client, nullptr);
 				delete client;
@@ -95,27 +94,22 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 			delete client;
 		}
 	}
-	logger.log(Logger::LogLevel::INFO, "TcpServer::on_new_connection out");
 }
 
 // 处理事务
 void TcpServer::on_timer() {
-	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer in: {}", connection_count );
 	std::lock_guard<std::mutex> lock(mutex_);
-	
-	while (connection_count>=3) { //IDLE连接数太多需要清理IDLE的connection
+	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer : {}", connection_count );
+	while (true) { //IDLE连接数太多需要清理IDLE的connection
 		auto it = std::find_if(connections_.begin(), connections_.end(),
                            [](const auto& pair) { return pair.second->is_idle() ; });
 		if (it != connections_.end()) {
 			connection_count--;
-			uv_handle_t* old_handle = (uv_handle_t*)it->first;
 			connections_.erase(it);
-			uv_close(old_handle, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
-			logger.log(Logger::LogLevel::INFO, "Idle connection erased {} connections remain", connection_count );
+			logger.log(Logger::LogLevel::INFO, "Idle erased, {} connections remain", connection_count );
 		} else {
 			break;
 		}
-	} 
-	//logger.log(Logger::LogLevel::INFO, "TcpServer::on_timer out: {}", connection_count );
+	}
 }
 

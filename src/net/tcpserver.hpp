@@ -36,6 +36,8 @@ public:
     void on_timer();
 
 private:
+    static constexpr uint32_t transport_buff_szie = 4096;
+    static constexpr uint16_t max_connection_num = 4096;
     uv_loop_t* loop_;
     uv_tcp_t server;
     struct sockaddr_in addr;

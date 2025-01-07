@@ -12,7 +12,7 @@ void print_packet(const std::vector<uint8_t>& packet);
 void print_packet(const std::vector<char>& packet);
 std::vector<uint8_t> pack_data(const json& payload, uint32_t message_type);
 std::pair<uint32_t, json> unpack_data(const std::vector<uint8_t>& packet);
-
+std::string get_timestamp();
 std::time_t stringToTimeT(const std::string& dateTimeStr);
 
 #endif
