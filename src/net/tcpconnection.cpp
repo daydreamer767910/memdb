@@ -49,7 +49,7 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 
 // 写入客户端的回调
 void TcpConnection::on_write(uv_write_t* req, int status) {
-	printf("on_write[%d]\n",status);
+	//printf("on_write[%d]\n",status);
 	if (status) {
 		logger.log(Logger::LogLevel::ERROR,"Write error {}: {}",status,uv_strerror(status));
 	}
@@ -69,14 +69,14 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	} else {
 		auto channel_ptr = TransportSrv::get_instance().get_transport(connection->transport_id_);
 		if (!channel_ptr) {
-			logger.log(Logger::LogLevel::WARNING, "transport is unavailable for TCP recv");
-			connection->write("internal err",12);
+			logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
+			//connection->write("internal err",12);
 		}
 		else if (channel_ptr->tcpReceive(buf->base, nread, std::chrono::milliseconds(1000)) < 0) {
 			logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
-			connection->write("buffer full, data discarded",27);
+			//connection->write("buffer full, data discarded",27);
 		} else {
-			connection->write("ack",3);
+			//connection->write("ack",3);
 		}
 		connection->keep_alive_cnt = 0;
 	}
@@ -113,7 +113,7 @@ void TcpConnection::on_timer() {
 		
 	} else if ( keep_alive_cnt>0) {
 		logger.log(Logger::LogLevel::INFO,"Processing keep alive {}",keep_alive_cnt);
-		write("keep alive checking", 20);
+		//write("keep alive checking", 20);
 	}
 	keep_alive_cnt++;
 

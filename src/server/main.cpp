@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <fstream>
+#include <csignal>
 #include <nlohmann/json.hpp>
 #include <uv.h>
 #include "dbcore/memtable.hpp"
@@ -15,10 +16,22 @@
 #include "server/dbservice.hpp"
 
 Logger& logger = Logger::get_instance(); // 定义全局变量
-
+auto server = std::make_shared<TcpServer>("0.0.0.0", 7899);
 DBService& dbSrv = DBService::get_instance(); // 定义全局变量
 
+void signal_handler(int signal) {
+    if (signal == SIGINT) {
+        std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
+        server->stop();
+        dbSrv.terminate();
+        logger.terminate();
+    }
+}
+
 int main() {
+    // 设置信号处理程序
+    std::signal(SIGINT, signal_handler);
+
     // 输出到文件
     logger.set_log_file("./log/mdbsrv.log");
     // 启用/禁用控制台输出
@@ -71,9 +84,8 @@ int main() {
 
 
     // 启动 TCP 服务器
-    auto server = std::make_shared<TcpServer>("0.0.0.0", 7899);
     server->start();
     
-
+    std::cout << "Exiting program." << std::endl;
     return 0;
 }

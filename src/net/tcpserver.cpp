@@ -23,6 +23,7 @@ TcpServer::~TcpServer() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto& [tcp, connection] : connections_) {
+			connection->stop();
             // 关闭 uv_tcp_t，并在回调中释放内存
             uv_close((uv_handle_t*)tcp, [](uv_handle_t* handle) {
                 delete (uv_tcp_t*)handle;
@@ -48,6 +49,9 @@ void TcpServer::start() {
     uv_run(loop_, UV_RUN_DEFAULT);
 }
 
+void TcpServer::stop() {
+	uv_stop(loop_);
+}
 // 处理新连接
 void TcpServer::on_new_connection(uv_stream_t* server, int status) {
     if (status < 0) {

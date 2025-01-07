@@ -28,7 +28,7 @@ public:
 	~TcpServer();
     // 启动服务器
     void start();
-
+    void stop();
     // 处理新连接
     static void on_new_connection(uv_stream_t* server, int status);
 

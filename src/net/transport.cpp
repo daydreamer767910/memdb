@@ -25,6 +25,7 @@ std::vector<char> Transport::serializeMsg(const Msg& msg) {
             htonl(msg.header.length),
             htonl(msg.header.msg_id),
             htonl(msg.header.segment_id),
+			htonl(msg.header.flag),
         };
         std::memcpy(buffer.data() + offset, &header_net, sizeof(MsgHeader));
         offset += sizeof(MsgHeader);
@@ -59,6 +60,7 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
     msg.header.length = ntohl(header_net.length); // 转换为主机字节序
     msg.header.msg_id = ntohl(header_net.msg_id);
     msg.header.segment_id = ntohl(header_net.segment_id);
+	msg.header.flag = ntohl(header_net.flag);
 
     // 反序列化负载
     size_t payload_size = buffer.size() - sizeof(MsgHeader) - sizeof(MsgFooter);
@@ -85,12 +87,18 @@ int Transport::appSend(const json& json_data, uint32_t msg_id, std::chrono::mill
 	//std::cout << "appSend:" << serialized << std::endl;
 	size_t offset = 0;
 	while (offset < total_size) {
-		size_t chunk_size = std::min(total_size - offset, segment_size_);
+		size_t chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
 
 		Msg msg;
 		msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
 		msg.header.msg_id = msg_id;
 		msg.header.segment_id = segment_id++;
+		if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
+			msg.header.flag = 0; //last segment
+		} else {
+			msg.header.flag = 1;
+		}
+		
 
 		msg.payload.assign(serialized.begin() + offset, serialized.begin() + offset + chunk_size);
 		msg.footer.checksum = calculateChecksum(msg.payload);
@@ -149,7 +157,7 @@ int Transport::appReceive(json& json_data, std::chrono::milliseconds timeout) {
 
 		reconstructed_data.append(msg.payload.begin(), msg.payload.end());
 
-		if (msg.header.segment_id == 0) { // 最后一段
+		if (msg.header.flag == 0) { // 最后一段
 			break;
 		}
 	}

@@ -20,6 +20,7 @@ struct MsgHeader {
     uint32_t length;     // 包含 payload 和 footer 的长度
     uint32_t msg_id;     // 消息 ID
     uint32_t segment_id; // 分段 ID
+    uint32_t flag;
 };
 
 struct MsgFooter {

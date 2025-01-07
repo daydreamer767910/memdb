@@ -35,7 +35,8 @@ int main() {
     }
 
     std::string jsonConfig = R"({
-        "name": "users-1",
+        "action": "create table",
+        "name": "client-test",
         "columns": [
             { "name": "id", "type": "int", "primaryKey": true },
             { "name": "name", "type": "string" },
@@ -53,30 +54,46 @@ int main() {
     int len = transport->tcpReadFromApp(packet,sizeof(packet),std::chrono::milliseconds(100));
 
     send(sock, packet, len, 0);
-    printf("TCP SEND:");
+    printf("TCP SEND:\r\n");
     print_packet((const uint8_t*)(packet),len);
     
     while(true) {
         // 接收响应
         char buffer[1024] = {0};
-        json recvJson;
-        int valread = read(sock, buffer, 1024);
-        printf("TCP RECV:");
-        print_packet((const uint8_t*)buffer,valread);
-        transport->tcpReceive(buffer,valread,std::chrono::milliseconds(100));
-        if(-2 == transport->appReceive(recvJson,std::chrono::milliseconds(100)) ) {
-            transport->resetBuffers(Transport::BufferType::TCP2APP);
+        
+        ssize_t bytes_read = read(sock, buffer, sizeof(buffer));
+        if (bytes_read > 0) {
+            printf("TCP RECV:\r\n");
+            print_packet((const uint8_t*)buffer,bytes_read);
+            transport->tcpReceive(buffer,bytes_read,std::chrono::milliseconds(1000));
             continue;
+        } else if (bytes_read == 0) {
+            // 对端关闭连接
+            std::cout << "Connection closed by peer." << std::endl;
+            break;
+        } else {
+            // 读取发生错误，检查 errno
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::cout << "No data available now, try again later." << std::endl;
+            } else if (errno == EINTR) {
+                std::cout << "Interrupted by signal, retrying." << std::endl;
+            } else {
+                std::cerr << "Read error: " << strerror(errno) << std::endl;
+            }
+            break;
         }
-        printf("APP RECV:");
-        std::cout << recvJson.dump(4) << std::endl;
-
-        auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-        std::cout << "Sleeping until a specific time...\n";
-        std::this_thread::sleep_until(wake_up_time);
+        
     }
+    json recvJson;
+    if(transport->appReceive(recvJson,std::chrono::milliseconds(500)) >0 ) {
+        printf("APP RECV:\r\n");
+        std::cout << recvJson.dump(4) << std::endl;
+    }
+    
     // 关闭连接
     close(sock);
-
+    auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    std::cout << "Sleeping until a specific time...\n";
+    std::this_thread::sleep_until(wake_up_time);
     return 0;
 }

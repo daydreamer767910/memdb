@@ -17,22 +17,18 @@
 #include "net/transport.hpp"
 #include "util/timer.hpp"
 
-using DBMsg = std::variant<std::tuple<int,int>>;
-class DBService : public ThreadBase<std::tuple<int,int>>{
+using DBMsg = std::variant<std::tuple<int,int,json>>;
+class DBService : public ThreadBase<std::tuple<int,int,json>>{
 public:
 	static DBService& get_instance();
 private:
-	DBService() :timer(uv_default_loop(), 3000, 3000, [this]() {
-        this->on_timer();
-    }) {
-
-	};
+	
     void on_msg(const std::shared_ptr<DBMsg> msg) override;
 	void process() override;
-	void on_timer();
 
 
-	Timer timer;//定期task
+	void handle_task(int port_id,json jsonTask);
+
 };
 extern DBService& dbSrv; // 声明全局变量
 

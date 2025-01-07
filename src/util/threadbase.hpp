@@ -29,7 +29,8 @@ public:
     }
 
     virtual ~ThreadBase(){
-        terminate();
+        if (this->status_ != task_status::TERMINATE)
+            terminate();
         if (this->thread_.joinable()) {
             this->thread_.join();  // 等待线程结束
 		}
@@ -38,6 +39,9 @@ public:
     virtual void start() {
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
+            if (this->status_ != task_status::RUNNING) {
+                this->thread_ = std::thread(&ThreadBase::process, this);
+            }
 		    this->status_ = task_status::RUNNING;
         }
         //std::cout << "thread --> RUNNING\n";
@@ -60,7 +64,10 @@ public:
 			this->status_ = task_status::TERMINATE;
 		}
         std::cout << "thread --> TERMINATE\n";
-        this->cond_var_.notify_one(); 
+        this->cond_var_.notify_one();
+        if (this->thread_.joinable()) {
+            this->thread_.join();  // 等待线程结束
+		}
 	}
 
     // 发送消息接口
@@ -91,7 +98,7 @@ public:
     }
 protected:
     ThreadBase() : status_(task_status::INIT) {
-        this->thread_ = std::thread(&ThreadBase::process, this);
+        
 	}
     // 处理消息接口
     virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) = 0;
@@ -112,7 +119,9 @@ private:
                 auto msg = this->msg_queue_.front();
                 this->msg_queue_.pop();
                 lock.unlock();  // 释放锁
-                this->on_msg(msg);  // 处理消息
+                if (this->is_running()) {
+                    this->on_msg(msg);  // 处理消息
+                }
             }
         }
     }
