@@ -199,17 +199,17 @@ nlohmann::json MemTable::tableToJson() {
     return jsonTable;
 }
 
-void MemTable::showTable() {
+nlohmann::json MemTable::showTable() {
     nlohmann::json jsonTable;
     jsonTable["name"] = name;
     jsonTable["columns"] = columnsToJson(columns);
-    std::cout << jsonTable.dump(4) << std::endl;
+    return jsonTable;
 }
 
-void MemTable::showRows() {
+nlohmann::json MemTable::showRows() {
     nlohmann::json jsonRows;
     jsonRows["rows"] = rowsToJson(rows);
-    std::cout << jsonRows.dump(4) << std::endl;
+    return jsonRows;
 }
 
 void MemTable::exportToFile(const std::string& filePath) {

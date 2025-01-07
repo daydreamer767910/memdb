@@ -70,7 +70,7 @@ std::vector<uint8_t> pack_data(const json& payload, uint32_t message_type) {
     packet.insert(packet.end(), json_str.begin(), json_str.end());
 
 	// 打印打包后的数据
-    print_packet(packet);
+    //print_packet(packet);
 
     return packet;
 }

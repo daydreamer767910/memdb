@@ -18,7 +18,7 @@ public:
     void insertRowsFromJson(const std::string& jsonString);
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
-    void showRows();
+    nlohmann::json showRows();
     std::vector<Row> getRows() ;
         
     // Indexing methods
@@ -28,7 +28,7 @@ public:
     //std::set<std::any> selectDistinct(const std::string& columnName) ;
     //std::map<std::any, int> groupBy(const std::string& columnName) ;
 
-    void showTable();
+    nlohmann::json showTable();
     nlohmann::json columnsToJson(const std::vector<Column>& columns);
     nlohmann::json rowsToJson(const std::vector<Row>& rows);
     nlohmann::json tableToJson();

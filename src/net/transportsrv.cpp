@@ -2,6 +2,7 @@
 
 std::atomic<int> TransportSrv::ports_count(0);
 std::atomic<int> TransportSrv::unique_id(0);
+TransportSrv& transportSrv = TransportSrv::get_instance();
 
 TransportSrv& TransportSrv::get_instance() {
     static TransportSrv instance;
@@ -12,7 +13,7 @@ TransportSrv::~TransportSrv() {
     // 遍历并清理所有连接
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        
+        //std::cout << "TransportSrv instance destroyed!" << std::endl;
         ports_.clear(); // 清空 map
     }
 }
@@ -50,7 +51,7 @@ void TransportSrv::close_port(int port_id) {
 	// 使用 unordered_map 的 find 方法快速查找
     auto it = ports_.find(port_id);
     if (it != ports_.end()) {
-        std::cout << "port[" << port_id << "] erased" << std::endl;
+        //std::cout << "port[" << port_id << "] erased" << std::endl;
         ports_.erase(it);  // 从容器中移除
         --ports_count;     // 更新端口计数
     }

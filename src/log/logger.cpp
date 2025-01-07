@@ -1,4 +1,5 @@
 #include "logger.hpp"
+Logger& logger = Logger::get_instance(); // 定义全局变量
 
 Logger& Logger::get_instance() {
     static Logger instance;

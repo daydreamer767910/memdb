@@ -3,6 +3,8 @@
 #include "net/transportsrv.hpp"
 #include "dbcore/memdatabase.hpp"
 
+DBService& dbSrv = DBService::get_instance(); // 定义全局变量
+
 DBService& DBService::get_instance() {
     static DBService instance;
     return instance;
@@ -11,28 +13,38 @@ DBService& DBService::get_instance() {
 void DBService::handle_task(int port_id, json jsonTask) {
 	json jsonResp;
 	std::string action = jsonTask["action"];
-	if (action == "create table") {
-		try {
+	try {
+		if (action == "create table") {
 			MemDatabase::ptr& db = MemDatabase::getInstance();
 			std::string tableName = jsonTask["name"];
 			auto columns = jsonToColumns(jsonTask);
 			db->addTable(tableName, columns);
+			jsonResp["response"] = "create table sucess";
+			jsonResp["status"] = "200";
+			//std::cout << jsonResp.dump(4) << std::endl;
+		} else if(action == "insert") {
 
+		} else if(action == "show tables") {
+			MemDatabase::ptr& db = MemDatabase::getInstance();
 			auto tables = db->listTables();
 			for ( auto table: tables) {
-				jsonResp[table->name] = table->tableToJson();
+				jsonResp[table->name] = table->showTable();
 			}
-		} catch (const std::runtime_error& e) {
-			jsonResp["error"] = e.what();
-		} catch (const std::exception& e) {
-			jsonResp["error"] = e.what();
-		} catch (...) {
-			std::cerr << "Unknown exception occurred!" << std::endl;
-			jsonResp["error"] = "Unknown exception occurred!";
+		} else if(action == "get") {
+
+		} else if(action == "update") {
+
 		}
-		this->on_msg(std::make_shared<DBMsg>(std::make_tuple(1,port_id,jsonResp)));
-		//std::cout << jsonResp.dump(4) << std::endl;
+	} catch (const std::runtime_error& e) {
+		jsonResp["error"] = e.what();
+	} catch (const std::exception& e) {
+		jsonResp["error"] = e.what();
+	} catch (...) {
+		std::cerr << "Unknown exception occurred!" << std::endl;
+		jsonResp["error"] = "Unknown exception occurred!";
 	}
+	this->on_msg(std::make_shared<DBMsg>(std::make_tuple(1,port_id,jsonResp)));
+	
 }
 
 void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {

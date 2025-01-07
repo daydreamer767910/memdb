@@ -6,6 +6,7 @@
 #include "net/transportsrv.hpp"
 #include "log/logger.hpp"
 #include "util/util.hpp"
+#include "util/timer.hpp"
 
 Logger& logger = Logger::get_instance(); // 定义全局变量
 
@@ -33,7 +34,17 @@ int main() {
         std::cerr << "Connection Failed\n";
         return -1;
     }
-
+    auto transport = std::make_shared<Transport>(4096);
+    Timer timer(uv_default_loop(), 1000, 1000, [&]() {
+        json recvJson;
+        if(transport->appReceive(recvJson,std::chrono::milliseconds(500)) >0 ) {
+            printf("APP RECV:\r\n");
+            std::cout << recvJson.dump(4) << std::endl;
+        } else {
+            std::cout << "appReceive null\n";
+        }
+    });
+    
     std::string jsonConfig = R"({
         "action": "create table",
         "name": "client-test",
@@ -48,7 +59,7 @@ int main() {
     
     // 发送自定义数据包
     char packet[1024] = {};
-    auto transport = std::make_shared<Transport>(4096);
+    
     json jsonData = nlohmann::json::parse(jsonConfig);
     transport->appSend(jsonData,1,std::chrono::milliseconds(100));
     int len = transport->tcpReadFromApp(packet,sizeof(packet),std::chrono::milliseconds(100));
@@ -56,8 +67,21 @@ int main() {
     send(sock, packet, len, 0);
     printf("TCP SEND:\r\n");
     print_packet((const uint8_t*)(packet),len);
+
+    jsonConfig = R"({
+        "action": "show tables"
+    })";
     
-    while(true) {
+    jsonData = nlohmann::json::parse(jsonConfig);
+    transport->appSend(jsonData,1,std::chrono::milliseconds(100));
+    len = transport->tcpReadFromApp(packet,sizeof(packet),std::chrono::milliseconds(100));
+
+    send(sock, packet, len, 0);
+    printf("TCP SEND:\r\n");
+    print_packet((const uint8_t*)(packet),len);
+    
+    
+    Timer timer1(uv_default_loop(), 1000, 1000, [&]() {
         // 接收响应
         char buffer[1024] = {0};
         
@@ -66,11 +90,11 @@ int main() {
             printf("TCP RECV:\r\n");
             print_packet((const uint8_t*)buffer,bytes_read);
             transport->tcpReceive(buffer,bytes_read,std::chrono::milliseconds(1000));
-            continue;
+            ;
         } else if (bytes_read == 0) {
             // 对端关闭连接
             std::cout << "Connection closed by peer." << std::endl;
-            break;
+            ;
         } else {
             // 读取发生错误，检查 errno
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -80,16 +104,12 @@ int main() {
             } else {
                 std::cerr << "Read error: " << strerror(errno) << std::endl;
             }
-            break;
+            ;
         }
-        
-    }
-    json recvJson;
-    if(transport->appReceive(recvJson,std::chrono::milliseconds(500)) >0 ) {
-        printf("APP RECV:\r\n");
-        std::cout << recvJson.dump(4) << std::endl;
-    }
-    
+    });
+
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    timer.stop();
     // 关闭连接
     close(sock);
     auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
