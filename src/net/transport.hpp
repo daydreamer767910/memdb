@@ -1,6 +1,6 @@
 #ifndef TRANSPORT_HPP
 #define TRANSPORT_HPP
-
+#include <unistd.h>
 #include <iostream>
 #include <vector>
 #include <cstring>
@@ -9,11 +9,14 @@
 #include <condition_variable>
 #include <stdexcept>
 #include <thread>
+#include <uv.h>
 #include <nlohmann/json.hpp> // 使用 nlohmann/json 库解析 JSON
 #include "util/msgbuffer.hpp"
 
 
 using json = nlohmann::json;
+using transport_callback = std::function<void(uv_poll_t* handle)>;
+
 
 // Msg 结构定义
 struct MsgHeader {
@@ -33,33 +36,36 @@ struct Msg {
     MsgFooter footer;
 };
 
-
 class Transport {
 public:
-    enum class BufferType {
-        APP2TCP,
-        TCP2APP,
-        ALLTYPE
+    enum class ChannelType {
+        UP_LOW,
+        LOW_UP,
+        ALL
     };
-    Transport(size_t buffer_size)
-        : app_to_tcp_(buffer_size), tcp_to_app_(buffer_size) {}
+    Transport(size_t buffer_size, uv_loop_t* loop, transport_callback cb = nullptr);
+    ~Transport();
+
+    void set_callback(transport_callback cb) {
+        output_callback_ = cb;
+    }
 
     // 1. APP 缓存到下行 CircularBuffer
-    int appSend(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout);
+    int send(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout);
     // 2. TCP 读取下行 CircularBuffer
-    int tcpReadFromApp(char* buffer, size_t size, std::chrono::milliseconds timeout);
+    int output(char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 3. TCP 缓存到上行 CircularBuffer
-    int tcpReceive(const char* buffer, size_t size, std::chrono::milliseconds timeout);
+    int input(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    int appReceive(json& json_data, std::chrono::milliseconds timeout);
+    int read(json& json_data, std::chrono::milliseconds timeout);
 
-	void resetBuffers(BufferType type = BufferType::ALLTYPE) {
-        if (BufferType::ALLTYPE == type) {
+	void reset(ChannelType type) {
+        if (ChannelType::ALL == type) {
             app_to_tcp_.clear();
 		    tcp_to_app_.clear();
-        } else if (BufferType::APP2TCP == type) {
+        } else if (ChannelType::UP_LOW == type) {
             app_to_tcp_.clear();
-        } else if (BufferType::TCP2APP == type) {
+        } else if (ChannelType::LOW_UP == type) {
             tcp_to_app_.clear();
         }
 	}
@@ -68,8 +74,12 @@ private:
     static constexpr size_t segment_size_ = 1024; // 分段大小
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据
+    uv_loop_t* loop_;
+    uv_poll_t poll_handle;
+    int pipe_fds[2];
+    transport_callback output_callback_;
 
-
+    static void on_send(uv_poll_t* handle, int status, int events);
 	// 计算校验和
 	uint32_t calculateChecksum(const std::vector<char>& data);
 

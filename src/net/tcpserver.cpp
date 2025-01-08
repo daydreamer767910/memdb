@@ -79,9 +79,14 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 			}
 			if (connection_count < TcpServer::max_connection_num) {
 				connection_count++;
-				int port_id = TransportSrv::get_instance().open_new_port(TcpServer::transport_buff_szie);
-				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
+				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client);
 				tcp_server->connections_.emplace(client, connection);
+				//create transport for the connection
+				int port_id = TransportSrv::get_instance().open_port(TcpServer::transport_buff_szie,
+					tcp_server->loop_,
+					[connection](uv_poll_t* handle) {
+						connection->on_poll(handle);
+					});
 				connection->start(client, port_id);
 				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
 					client_ip, client_port, port_id);

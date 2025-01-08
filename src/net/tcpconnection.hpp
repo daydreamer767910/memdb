@@ -23,14 +23,13 @@
 class TcpConnection {
 public:
     // TcpConnection 构造函数
-    TcpConnection(uv_loop_t* loop, uv_tcp_t* client, int transport_id) 
-        : loop_(loop), client_(client) , transport_id_(transport_id),
+    TcpConnection(uv_loop_t* loop, uv_tcp_t* client) 
+        : loop_(loop), client_(client) , transport_id_(0),
         timer(loop,TCP_KEEPALIVE_TIMER, TCP_KEEPALIVE_TIMER, [this]() {
             this->on_timer();
         }){
 		client_->data = this;
         keep_alive_cnt = 0;
-        idle_handle_ = nullptr;
         status_ = 0;
     }
 
@@ -43,11 +42,11 @@ public:
     bool is_idle() {
         return status_ == 0;
     }
-
+    void on_poll(uv_poll_t* handle);
+    
 private:
     uv_loop_t* loop_;
     uv_tcp_t* client_;  // 当前连接的 TCP 客户端
-    uv_idle_t* idle_handle_;
     int status_;
     int transport_id_;
     Timer timer;//for keep alive
@@ -58,10 +57,6 @@ private:
 
     //timer for keep alive
     void on_timer();
-
-    void on_pull();
-	
-    static void process(uv_idle_t* handle);
 
     int32_t write(const char* data,ssize_t length);
     // 写入客户端的回调

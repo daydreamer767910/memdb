@@ -34,10 +34,10 @@ int main() {
         std::cerr << "Connection Failed\n";
         return -1;
     }
-    auto transport = std::make_shared<Transport>(4096);
+    auto transport = std::make_shared<Transport>(4096,uv_default_loop());
     Timer timer(uv_default_loop(), 1000, 1000, [&]() {
         json recvJson;
-        if(transport->appReceive(recvJson,std::chrono::milliseconds(500)) >0 ) {
+        if(transport->read(recvJson,std::chrono::milliseconds(500)) >0 ) {
             printf("APP RECV:\r\n");
             std::cout << recvJson.dump(4) << std::endl;
         } else {
@@ -61,8 +61,8 @@ int main() {
     char packet[1024] = {};
     
     json jsonData = nlohmann::json::parse(jsonConfig);
-    transport->appSend(jsonData,1,std::chrono::milliseconds(100));
-    int len = transport->tcpReadFromApp(packet,sizeof(packet),std::chrono::milliseconds(100));
+    transport->send(jsonData,1,std::chrono::milliseconds(100));
+    int len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(100));
 
     send(sock, packet, len, 0);
     printf("TCP SEND:\r\n");
@@ -73,8 +73,8 @@ int main() {
     })";
     
     jsonData = nlohmann::json::parse(jsonConfig);
-    transport->appSend(jsonData,1,std::chrono::milliseconds(100));
-    len = transport->tcpReadFromApp(packet,sizeof(packet),std::chrono::milliseconds(100));
+    transport->send(jsonData,1,std::chrono::milliseconds(100));
+    len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(100));
 
     send(sock, packet, len, 0);
     printf("TCP SEND:\r\n");
@@ -89,7 +89,7 @@ int main() {
         if (bytes_read > 0) {
             printf("TCP RECV:\r\n");
             print_packet((const uint8_t*)buffer,bytes_read);
-            transport->tcpReceive(buffer,bytes_read,std::chrono::milliseconds(1000));
+            transport->input(buffer,bytes_read,std::chrono::milliseconds(1000));
             ;
         } else if (bytes_read == 0) {
             // 对端关闭连接

@@ -8,14 +8,9 @@ void TcpConnection::start(uv_tcp_t* client, int transport_id) {
 	transport_id_ = transport_id;
 	keep_alive_cnt = 0;
 	timer.start();
-	auto channel_ptr = TransportSrv::get_instance().get_transport(transport_id_);
-	if (channel_ptr) channel_ptr->resetBuffers();
+	TransportSrv::get_instance().reset(transport_id_);
 	uv_read_start((uv_stream_t*)client_, on_alloc_buffer, on_read);
 
-	idle_handle_ = (uv_idle_t*)malloc(sizeof(uv_idle_t));
-	idle_handle_->data = this;
-    uv_idle_init(loop_, idle_handle_);
-    uv_idle_start(idle_handle_, process);
 	status_ = 1;
 
 	logger.log(Logger::LogLevel::INFO,"connection started");
@@ -25,10 +20,7 @@ void TcpConnection::stop() {
 	status_ = 0;
 	keep_alive_cnt = 0;
 	timer.stop();
-	uv_idle_stop(idle_handle_);  // 停止轮询
-	if (idle_handle_) {
-		free(idle_handle_);  // 释放内存
-	}
+	
 	if (client_) {
 		uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
 	}
@@ -76,12 +68,12 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	} else {
 		printf("[%s]TCP[%d] RECV: \r\n", get_timestamp().c_str(), connection->transport_id_);
 		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
-		auto channel_ptr = TransportSrv::get_instance().get_transport(connection->transport_id_);
-		if (!channel_ptr) {
+		int ret = TransportSrv::get_instance().input(buf->base, nread,connection->transport_id_,1000);
+		if (ret == 0) {
 			logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
 			//connection->write("internal err",12);
 		}
-		else if (channel_ptr->tcpReceive(buf->base, nread, std::chrono::milliseconds(1000)) < 0) {
+		else if (ret < 0) {
 			logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
 			//connection->write("buffer full, data discarded",27);
 		} else {
@@ -92,27 +84,19 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }
 
-void TcpConnection::on_pull() {
-	auto channel_ptr = TransportSrv::get_instance().get_transport(transport_id_);
-	if (!channel_ptr) {
+void TcpConnection::on_poll(uv_poll_t* handle) {
+	Transport* port = static_cast<Transport*>(handle->data);
+	int ret = port->output(write_buf,sizeof(write_buf),std::chrono::milliseconds(50));
+	if (ret ==0 ) {
 		logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
-		stop();
-		return;
-	}
-	int len = sizeof(write_buf);
-	//read from circular buffer
-	len = channel_ptr->tcpReadFromApp(write_buf,len,std::chrono::milliseconds(50));
-	//std::cout << "TcpConnection::process:" << len << std::endl;
-	if (len>0) {
+		//stop();
+	} else if (ret>0) {
 		//send to client socket
-		write(write_buf,len);
+		write(write_buf,ret);
 		keep_alive_cnt = 0;
+	} else {
+		//timeout or buffer empty
 	}
-}
-
-void TcpConnection::process(uv_idle_t* handle) {
-	TcpConnection* connection_ptr = static_cast<TcpConnection*>(handle->data);
-	if (connection_ptr) connection_ptr->on_pull();
 }
 
 void TcpConnection::on_timer() {

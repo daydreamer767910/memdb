@@ -6,6 +6,43 @@
 #include "transport.hpp"
 #include "util/util.hpp"
 
+Transport::Transport(size_t buffer_size, uv_loop_t* loop, transport_callback cb)
+	: app_to_tcp_(buffer_size), 
+	tcp_to_app_(buffer_size), loop_(loop) {
+	if (pipe(pipe_fds) == -1) {
+		std::cerr << "pipe err" << std::endl;
+	}
+	int flags = fcntl(pipe_fds[0], F_GETFL, 0);
+	fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK);
+	uv_poll_init(loop_,&poll_handle,pipe_fds[0]);
+	uv_poll_start(&poll_handle, UV_READABLE, Transport::on_send);
+	poll_handle.data = this;
+	output_callback_ = cb;
+}
+
+Transport::~Transport() {
+	uv_poll_stop(&poll_handle);
+	close(pipe_fds[0]);
+	close(pipe_fds[1]);
+}
+
+void Transport::on_send(uv_poll_t* handle, int status, int events) {
+	if (status <0 ) {
+		std::cerr << "Poll error:" << uv_strerror(status) << std::endl;
+		return ;
+	}
+	auto transport = reinterpret_cast<Transport*>(handle->data);
+	if (events & UV_READABLE) {
+		char signal;
+		::read(transport->pipe_fds[0], &signal, 1);
+		//callback...
+		std::cout << "send signal\n";
+		if (transport->output_callback_) {
+			transport->output_callback_(handle);
+		}
+	}
+}
+
 // 计算校验和
 uint32_t Transport::calculateChecksum(const std::vector<char>& data) {
     uint32_t checksum = 0;
@@ -80,7 +117,7 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
 }
 
 
-int Transport::appSend(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout) {
+int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout) {
 	std::string serialized = json_data.dump();
 	size_t total_size = serialized.size();
 	size_t segment_id = 0;
@@ -107,13 +144,16 @@ int Transport::appSend(const json& json_data, uint32_t msg_id, std::chrono::mill
 		if (app_to_tcp_.write(network_data.data(), network_data.size(), timeout)<0) {
 			return -1; // 写入超时
 		}
+		// 写入管道通知事件循环
+		const char signal = '1';
+		write(pipe_fds[1], &signal, sizeof(signal));
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
 		offset += chunk_size;
 	}
 	return total_size;
 }
 
-int Transport::tcpReadFromApp(char* buffer, size_t size, std::chrono::milliseconds timeout) {
+int Transport::output(char* buffer, size_t size, std::chrono::milliseconds timeout) {
 	//读header的length字段
 	size_t dataLen = app_to_tcp_.readableSize();
 	//std::cout << "tcpReadFromApp:readableSize:" << dataLen << std::endl;
@@ -124,13 +164,13 @@ int Transport::tcpReadFromApp(char* buffer, size_t size, std::chrono::millisecon
 }
 
 
-int Transport::tcpReceive(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
+int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
 	//std::cout << "tcpReceive: \n";
 	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
 	return tcp_to_app_.write(buffer, size, timeout);
 }
 
-int Transport::appReceive(json& json_data, std::chrono::milliseconds timeout) {
+int Transport::read(json& json_data, std::chrono::milliseconds timeout) {
 	//先假读MsgHeader计算出数据长度，然后根据读出来的长度获取数据
 	std::vector<char> temp_buffer(segment_size_);
 	std::string reconstructed_data;
