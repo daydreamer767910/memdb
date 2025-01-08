@@ -79,6 +79,7 @@ private:
     int pipe_fds[2];
     transport_callback output_callback_;
 
+    void triger_on_send();
     static void on_send(uv_poll_t* handle, int status, int events);
 	// 计算校验和
 	uint32_t calculateChecksum(const std::vector<char>& data);

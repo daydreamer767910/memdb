@@ -43,6 +43,12 @@ void Transport::on_send(uv_poll_t* handle, int status, int events) {
 	}
 }
 
+void Transport::triger_on_send() {
+	// triger on_send 写入管道通知事件循环
+	const char signal = '1';
+	write(pipe_fds[1], &signal, sizeof(signal));
+}
+
 // 计算校验和
 uint32_t Transport::calculateChecksum(const std::vector<char>& data) {
     uint32_t checksum = 0;
@@ -144,9 +150,8 @@ int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::millise
 		if (app_to_tcp_.write(network_data.data(), network_data.size(), timeout)<0) {
 			return -1; // 写入超时
 		}
-		// 写入管道通知事件循环
-		const char signal = '1';
-		write(pipe_fds[1], &signal, sizeof(signal));
+		triger_on_send();
+		
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
 		offset += chunk_size;
 	}

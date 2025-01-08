@@ -90,7 +90,7 @@ void DBService::process() {
 			else if (ret<0) {
 				//logger.log(Logger::LogLevel::WARNING, "appReceive fail {}", ret);
 				if (ret == -2) {//buff wrong
-					TransportSrv::get_instance().reset(port_id,Transport::ChannelType::UP_LOW);
+					TransportSrv::get_instance().reset(port_id,Transport::ChannelType::LOW_UP);
 				}
 			} else {
 				//parse the json
