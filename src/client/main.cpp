@@ -10,7 +10,7 @@
 
 Logger& logger = Logger::get_instance(); // 定义全局变量
 
-int main() {
+int reconnect() {
     int sock = 0;
     struct sockaddr_in server_address;
 
@@ -30,10 +30,15 @@ int main() {
     }
 
     // 连接到服务器
-    if (connect(sock, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
+    while (connect(sock, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
         std::cerr << "Connection Failed\n";
-        return -1;
+        sleep(1);
     }
+    return sock;
+}
+
+int main() {
+    int sock = reconnect();
 //0.app read timer
     auto transport = std::make_shared<Transport>(40096,uv_default_loop());
     Timer timer(uv_default_loop(), 1000, 1000, [&]() {
@@ -71,7 +76,6 @@ int main() {
     send(sock, packet, len, 0);
     printf("TCP SEND:\r\n");
     print_packet((const uint8_t*)(packet),len);
-
 //2.show tables
     jsonConfig = R"({
         "action": "show tables"
@@ -89,7 +93,7 @@ int main() {
     jsonData["action"] = "insert";
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
-    for (int i=0;i<30;i++) {
+    for (int i=0;i<50;i++) {
         json row;
         row["id"] = i;
         row["name"] = "test name" + std::to_string(i);
@@ -133,7 +137,7 @@ int main() {
         } else if (bytes_read == 0) {
             // 对端关闭连接
             std::cout << "Connection closed by peer." << std::endl;
-            ;
+            sock = reconnect();
         } else {
             // 读取发生错误，检查 errno
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -142,6 +146,7 @@ int main() {
                 std::cout << "Interrupted by signal, retrying." << std::endl;
             } else {
                 std::cerr << "Read error: " << strerror(errno) << std::endl;
+                sock = reconnect();
             }
             ;
         }

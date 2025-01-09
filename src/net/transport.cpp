@@ -64,11 +64,27 @@ void Transport::triger_on_send() {
 
 // 计算校验和
 uint32_t Transport::calculateChecksum(const std::vector<char>& data) {
-    uint32_t checksum = 0;
-    for (char c : data) {
-        checksum += static_cast<uint8_t>(c); // 避免符号扩展
+    static const uint32_t polynomial = 0xEDB88320;
+    static uint32_t crc_table[256];
+    static bool table_generated = false;
+
+    if (!table_generated) {
+        for (uint32_t i = 0; i < 256; i++) {
+            uint32_t crc = i;
+            for (uint32_t j = 0; j < 8; j++) {
+                crc = (crc >> 1) ^ (polynomial & (~(crc & 1) + 1));
+            }
+            crc_table[i] = crc;
+        }
+        table_generated = true;
     }
-    return checksum;
+
+    uint32_t crc = 0xFFFFFFFF;
+    for (char c : data) {
+        crc = (crc >> 8) ^ crc_table[(crc & 0xFF) ^ static_cast<uint8_t>(c)];
+    }
+
+    return ~crc;
 }
 
 // 序列化 Msg 为网络字节序
@@ -129,9 +145,7 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
     // 反序列化消息尾并转换为主机字节序
     MsgFooter footer_net;
     std::memcpy(&footer_net, buffer.data() + offset, sizeof(MsgFooter));
-
     msg.footer.checksum = ntohl(footer_net.checksum);
-
     return msg;
 }
 
@@ -158,6 +172,11 @@ int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::millise
 
 		msg.payload.assign(serialized.begin() + offset, serialized.begin() + offset + chunk_size);
 		msg.footer.checksum = calculateChecksum(msg.payload);
+        // Print CRC in hexadecimal format
+        /*std::cout << "CRC32: 0x" << std::hex 
+            << std::uppercase << std::setfill('0') 
+            << std::setw(8) << msg.footer.checksum << std::endl;*/
+
 
 		std::vector<char> network_data = serializeMsg(msg);
 		if (app_to_tcp_.write(network_data.data(), network_data.size(), timeout)<0) {
@@ -191,8 +210,6 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
     std::chrono::milliseconds timeout) 
 {
-    std::vector<char> temp_buffer(segment_size_);
-	
     while (true) {
         // 检查并处理已完成的消息
         for (auto it = message_cache.begin(); it != message_cache.end();) {
@@ -230,11 +247,12 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
         dataLen = ntohl(dataLen);
 
         if (dataLen > segment_size_ || dataLen <= sizeof(uint32_t)) {
-            std::cout << "Wrong Msg size: " << dataLen << " skip the data" << std::endl;
-            tcp_to_app_.read(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout); // 跳过无效数据
-            continue;
+            std::cout << "Wrong Msg size: " << dataLen << " clear the data" << std::endl;
+            //tcp_to_app_.read(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout); // 跳过无效数据
+            tcp_to_app_.clear();
+            return -2;
         }
-
+        std::vector<char> temp_buffer(dataLen);
         // 读取完整分包
         if (tcp_to_app_.read(temp_buffer.data(), dataLen, timeout) < 0) {
             std::cout << "Read timeout\n";
@@ -243,6 +261,16 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
 
         // 反序列化消息
         Msg msg = deserializeMsg(temp_buffer);
+
+        //crc check
+        uint32_t crc = calculateChecksum(msg.payload);
+        if (msg.footer.checksum != crc) {
+            // Print CRC in hexadecimal format
+            std::cout << "crc error: 0x" << std::hex 
+                << std::uppercase << std::setfill('0') 
+                << std::setw(8) << crc << std::endl;
+            return -3;
+        }
 
         // 查找或创建缓存项
         auto& buffer = message_cache[msg.header.msg_id];

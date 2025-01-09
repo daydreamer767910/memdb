@@ -30,6 +30,7 @@ private:
 	void handle_task(int port_id,json jsonTask);
 private:
 	MemDatabase::ptr& db;
+	static constexpr uint32_t keep_alv_timer = 60000;
 };
 extern DBService& dbSrv; // 声明全局变量
 

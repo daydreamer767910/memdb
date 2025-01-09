@@ -14,7 +14,7 @@ DBService& DBService::get_instance() {
 void DBService::handle_task(int port_id, json jsonTask) {
 	json jsonResp;
 	std::string action = jsonTask["action"];
-	//logger.log(Logger::LogLevel::INFO, "DBService::handle_task begin +++++++");
+	//logger.log(Logger::LogLevel::INFO, "DBService::handle_task[{}][{}]",port_id,action);
 	try {
 		if (action == "create table") {	
 			std::string tableName = jsonTask["name"];
@@ -77,6 +77,15 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 				}
 			}
 		} else if (msg_type == 0 ) {
+			auto port = TransportSrv::get_instance().get_port(transport);
+			if (port) {
+				int ret = port->send(jsonData, 0xffffffff ,std::chrono::milliseconds(100));
+				if (ret<0) {
+					logger.log(Logger::LogLevel::WARNING, "appSend fail, data full");
+				} else {
+					//std::cout << "APP SEND:" << get_timestamp() << "\n" << jsonData.dump(4) << std::endl;
+				}
+			}
 		}
 	}, *msg);
 }
@@ -87,7 +96,6 @@ void DBService::process() {
 		if (this->is_terminate()) {
 			break;  // 退出线程
 		}
-		std::vector<json> json_datas;
 		auto port_ids = TransportSrv::get_instance().get_all_ports();
 		if (port_ids.size() == 0) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -96,7 +104,8 @@ void DBService::process() {
 		for (int port_id : port_ids) {
 			auto port = TransportSrv::get_instance().get_port(port_id);
 			if (port) {
-				auto ret = port->read(json_datas,std::chrono::milliseconds(200));
+				std::vector<json> json_datas;
+				auto ret = port->read(json_datas,std::chrono::milliseconds(200/port_ids.size()));
 				if (ret == 0) continue;
 				else if (ret<0) {
 					//logger.log(Logger::LogLevel::WARNING, "appReceive fail {}", ret);
@@ -111,11 +120,12 @@ void DBService::process() {
 		}
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-		if (duration.count() > 200) {
+		if (duration.count() > keep_alv_timer) {
 			json jsonData;
 			for (int port_id : port_ids) {
-				jsonData["timer"] = std::to_string(duration.count()) + "ms timer";
-				this->on_msg(std::make_shared<DBMsg>(std::make_tuple(1,port_id,jsonData)));
+				jsonData["type"] = "keep alive";
+				jsonData["timer"] = duration.count();
+				this->on_msg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
 			}
 			start = end;
 		}
