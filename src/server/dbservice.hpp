@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <ctime>
 #include <variant>
+#include "dbcore/memdatabase.hpp"
 #include "util/threadbase.hpp"
 #include "net/transport.hpp"
 #include "util/timer.hpp"
@@ -22,13 +23,13 @@ class DBService : public ThreadBase<std::tuple<int,int,json>>{
 public:
 	static DBService& get_instance();
 private:
-	
+	DBService() :db(MemDatabase::getInstance()) {
+	}
     void on_msg(const std::shared_ptr<DBMsg> msg) override;
 	void process() override;
-
-
 	void handle_task(int port_id,json jsonTask);
-
+private:
+	MemDatabase::ptr& db;
 };
 extern DBService& dbSrv; // 声明全局变量
 

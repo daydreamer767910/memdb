@@ -15,7 +15,7 @@ public:
     MemTable(const std::string& tableName, const std::vector<Column>& columns);
     
     // Methods related to rows and columns
-    void insertRowsFromJson(const std::string& jsonString);
+    void insertRowsFromJson(const nlohmann::json& jsonRows);
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
     nlohmann::json showRows();

@@ -54,10 +54,8 @@ Row MemTable::processRowDefaults(const Row& row) {
     return newRow;
 }
 
-void MemTable::insertRowsFromJson(const std::string& jsonString) {
-    auto root = nlohmann::json::parse(jsonString);
-
-    for (const auto& jsonRow : root["rows"]) {
+void MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+    for (const auto& jsonRow : jsonRows["rows"]) {
         Row row;
         for (const auto& [key, value] : jsonRow.items()) {
             auto columnIt = std::find_if(columns.begin(), columns.end(), [&key](const Column& col) {

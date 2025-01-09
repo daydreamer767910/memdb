@@ -84,9 +84,9 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 				//create transport for the connection
 				int port_id = TransportSrv::get_instance().open_port(TcpServer::transport_buff_szie,
 					tcp_server->loop_,
-					[connection](uv_poll_t* handle) {
-						connection->on_poll(handle);
-					});
+					[connection](char* buffer, ssize_t nread) {
+						connection->on_poll(buffer,nread);
+					},connection->write_buf,sizeof(connection->write_buf));
 				connection->start(client, port_id);
 				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
 					client_ip, client_port, port_id);

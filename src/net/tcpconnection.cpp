@@ -6,21 +6,16 @@ void TcpConnection::start(uv_tcp_t* client, int transport_id) {
 	client_ = client;
 	client_->data = this;
 	transport_id_ = transport_id;
-	keep_alive_cnt = 0;
-	timer.start();
+
 	TransportSrv::get_instance().reset(transport_id_);
 	uv_read_start((uv_stream_t*)client_, on_alloc_buffer, on_read);
 
 	status_ = 1;
-
-	logger.log(Logger::LogLevel::INFO,"connection started");
+	//logger.log(Logger::LogLevel::INFO,"connection started");
 }
 
 void TcpConnection::stop() {
 	status_ = 0;
-	keep_alive_cnt = 0;
-	timer.stop();
-	
 	if (client_) {
 		uv_close((uv_handle_t*)client_, [](uv_handle_t* handle) { delete (uv_tcp_t*)handle; });
 	}
@@ -41,8 +36,8 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 		free(write_req);
 		stop();
 	}
-	printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
-	print_packet(reinterpret_cast<const uint8_t*>(data),length);
+	//printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
+	//print_packet(reinterpret_cast<const uint8_t*>(data),length);
 	return ret;
 }
 
@@ -66,47 +61,25 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
 		if (nread == UV_EOF) connection->stop();
 	} else {
-		printf("[%s]TCP[%d] RECV: \r\n", get_timestamp().c_str(), connection->transport_id_);
+		printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
 		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
-		int ret = TransportSrv::get_instance().input(buf->base, nread,connection->transport_id_,1000);
+		int ret = TransportSrv::get_instance().input(buf->base, nread,connection->transport_id_,100);
 		if (ret == 0) {
 			logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
-			//connection->write("internal err",12);
 		}
 		else if (ret < 0) {
 			logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
-			//connection->write("buffer full, data discarded",27);
-		} else {
-			//connection->write("ack",3);
 		}
-		connection->keep_alive_cnt = 0;
 	}
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }
 
-void TcpConnection::on_poll(uv_poll_t* handle) {
-	Transport* port = static_cast<Transport*>(handle->data);
-	int ret = port->output(write_buf,sizeof(write_buf),std::chrono::milliseconds(50));
-	if (ret ==0 ) {
-		logger.log(Logger::LogLevel::ERROR, "Port[{}] is unavailable",transport_id_);
-		//stop();
-	} else if (ret>0) {
+void TcpConnection::on_poll(char* buffer, ssize_t nread) {
+	if (nread>0) {
 		//send to client socket
-		write(write_buf,ret);
-		keep_alive_cnt = 0;
+		write(buffer,nread);
 	} else {
-		//timeout or buffer empty
+		//normaly should never happen
 	}
 }
 
-void TcpConnection::on_timer() {
-	if(keep_alive_cnt>2) {
-		logger.log(Logger::LogLevel::INFO, "No keepalive resp {} times, kick off the client",keep_alive_cnt-1);
-		this->stop();
-	} else if ( keep_alive_cnt>0) {
-		logger.log(Logger::LogLevel::INFO,"Processing keep alive {}",keep_alive_cnt);
-		write("keep alive checking", 20);
-	}
-	keep_alive_cnt++;
-
-}

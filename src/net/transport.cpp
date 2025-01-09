@@ -6,7 +6,7 @@
 #include "transport.hpp"
 #include "util/util.hpp"
 
-Transport::Transport(size_t buffer_size, uv_loop_t* loop, transport_callback cb)
+Transport::Transport(size_t buffer_size, uv_loop_t* loop)
 	: app_to_tcp_(buffer_size), 
 	tcp_to_app_(buffer_size), loop_(loop) {
 	if (pipe(pipe_fds) == -1) {
@@ -15,9 +15,11 @@ Transport::Transport(size_t buffer_size, uv_loop_t* loop, transport_callback cb)
 	int flags = fcntl(pipe_fds[0], F_GETFL, 0);
 	fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK);
 	uv_poll_init(loop_,&poll_handle,pipe_fds[0]);
-	uv_poll_start(&poll_handle, UV_READABLE, Transport::on_send);
+	uv_poll_start(&poll_handle, UV_READABLE, Transport::process_event);
 	poll_handle.data = this;
-	output_callback_ = cb;
+	output_callback_ = nullptr;
+	buffer_callback_ = nullptr;
+	size_callback_ = 0;
 }
 
 Transport::~Transport() {
@@ -26,7 +28,7 @@ Transport::~Transport() {
 	close(pipe_fds[1]);
 }
 
-void Transport::on_send(uv_poll_t* handle, int status, int events) {
+void Transport::process_event(uv_poll_t* handle, int status, int events) {
 	if (status <0 ) {
 		std::cerr << "Poll error:" << uv_strerror(status) << std::endl;
 		return ;
@@ -34,11 +36,22 @@ void Transport::on_send(uv_poll_t* handle, int status, int events) {
 	auto transport = reinterpret_cast<Transport*>(handle->data);
 	if (events & UV_READABLE) {
 		char signal;
-		::read(transport->pipe_fds[0], &signal, 1);
+		if (transport)
+			::read(transport->pipe_fds[0], &signal, 1);
 		//callback...
-		std::cout << "send signal\n";
-		if (transport->output_callback_) {
-			transport->output_callback_(handle);
+		if (signal == '1')
+			transport->on_send();
+	}
+}
+
+void Transport::on_send() {
+	//std::cout << "send signal\n";
+	if (output_callback_ && buffer_callback_ && size_callback_ > 0) {
+		while(true) {
+			int len = this->output(buffer_callback_,size_callback_,std::chrono::milliseconds(0));
+			if (len <=0 )
+				break;
+			output_callback_(buffer_callback_,len);
 		}
 	}
 }
@@ -179,7 +192,7 @@ int Transport::read(json& json_data, std::chrono::milliseconds timeout) {
 	//先假读MsgHeader计算出数据长度，然后根据读出来的长度获取数据
 	std::vector<char> temp_buffer(segment_size_);
 	std::string reconstructed_data;
-
+	uint32_t msg_id;
 	while (true) {
 		//读header的length字段
 		uint32_t dataLen;
@@ -199,7 +212,7 @@ int Transport::read(json& json_data, std::chrono::milliseconds timeout) {
 		}
 
 		Msg msg = deserializeMsg(temp_buffer);
-
+		msg_id = msg.header.msg_id;
 		reconstructed_data.append(msg.payload.begin(), msg.payload.end());
 
 		if (msg.header.flag == 0) { // 最后一段
@@ -209,4 +222,110 @@ int Transport::read(json& json_data, std::chrono::milliseconds timeout) {
 
 	json_data = json::parse(reconstructed_data);
 	return true;
+}
+
+int Transport::read_all(std::vector<json>& json_datas,  // 存储已完成的消息
+    std::chrono::milliseconds timeout) 
+{
+    std::vector<char> temp_buffer(segment_size_);
+	
+    while (true) {
+        // 检查并处理已完成的消息
+        for (auto it = message_cache.begin(); it != message_cache.end();) {
+            auto& buffer = it->second;
+            if (buffer.is_complete) {
+                // 重组消息
+                std::string reconstructed_data;
+                for (const auto& [segment_id, segment_data] : buffer.segments) {
+                    reconstructed_data.append(segment_data.begin(),segment_data.end());
+                }
+				try {
+					// 解析 JSON 并加入结果
+                	json_datas.push_back(json::parse(reconstructed_data));
+				} catch (...) {
+					std::cout << "json parse fail:\n" << reconstructed_data << std::endl;
+				}
+                
+                // 清理已完成的消息
+                it = message_cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        // 如果有完成的消息，退出循环
+        if (!json_datas.empty()) {
+            return json_datas.size(); // 返回成功条数
+        }
+
+        // 读取消息长度
+        uint32_t dataLen;
+        if (tcp_to_app_.peek(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout) < 0) {
+            return -1; // 超时
+        }
+        dataLen = ntohl(dataLen);
+
+        if (dataLen > segment_size_ || dataLen <= sizeof(uint32_t)) {
+            std::cout << "Wrong Msg size: " << dataLen << " skip the data" << std::endl;
+            tcp_to_app_.read(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout); // 跳过无效数据
+            continue;
+        }
+
+        // 读取完整分包
+        if (tcp_to_app_.read(temp_buffer.data(), dataLen, timeout) < 0) {
+            std::cout << "Read timeout\n";
+            return -1; // 超时
+        }
+
+        // 反序列化消息
+        Msg msg = deserializeMsg(temp_buffer);
+
+        // 查找或创建缓存项
+        auto& buffer = message_cache[msg.header.msg_id];
+        buffer.last_update = std::chrono::steady_clock::now();
+
+        // 累计总大小
+        buffer.total_size += msg.payload.size();
+
+        // 检查总大小限制
+        if (buffer.total_size > max_message_size_) {
+            std::cout << "Message too large, msg_id: " << msg.header.msg_id << " size: " << buffer.total_size << std::endl;
+            message_cache.erase(msg.header.msg_id); // 丢弃超大消息
+            continue;
+        }
+
+        // 存储分包
+        buffer.segments[msg.header.segment_id] = msg.payload;
+        if (msg.header.flag == 0) {
+            buffer.total_segments = msg.header.segment_id + 1;
+        }
+
+        // 检查是否完成
+        if (buffer.segments.size() == buffer.total_segments) {
+            buffer.is_complete = true;
+        }
+
+        // 检查缓存大小限制
+        if (message_cache.size() > max_cache_size) {
+            std::cout << "Cache size exceeded, removing oldest entry" << std::endl;
+            auto oldest = std::min_element(
+                message_cache.begin(),
+                message_cache.end(),
+                [](const auto& a, const auto& b) {
+                    return a.second.last_update < b.second.last_update;
+                });
+            message_cache.erase(oldest);
+        }
+
+        // 超时清理未完成消息
+        auto now = std::chrono::steady_clock::now();
+        for (auto it = message_cache.begin(); it != message_cache.end();) {
+            if (now - it->second.last_update > timeout) {
+                std::cout << "Message timeout, msg_id: " << it->first << std::endl;
+                it = message_cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 }

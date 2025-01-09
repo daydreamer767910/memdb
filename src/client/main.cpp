@@ -34,17 +34,21 @@ int main() {
         std::cerr << "Connection Failed\n";
         return -1;
     }
-    auto transport = std::make_shared<Transport>(4096,uv_default_loop());
+//0.app read timer
+    auto transport = std::make_shared<Transport>(40096,uv_default_loop());
     Timer timer(uv_default_loop(), 1000, 1000, [&]() {
-        json recvJson;
-        if(transport->read(recvJson,std::chrono::milliseconds(500)) >0 ) {
-            printf("APP RECV:\r\n");
-            std::cout << recvJson.dump(4) << std::endl;
+        std::vector<json> json_datas;
+        if(transport->read_all(json_datas,std::chrono::milliseconds(1000)) >0 ) {
+            for (auto recvJson : json_datas) {
+                printf("APP RECV[%d]:\r\n",json_datas.size());
+                std::cout << recvJson.dump(4) << std::endl;
+            }
         } else {
             std::cout << "appReceive null\n";
         }
     });
     
+//1.create table
     std::string jsonConfig = R"({
         "action": "create table",
         "name": "client-test",
@@ -58,7 +62,7 @@ int main() {
     })";
     
     // 发送自定义数据包
-    char packet[1024] = {};
+    char packet[40096] = {};
     
     json jsonData = nlohmann::json::parse(jsonConfig);
     transport->send(jsonData,1,std::chrono::milliseconds(100));
@@ -68,19 +72,54 @@ int main() {
     printf("TCP SEND:\r\n");
     print_packet((const uint8_t*)(packet),len);
 
+//2.show tables
     jsonConfig = R"({
         "action": "show tables"
     })";
     
     jsonData = nlohmann::json::parse(jsonConfig);
-    transport->send(jsonData,1,std::chrono::milliseconds(100));
+    transport->send(jsonData,2,std::chrono::milliseconds(100));
     len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(100));
 
     send(sock, packet, len, 0);
     printf("TCP SEND:\r\n");
     print_packet((const uint8_t*)(packet),len);
     
+//3.insert rows
+    jsonData["action"] = "insert";
+    jsonData["name"] = "client-test";
+    json jsonRows = json::array();
+    for (int i=0;i<30;i++) {
+        json row;
+        row["id"] = i;
+        row["name"] = "test name" + std::to_string(i);
+        row["age"] = 20+i;
+        row["addr"] = "street " + std::to_string(i);
+        jsonRows.push_back(row);
+    }
+    jsonData["rows"] = jsonRows;
+    //jsonData = nlohmann::json::parse(jsonConfig);
+    transport->send(jsonData,3,std::chrono::milliseconds(100));
+    len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(100));
+
+    send(sock, packet, len, 0);
+    printf("TCP SEND:\r\n");
+    print_packet((const uint8_t*)(packet),len);
+//4.show rows
+    jsonConfig = R"({
+        "action": "get",
+        "name": "client-test"
+    })";
     
+    jsonData = nlohmann::json::parse(jsonConfig);
+    transport->send(jsonData,4,std::chrono::milliseconds(100));
+    len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(100));
+
+    send(sock, packet, len, 0);
+    printf("TCP SEND:\r\n");
+    print_packet((const uint8_t*)(packet),len);
+
+//n.tcp read timer
     Timer timer1(uv_default_loop(), 1000, 1000, [&]() {
         // 接收响应
         char buffer[1024] = {0};
