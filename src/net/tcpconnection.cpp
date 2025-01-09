@@ -35,8 +35,8 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 		free(write_req);
 		stop();
 	}
-	printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
-	print_packet(reinterpret_cast<const uint8_t*>(data),length);
+	//printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
+	//print_packet(reinterpret_cast<const uint8_t*>(data),length);
 	return ret;
 }
 
@@ -55,13 +55,16 @@ void TcpConnection::on_write(uv_write_t* req, int status) {
 // 读取客户端数据的回调
 void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read in");
-	auto* connection = static_cast<TcpConnection*>(client->data);
+	auto connection = static_cast<TcpConnection*>(client->data);
 	if (nread < 0) {
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
-		if (nread == UV_EOF) connection->stop();
+		if (nread == UV_EOF) {
+			printf("Read error(%d): {%s}\n",nread,uv_strerror(nread));
+			connection->stop();
+		}
 	} else {
-		printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
-		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
+		//printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
+		//print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
 		auto port = TransportSrv::get_instance().get_port(connection->transport_id_);
 		if (port) {
 			int ret = port->input(buf->base, nread,std::chrono::milliseconds(100));

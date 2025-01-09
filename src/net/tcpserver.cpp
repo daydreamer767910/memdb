@@ -5,6 +5,7 @@
 
 // 初始化连接计数
 std::atomic<int> TcpServer::connection_count(0);
+std::atomic<uint32_t> TcpServer::unique_id(0);
 
 TcpServer::TcpServer(const char* ip, int port):	loop_(uv_default_loop()),
 	timer(loop_, 1000, 1000, [this]() {
@@ -79,15 +80,18 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 			}
 			if (connection_count < TcpServer::max_connection_num) {
 				connection_count++;
+				unique_id++;
 				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client);
-				tcp_server->connections_.emplace(client, connection);
+				tcp_server->connections_.emplace(unique_id, connection);
 				//create transport for the connection
-				int port_id = TransportSrv::get_instance().open_port(TcpServer::transport_buff_szie,
-					tcp_server->loop_,
-					[connection](char* buffer, ssize_t nread) {
+				auto [port_id ,port] = transportSrv.open_port(TcpServer::transport_buff_szie,tcp_server->loop_);
+				
+				port->set_callback([connection](char* buffer, ssize_t nread) {
 						connection->on_poll(buffer,nread);
 					},connection->write_buf,sizeof(connection->write_buf));
+
 				connection->start(client, port_id);
+				
 				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
 					client_ip, client_port, port_id);
 			} else {

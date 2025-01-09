@@ -43,8 +43,9 @@ private:
     struct sockaddr_in addr;
     Timer timer;//定期清理无用connection
     std::mutex mutex_;  // 互斥锁，保护 connections_ 容器
+    static std::atomic<uint32_t> unique_id;
     static std::atomic<int> connection_count;  // 连接数
-	std::unordered_map<uv_tcp_t*, std::shared_ptr<TcpConnection>> connections_;
+	std::unordered_map<uint32_t, std::shared_ptr<TcpConnection>> connections_;
 };
 
 #endif
