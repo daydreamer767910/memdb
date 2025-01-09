@@ -38,7 +38,7 @@ int main() {
     auto transport = std::make_shared<Transport>(40096,uv_default_loop());
     Timer timer(uv_default_loop(), 1000, 1000, [&]() {
         std::vector<json> json_datas;
-        if(transport->read_all(json_datas,std::chrono::milliseconds(1000)) >0 ) {
+        if(transport->read(json_datas,std::chrono::milliseconds(1000)) >0 ) {
             for (auto recvJson : json_datas) {
                 printf("APP RECV[%d]:\r\n",json_datas.size());
                 std::cout << recvJson.dump(4) << std::endl;

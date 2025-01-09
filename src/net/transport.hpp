@@ -68,9 +68,7 @@ public:
     // 3. TCP 缓存到上行 CircularBuffer
     int input(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    int read(json& json_data, std::chrono::milliseconds timeout);
-
-    int read_all(std::vector<json>& json_datas, std::chrono::milliseconds timeout);
+    int read(std::vector<json>& json_datas, std::chrono::milliseconds timeout);
 
 	void reset(ChannelType type) {
         if (ChannelType::ALL == type) {

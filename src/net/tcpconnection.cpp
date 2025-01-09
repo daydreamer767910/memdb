@@ -7,7 +7,6 @@ void TcpConnection::start(uv_tcp_t* client, int transport_id) {
 	client_->data = this;
 	transport_id_ = transport_id;
 
-	TransportSrv::get_instance().reset(transport_id_);
 	uv_read_start((uv_stream_t*)client_, on_alloc_buffer, on_read);
 
 	status_ = 1;
@@ -36,8 +35,8 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 		free(write_req);
 		stop();
 	}
-	//printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
-	//print_packet(reinterpret_cast<const uint8_t*>(data),length);
+	printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
+	print_packet(reinterpret_cast<const uint8_t*>(data),length);
 	return ret;
 }
 
@@ -63,13 +62,16 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	} else {
 		printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
 		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
-		int ret = TransportSrv::get_instance().input(buf->base, nread,connection->transport_id_,100);
-		if (ret == 0) {
-			logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
-		}
-		else if (ret < 0) {
-			logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
-		}
+		auto port = TransportSrv::get_instance().get_port(connection->transport_id_);
+		if (port) {
+			int ret = port->input(buf->base, nread,std::chrono::milliseconds(100));
+			if (ret == 0) {
+				logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
+			}
+			else if (ret < 0) {
+				logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
+			}
+		} 		
 	}
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }

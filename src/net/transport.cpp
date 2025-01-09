@@ -188,43 +188,7 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 	return tcp_to_app_.write(buffer, size, timeout);
 }
 
-int Transport::read(json& json_data, std::chrono::milliseconds timeout) {
-	//先假读MsgHeader计算出数据长度，然后根据读出来的长度获取数据
-	std::vector<char> temp_buffer(segment_size_);
-	std::string reconstructed_data;
-	uint32_t msg_id;
-	while (true) {
-		//读header的length字段
-		uint32_t dataLen;
-		if (tcp_to_app_.peek(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout) < 0) {
-			return -1; // 超时
-		}
-		dataLen = ntohl(dataLen);
-		if (dataLen > segment_size_ || dataLen <= sizeof(uint32_t)) {
-			//somthing is wrong with the packet
-			std::cout << "wrong Msg size:" << dataLen << " skip the data" << std::endl;
-			return -2;
-		}
-
-		if (tcp_to_app_.read(temp_buffer.data(), dataLen, timeout)<0) {
-			std::cout << "read timeout\n";
-			return -1; // 读取超时
-		}
-
-		Msg msg = deserializeMsg(temp_buffer);
-		msg_id = msg.header.msg_id;
-		reconstructed_data.append(msg.payload.begin(), msg.payload.end());
-
-		if (msg.header.flag == 0) { // 最后一段
-			break;
-		}
-	}
-
-	json_data = json::parse(reconstructed_data);
-	return true;
-}
-
-int Transport::read_all(std::vector<json>& json_datas,  // 存储已完成的消息
+int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
     std::chrono::milliseconds timeout) 
 {
     std::vector<char> temp_buffer(segment_size_);
