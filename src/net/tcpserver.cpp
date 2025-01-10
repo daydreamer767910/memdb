@@ -1,7 +1,7 @@
 #include "tcpserver.hpp"
 #include "transportsrv.hpp"
 #include "log/logger.hpp"
-
+#include "server/dbtask.hpp"
 
 // 初始化连接计数
 std::atomic<int> TcpServer::connection_count(0);
@@ -15,7 +15,7 @@ TcpServer::TcpServer(const char* ip, int port):	loop_(uv_default_loop()),
     uv_tcp_init(loop_, &server);
     uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
 	server.data = this;
-	
+	std::cout << "TcpServer start" << std::endl;
 }
 
 TcpServer::~TcpServer() {
@@ -29,6 +29,7 @@ TcpServer::~TcpServer() {
         connections_.clear(); // 清空 map
     }
     uv_close((uv_handle_t*)&server, nullptr);
+	std::cout << "tcp server exit" << std::endl;
 }
 
 // 启动服务器
@@ -81,17 +82,16 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 			if (connection_count < TcpServer::max_connection_num) {
 				connection_count++;
 				unique_id++;
-				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client);
-				tcp_server->connections_.emplace(unique_id, connection);
 				//create transport for the connection
 				auto [port_id ,port] = transportSrv.open_port(TcpServer::transport_buff_szie,tcp_server->loop_);
-				
-				port->set_callback([connection](char* buffer, ssize_t nread) {
-						connection->on_poll(buffer,nread);
-					},connection->write_buf,sizeof(connection->write_buf));
-
+				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
+				tcp_server->connections_.emplace(unique_id, connection);
+				//auto dbtask = std::make_shared<DbTask>(port_id);
+				//port->add_callback(dbtask);
+				port->add_callback(connection);
 				connection->start(client, port_id);
-				
+				memcpy(connection->client_ip,client_ip,sizeof(connection->client_ip));
+				connection->client_port = client_port;
 				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
 					client_ip, client_port, port_id);
 			} else {
@@ -115,7 +115,7 @@ void TcpServer::on_timer() {
 		if (it != connections_.end()) {
 			connection_count--;
 			connections_.erase(it);
-			logger.log(Logger::LogLevel::INFO, "Idle erased, {} connections remain", connection_count );
+			logger.log(Logger::LogLevel::INFO, "Idle erased, {} connections remain", connection_count.load() );
 		} else {
 			break;
 		}

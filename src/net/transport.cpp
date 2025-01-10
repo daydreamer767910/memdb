@@ -6,9 +6,10 @@
 #include "transport.hpp"
 #include "util/util.hpp"
 
-Transport::Transport(size_t buffer_size, uv_loop_t* loop)
+Transport::Transport(size_t buffer_size, uv_loop_t* loop, uint32_t id)
 	: app_to_tcp_(buffer_size), 
-	tcp_to_app_(buffer_size), loop_(loop) {
+	tcp_to_app_(buffer_size), loop_(loop),
+    id_(id) {
 	if (pipe(pipe_fds) == -1) {
 		std::cerr << "pipe err" << std::endl;
 	}
@@ -17,15 +18,14 @@ Transport::Transport(size_t buffer_size, uv_loop_t* loop)
 	uv_poll_init(loop_,&poll_handle,pipe_fds[0]);
 	uv_poll_start(&poll_handle, UV_READABLE, Transport::process_event);
 	poll_handle.data = this;
-	output_callback_ = nullptr;
-	buffer_callback_ = nullptr;
-	size_callback_ = 0;
 }
 
 Transport::~Transport() {
 	uv_poll_stop(&poll_handle);
 	close(pipe_fds[0]);
 	close(pipe_fds[1]);
+    callbacks_.clear();
+    std::cout << "transport " << this->id_ << " exit" << std::endl;
 }
 
 void Transport::process_event(uv_poll_t* handle, int status, int events) {
@@ -39,26 +39,75 @@ void Transport::process_event(uv_poll_t* handle, int status, int events) {
 		if (transport)
 			::read(transport->pipe_fds[0], &signal, 1);
 		//callback...
-		if (signal == '1')
+		if (static_cast<ChannelType>(signal) == ChannelType::UP_LOW)
 			transport->on_send();
+        else if (static_cast<ChannelType>(signal) == ChannelType::LOW_UP) {
+            transport->on_input();
+        }
 	}
 }
+
 
 void Transport::on_send() {
 	//std::cout << "send signal\n";
-	if (output_callback_ && buffer_callback_ && size_callback_ > 0) {
-		while(true) {
-			int len = this->output(buffer_callback_,size_callback_,std::chrono::milliseconds(0));
-			if (len <=0 )
-				break;
-			output_callback_(buffer_callback_,len);
-		}
-	}
+	for (auto& callback : callbacks_) {
+        if (!callback) continue;
+        try {
+            // 获取回调绑定的数据
+            DataVariant& variant = callback->get_data();
+            // 使用 std::visit 处理不同类型
+            std::visit([this, &callback](auto&& data) {
+                using T = std::decay_t<decltype(data)>;
+                if constexpr (std::is_same_v<T, std::tuple<char*,int,uint32_t>>) {
+                    auto [buffer,buffer_size, port_id] = data;
+                    //printf("on_send size:%d port:%d\n",buffer_size, port_id);
+                    if (port_id == this->id_) {
+                        int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
+                        if (len > 0) {
+                            //printf("output len:%d port:%d\n",len, this->id_);
+                            callback->on_data_received(len);
+                        }
+                    }
+                }
+                // 如果未来有其他类型可以在这里扩展
+            }, variant);
+
+        } catch (const std::exception& e) {
+            std::cerr << "Callback processing error: " << e.what() << std::endl;
+        }
+    }
 }
 
-void Transport::triger_on_send() {
+void Transport::on_input() {
+	//std::cout << "input signal\n";
+    for (auto& callback : callbacks_) {
+        if (!callback) continue;
+        try {
+            // 获取回调绑定的数据
+            DataVariant& variant = callback->get_data();
+            // 使用 std::visit 处理不同类型
+            std::visit([this, &callback](auto&& data) {
+                using T = std::decay_t<decltype(data)>;
+                if constexpr (std::is_same_v<T, std::tuple<std::vector<json>*,uint32_t>>) {
+                    auto [json_data, port_id] = data;
+                    if (port_id == 0xffffffff || port_id == this->id_) {
+                        int len = this->read(*json_data, std::chrono::milliseconds(100));
+                        if (len > 0) {
+                            callback->on_data_received(this->id_);
+                        }
+                    }
+                }
+            }, variant);
+
+        } catch (const std::exception& e) {
+            std::cerr << "Callback processing error: " << e.what() << std::endl;
+        }
+    }
+}
+
+void Transport::triger_event(ChannelType type) {
 	// triger on_send 写入管道通知事件循环
-	const char signal = '1';
+	const char signal = static_cast<char>(type);
 	write(pipe_fds[1], &signal, sizeof(signal));
 }
 
@@ -182,7 +231,7 @@ int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::millise
 		if (app_to_tcp_.write(network_data.data(), network_data.size(), timeout)<0) {
 			return -1; // 写入超时
 		}
-		triger_on_send();
+		triger_event(ChannelType::UP_LOW);
 		
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
 		offset += chunk_size;
@@ -204,7 +253,9 @@ int Transport::output(char* buffer, size_t size, std::chrono::milliseconds timeo
 int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
 	//std::cout << "tcpReceive: \n";
 	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
-	return tcp_to_app_.write(buffer, size, timeout);
+	int ret = tcp_to_app_.write(buffer, size, timeout);
+    if (ret > 0) triger_event(ChannelType::LOW_UP);
+    return ret;
 }
 
 int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息

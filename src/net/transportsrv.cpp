@@ -13,7 +13,7 @@ TransportSrv::~TransportSrv() {
     // 遍历并清理所有连接
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        //std::cout << "TransportSrv instance destroyed!" << std::endl;
+        std::cout << "TransportSrv instance destroyed!" << std::endl;
         ports_.clear(); // 清空 map
     }
 }
@@ -43,8 +43,9 @@ trans_pair TransportSrv::open_port(size_t buffer_size, uv_loop_t* loop) {
 	std::lock_guard<std::mutex> lock(mutex_);
 	ports_count++;
 	unique_id++;
-	auto port = std::make_shared<Transport>(buffer_size,loop);
+	auto port = std::make_shared<Transport>(buffer_size,loop,unique_id);
 	ports_.emplace(unique_id, port);
+    this->notify_new_transport(port);
 	return std::make_pair(unique_id,port);
 }
 
@@ -53,7 +54,7 @@ void TransportSrv::close_port(uint32_t port_id) {
 	// 使用 unordered_map 的 find 方法快速查找
     auto it = ports_.find(port_id);
     if (it != ports_.end()) {
-        std::cout << "port[" << port_id << "] erased" << std::endl;
+        std::cout << "transport[" << port_id << "] erased from list" << std::endl;
         ports_.erase(it);  // 从容器中移除
         --ports_count;     // 更新端口计数
     }

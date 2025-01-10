@@ -28,13 +28,6 @@ public:
         return os;
     }
 
-    virtual ~ThreadBase(){
-        if (this->status_ != task_status::TERMINATE)
-            terminate();
-        if (this->thread_.joinable()) {
-            this->thread_.join();  // 等待线程结束
-		}
-	}
     // 启动单线程,有可能运行2个任务:消息队列处理和定时器,2个任务下定时器会出现误差
     virtual void start() {
         {
@@ -99,6 +92,13 @@ public:
 protected:
     ThreadBase() : status_(task_status::INIT) {
         
+	}
+    virtual ~ThreadBase(){
+        if (this->status_ != task_status::TERMINATE)
+            terminate();
+        if (this->thread_.joinable()) {
+            this->thread_.join();  // 等待线程结束
+		}
 	}
     // 处理消息接口
     virtual void on_msg(const std::shared_ptr<std::variant<MSG...>> msg) = 0;

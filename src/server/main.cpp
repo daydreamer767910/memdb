@@ -22,7 +22,6 @@ auto server = TcpServer("0.0.0.0", 7899);
 void signal_handler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
-        dbSrv.terminate();
         logger.terminate();
         server.stop();
     }
@@ -38,8 +37,8 @@ int main() {
     logger.enable_console_output(true);
     logger.start();
     logger.log(Logger::LogLevel::INFO, "MDB service started ");
-
-    dbSrv.start();
+    DBService::getInstance()->start();
+    transportSrv.add_observer(DBService::getInstance());
     // 启动 TCP 服务器
     server.start();
 

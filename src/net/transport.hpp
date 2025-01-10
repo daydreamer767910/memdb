@@ -9,15 +9,19 @@
 #include <condition_variable>
 #include <stdexcept>
 #include <thread>
+#include <variant>
+#include <functional>
+#include <typeindex>
 #include <uv.h>
 #include <unordered_map>
+#include <type_traits>
 #include <nlohmann/json.hpp> // 使用 nlohmann/json 库解析 JSON
 #include "util/msgbuffer.hpp"
 
 
 using json = nlohmann::json;
-using transport_callback = std::function<void(char* buffer, int len)>;
-
+using transport_callback = std::function<void(char* buffer, int len, uint32_t port_id)>;
+using transport_onread = std::function<void(std::vector<json>* json_datas, uint32_t port_id)>;
 
 // Msg 结构定义
 struct MsgHeader {
@@ -45,6 +49,23 @@ struct MessageBuffer {
     std::chrono::steady_clock::time_point last_update; // 最近更新的时间
 };
 
+
+// 定义数据类型的别名
+// 定义可以在回调中处理的数据类型
+using DataVariant = std::variant<
+    std::tuple<char*, int, uint32_t>, 
+    std::tuple<std::vector<json>*, uint32_t>
+>;
+
+// 定义接口类
+class IDataCallback {
+public:
+    virtual void on_data_received(int result) = 0;  // 回调处理逻辑
+    virtual DataVariant& get_data() = 0;  // 获取数据缓存
+    virtual ~IDataCallback() = default; // 虚析构函数
+};
+
+
 class Transport {
 public:
     enum class ChannelType {
@@ -52,13 +73,15 @@ public:
         LOW_UP,
         ALL
     };
-    Transport(size_t buffer_size, uv_loop_t* loop);
+    Transport(size_t buffer_size, uv_loop_t* loop, uint32_t port_id = 0);
     ~Transport();
 
-    void set_callback(transport_callback cb,char* cb_buf, size_t cb_size) {
-        output_callback_ = cb;
-        buffer_callback_ = cb_buf;
-        size_callback_ = cb_size;
+    uint32_t get_id() {
+        return id_;
+    }
+    // 添加回调
+    void add_callback(const std::shared_ptr<IDataCallback>& callback) {
+        callbacks_.push_back(callback);
     }
 
     // 1. APP 缓存到下行 CircularBuffer
@@ -89,15 +112,17 @@ private:
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据
     uv_loop_t* loop_;
+    uint32_t id_;
     uv_poll_t poll_handle;
     int pipe_fds[2];
-    transport_callback output_callback_;
-    char* buffer_callback_;
-    size_t size_callback_;
+    
+    std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
 
-    void triger_on_send();
+    void triger_event(ChannelType type);
     void on_send();
+    void on_input();
     static void process_event(uv_poll_t* handle, int status, int events);
+
 	// 计算校验和
 	uint32_t calculateChecksum(const std::vector<char>& data);
 

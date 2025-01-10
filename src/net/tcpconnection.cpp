@@ -79,12 +79,5 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read out");
 }
 
-void TcpConnection::on_poll(char* buffer, ssize_t nread) {
-	if (nread>0) {
-		//send to client socket
-		write(buffer,nread);
-	} else {
-		//normaly should never happen
-	}
-}
+
 
