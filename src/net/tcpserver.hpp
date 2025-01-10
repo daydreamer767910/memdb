@@ -25,17 +25,19 @@
 class TcpServer {
 public:
     TcpServer(const char* ip, int port);
-	~TcpServer();
+	~TcpServer() {
+        std::cout << "tcp server destoryed!" << std::endl;
+    }
     // 启动服务器
     void start();
     void stop();
     // 处理新连接
     static void on_new_connection(uv_stream_t* server, int status);
-
-    // 处理事务
+    // 处理废弃连接
     void on_timer();
-
 private:
+    void cleanup();
+
     static constexpr uint32_t transport_buff_szie = 4096;
     static constexpr uint16_t max_connection_num = 4096;
     uv_loop_t* loop_;
@@ -46,6 +48,7 @@ private:
     static std::atomic<uint32_t> unique_id;
     static std::atomic<int> connection_count;  // 连接数
 	std::unordered_map<uint32_t, std::shared_ptr<TcpConnection>> connections_;
+
 };
 
 #endif

@@ -28,7 +28,15 @@ public:
 
 class TransportSrv {
 public:
-    static TransportSrv& get_instance();
+using ptr = std::shared_ptr<TransportSrv>;
+    static ptr& get_instance(){
+		static ptr instance(new TransportSrv());
+		return instance;
+	};
+	TransportSrv() {
+		std::cout << "TransportSrv start" << std::endl;
+	};
+    ~TransportSrv();
 
 	void add_observer(const std::shared_ptr<ITransportObserver>& observer) {
         observers_.push_back(observer);
@@ -37,21 +45,16 @@ public:
 	//获取所有打开的 port_id 列表
     std::vector<uint32_t> get_all_ports();
 
-	trans_pair open_port(size_t buffer_size, uv_loop_t* loop);
+	trans_pair open_port(uv_loop_t* loop);
 	void close_port(uint32_t port_id);
 	std::shared_ptr<Transport> get_port(uint32_t port_id);
 private:
-    TransportSrv() {
-		std::cout << "TransportSrv start" << std::endl;
-	};
-    ~TransportSrv();
-
 	void notify_new_transport(const std::shared_ptr<Transport>& transport) {
         for (const auto& observer : observers_) {
             observer->on_new_transport(transport);
         }
     }
-
+	static constexpr size_t transport_buff_szie = 1024*9; //9K
 	std::mutex mutex_;
 	static uint32_t unique_id;
 	static std::atomic<uint32_t> ports_count;  // 连接数
@@ -60,6 +63,5 @@ private:
 	std::vector<std::shared_ptr<ITransportObserver>> observers_;
 
 };
-extern TransportSrv& transportSrv; // 声明全局变量
 
 #endif

@@ -9,7 +9,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 		auto [msg_type,transport,jsonData] = message;
 		//logger.log(Logger::LogLevel::INFO, "dbservice on_msg {} {}",msg_type,transport);
 		if (msg_type == 1 ) { 
-			auto port = TransportSrv::get_instance().get_port(transport);
+			auto port = TransportSrv::get_instance()->get_port(transport);
 			if (port) {
 				int ret = port->send(jsonData, msg_id++ ,std::chrono::milliseconds(100));
 				if (ret<0) {
@@ -19,7 +19,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 				}
 			}
 		} else if (msg_type == 0 ) {
-			auto port = TransportSrv::get_instance().get_port(transport);
+			auto port = TransportSrv::get_instance()->get_port(transport);
 			if (port) {
 				int ret = port->send(jsonData, 0xffffffff ,std::chrono::milliseconds(100));
 				if (ret<0) {
@@ -33,7 +33,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 }
 
 void DBService::on_timer() {
-	auto port_ids = TransportSrv::get_instance().get_all_ports();
+	auto port_ids = TransportSrv::get_instance()->get_all_ports();
 
 	json jsonData;
 	for (int port_id : port_ids) {

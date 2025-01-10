@@ -93,7 +93,7 @@ int main() {
     jsonData["action"] = "insert";
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
-    for (int i=0;i<50;i++) {
+    for (int i=0;i<100;i++) {
         json row;
         row["id"] = i;
         row["name"] = "test name" + std::to_string(i);

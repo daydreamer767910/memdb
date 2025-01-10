@@ -21,7 +21,9 @@ public:
 	DbTask(uint32_t port_id):port_id_(port_id) {
 	}
 	~DbTask() {
-		std::cout << "DB task exit" << std::endl;
+	#ifdef DEBUG
+		std::cout << "DB task " << port_id_ << " destoryed" << std::endl;
+	#endif
 	}
 
 private:

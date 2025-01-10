@@ -18,19 +18,6 @@ TcpServer::TcpServer(const char* ip, int port):	loop_(uv_default_loop()),
 	std::cout << "TcpServer start" << std::endl;
 }
 
-TcpServer::~TcpServer() {
-	//timer.stop();
-	// 遍历并清理所有连接
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto& [tcp, connection] : connections_) {
-			connection->stop();
-        }
-        connections_.clear(); // 清空 map
-    }
-    uv_close((uv_handle_t*)&server, nullptr);
-	std::cout << "tcp server exit" << std::endl;
-}
 
 // 启动服务器
 void TcpServer::start() {
@@ -46,8 +33,19 @@ void TcpServer::start() {
 }
 
 void TcpServer::stop() {
+	// 遍历并清理所有连接
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& [_ , connection] : connections_) {
+			connection->stop();
+        }
+        cleanup(); // 清空 map
+    }
 	uv_stop(loop_);
+	uv_close((uv_handle_t*)&server, nullptr);
+	std::cout << "tcp server stop" << std::endl;
 }
+
 // 处理新连接
 void TcpServer::on_new_connection(uv_stream_t* server, int status) {
     if (status < 0) {
@@ -83,17 +81,15 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 				connection_count++;
 				unique_id++;
 				//create transport for the connection
-				auto [port_id ,port] = transportSrv.open_port(TcpServer::transport_buff_szie,tcp_server->loop_);
-				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_id);
+				auto port_info = TransportSrv::get_instance()->open_port(tcp_server->loop_);
+				auto connection = std::make_shared<TcpConnection>(tcp_server->loop_, client,port_info);
 				tcp_server->connections_.emplace(unique_id, connection);
-				//auto dbtask = std::make_shared<DbTask>(port_id);
-				//port->add_callback(dbtask);
-				port->add_callback(connection);
-				connection->start(client, port_id);
+				port_info.second->add_callback(connection);
+				connection->start();
 				memcpy(connection->client_ip,client_ip,sizeof(connection->client_ip));
 				connection->client_port = client_port;
-				logger.log(Logger::LogLevel::INFO,"New connection[{}:{}]:transport[{}]",
-					client_ip, client_port, port_id);
+				logger.log(Logger::LogLevel::INFO,"New connection[{}][{}:{}]:transport[{}]",
+					unique_id,client_ip, client_port, port_info.first);
 			} else {
 				uv_close((uv_handle_t*)client, nullptr);
 				delete client;
@@ -102,6 +98,15 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 			uv_close((uv_handle_t*)client, nullptr);
 			delete client;
 		}
+	}
+}
+
+void TcpServer::cleanup() {
+	for (auto it = connections_.begin(); it != connections_.end(); ) {
+		connection_count--;
+		TransportSrv::get_instance()->close_port(it->second->transport_id_);
+		std::cout << "connections " << it->first << " earsed from list" << std::endl;
+		it = connections_.erase(it);
 	}
 }
 
@@ -114,8 +119,10 @@ void TcpServer::on_timer() {
                            [](const auto& pair) { return pair.second->is_idle() ; });
 		if (it != connections_.end()) {
 			connection_count--;
+			TransportSrv::get_instance()->close_port(it->second->transport_id_);
+			logger.log(Logger::LogLevel::INFO, "connections {} earsed from list", it->first );
 			connections_.erase(it);
-			logger.log(Logger::LogLevel::INFO, "Idle erased, {} connections remain", connection_count.load() );
+			logger.log(Logger::LogLevel::INFO, "{} connections remain", connection_count.load() );
 		} else {
 			break;
 		}

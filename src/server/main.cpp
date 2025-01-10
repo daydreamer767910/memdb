@@ -16,13 +16,14 @@
 #include "server/dbservice.hpp"
 
 
-
+DBService::ptr db_server = DBService::getInstance();
+TransportSrv::ptr tranport_server = TransportSrv::get_instance();
 auto server = TcpServer("0.0.0.0", 7899);
 
 void signal_handler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
-        logger.terminate();
+        //logger.terminate();
         server.stop();
     }
 }
@@ -36,9 +37,9 @@ int main() {
     // 启用/禁用控制台输出
     logger.enable_console_output(true);
     logger.start();
-    logger.log(Logger::LogLevel::INFO, "MDB service started ");
-    DBService::getInstance()->start();
-    transportSrv.add_observer(DBService::getInstance());
+    
+    db_server->start();
+    tranport_server->add_observer(db_server);
     // 启动 TCP 服务器
     server.start();
 

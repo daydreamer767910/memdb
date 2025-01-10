@@ -75,7 +75,7 @@ public:
     };
     Transport(size_t buffer_size, uv_loop_t* loop, uint32_t port_id = 0);
     ~Transport();
-
+    void stop();
     uint32_t get_id() {
         return id_;
     }

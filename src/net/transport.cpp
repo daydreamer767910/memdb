@@ -21,11 +21,17 @@ Transport::Transport(size_t buffer_size, uv_loop_t* loop, uint32_t id)
 }
 
 Transport::~Transport() {
-	uv_poll_stop(&poll_handle);
+    #ifdef DEBUG
+	std::cout << "transport " << this->id_ << " destoryed" << std::endl;
+    #endif
+}
+
+void Transport::stop() {
+    uv_poll_stop(&poll_handle);
 	close(pipe_fds[0]);
 	close(pipe_fds[1]);
     callbacks_.clear();
-    std::cout << "transport " << this->id_ << " exit" << std::endl;
+    std::cout << "transport " << this->id_ << " stop" << std::endl;
 }
 
 void Transport::process_event(uv_poll_t* handle, int status, int events) {
@@ -52,29 +58,24 @@ void Transport::on_send() {
 	//std::cout << "send signal\n";
 	for (auto& callback : callbacks_) {
         if (!callback) continue;
-        try {
-            // 获取回调绑定的数据
-            DataVariant& variant = callback->get_data();
-            // 使用 std::visit 处理不同类型
-            std::visit([this, &callback](auto&& data) {
-                using T = std::decay_t<decltype(data)>;
-                if constexpr (std::is_same_v<T, std::tuple<char*,int,uint32_t>>) {
-                    auto [buffer,buffer_size, port_id] = data;
-                    //printf("on_send size:%d port:%d\n",buffer_size, port_id);
-                    if (port_id == this->id_) {
-                        int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
-                        if (len > 0) {
-                            //printf("output len:%d port:%d\n",len, this->id_);
-                            callback->on_data_received(len);
-                        }
+        // 获取回调绑定的数据
+        DataVariant& variant = callback->get_data();
+        // 使用 std::visit 处理不同类型
+        std::visit([this, &callback](auto&& data) {
+            using T = std::decay_t<decltype(data)>;
+            if constexpr (std::is_same_v<T, std::tuple<char*,int,uint32_t>>) {
+                auto [buffer,buffer_size, port_id] = data;
+                //printf("on_send size:%d port:%d\n",buffer_size, port_id);
+                if (port_id == this->id_) {
+                    int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
+                    if (len > 0) {
+                        //printf("output len:%d port:%d\n",len, this->id_);
+                        callback->on_data_received(len);
                     }
                 }
-                // 如果未来有其他类型可以在这里扩展
-            }, variant);
-
-        } catch (const std::exception& e) {
-            std::cerr << "Callback processing error: " << e.what() << std::endl;
-        }
+            }
+            // 如果未来有其他类型可以在这里扩展
+        }, variant);
     }
 }
 

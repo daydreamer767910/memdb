@@ -31,7 +31,9 @@ public:
 	}
 	
 	~DBService() {
-		std::cout << "DB service exit" << std::endl;
+		#ifdef DEBUG
+		std::cout << "DB service destoryed!" << std::endl;
+		#endif
 	}
 	DBService(const DBService&) = delete;
     DBService& operator=(const DBService&) = delete;
