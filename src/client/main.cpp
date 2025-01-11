@@ -7,34 +7,43 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
+#include "tcpclient.hpp"
+#include "mdbclient.hpp"
 
-Logger& logger = Logger::get_instance(); // 定义全局变量
-auto transport = std::make_shared<Transport>(4096,uv_default_loop());
-int reconnect() {
-    int sock = 0;
-    struct sockaddr_in server_address;
+boost::asio::io_context io_context;
 
-    // 创建 socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        std::cerr << "Socket creation error\n";
-        return -1;
-    }
+// 创建 TcpClient 对象
+std::string host = "127.0.0.1";
+std::string port = "7899";
+auto client_ptr = MdbClient::create(io_context, host, port);
 
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(7899);
-
-    // 转换 IP 地址
-    if (inet_pton(AF_INET, "127.0.0.1", &server_address.sin_addr) <= 0) {
-        std::cerr << "Invalid address/ Address not supported\n";
-        return -1;
-    }
-
+int init() {
     // 连接到服务器
-    while (connect(sock, (struct sockaddr*)&server_address, sizeof(server_address)) < 0) {
-        std::cerr << "Connection Failed\n";
-        sleep(1);
+    MdbClient::start(client_ptr);
+    return 0;
+}
+
+int test(const std::string jsonConfig) {
+    // 写操作，支持超时
+    
+    json jsonData = nlohmann::json::parse(jsonConfig);
+    if (client_ptr->send(jsonData,1, 1000)<0) {
+        std::cerr << "Write operation failed." << std::endl;
+        return 1;
     }
-    return sock;
+    // 读操作，支持超时
+    std::vector<json> jsonDatas;
+    if (client_ptr->recv(jsonDatas, 2000)<0) {
+        std::cerr << "Read operation failed." << std::endl;
+        return 1;
+    }
+
+    for (auto recvJson : jsonDatas) {
+        printf("APP RECV[%d]:\r\n",jsonDatas.size());
+        std::cout << recvJson.dump(4) << std::endl;
+    }
+    return 0;
+    
 }
 
 void create_tbl() {
@@ -51,8 +60,7 @@ void create_tbl() {
         ]
     })";
     
-    json jsonData = nlohmann::json::parse(jsonConfig);
-    transport->send(jsonData,1,std::chrono::milliseconds(1000));
+    test(jsonConfig);
 }
 
 void show_tbl() {
@@ -61,8 +69,7 @@ void show_tbl() {
         "action": "show tables"
     })";
     
-    json jsonData = nlohmann::json::parse(jsonConfig);
-    transport->send(jsonData,2,std::chrono::milliseconds(1000));
+    test(jsonConfig);
 }
 
 void insert_tbl() {
@@ -80,99 +87,36 @@ void insert_tbl() {
         jsonRows.push_back(row);
     }
     jsonData["rows"] = jsonRows;
-    //jsonData = nlohmann::json::parse(jsonConfig);
-    transport->send(jsonData,3,std::chrono::milliseconds(1000));
+
+    std::string jsonConfig = jsonData.dump(1);
+    test(jsonConfig);
 }
 
-void get_tbl() {
-
-//4.show rows
+void get() {
     std::string jsonConfig = R"({
         "action": "get",
         "name": "client-test"
     })";
-    
-    json jsonData = nlohmann::json::parse(jsonConfig);
-    transport->send(jsonData,4,std::chrono::milliseconds(1000));
+    test(jsonConfig);
 }
 
+
+
 int main(int argc, char* argv[]) {
-
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <cmd>" << std::endl;
-        return 1;
+    std::thread mdbclient(init);
+    sleep(2);
+    create_tbl();
+    show_tbl();
+    insert_tbl();
+    while(true) {
+        get();
+        sleep(10);
     }
-    std::string cmd = argv[1];
-
-    int sock = reconnect();
-    
-//0.app read timer
-    Timer timer(uv_default_loop(), 1000, 50, [&]() {
-        std::vector<json> json_datas;
-        if(transport->read(json_datas,std::chrono::milliseconds(1000)) >0 ) {
-            for (auto recvJson : json_datas) {
-                printf("APP RECV[%d]:\r\n",json_datas.size());
-                std::cout << recvJson.dump(4) << std::endl;
-            }
-        }
-    });
-//0.transport layer time
-    Timer timer1(uv_default_loop(), 1000, 10, [&]() {
-        char packet[1460] = {};
-        int len = transport->output(packet,sizeof(packet),std::chrono::milliseconds(10));
-        if(len>0) {
-            send(sock, packet, len, 0);
-            printf("TCP SEND:\r\n");
-            print_packet((const uint8_t*)(packet),len);
-        }
-    });
-//0.tcp read timer
-    Timer timer2(uv_default_loop(), 1000, 100, [&]() {
-        // 接收响应
-        char buffer[1024] = {0};
-        
-        ssize_t bytes_read = read(sock, buffer, sizeof(buffer));
-        if (bytes_read > 0) {
-            printf("TCP RECV:\r\n");
-            print_packet((const uint8_t*)buffer,bytes_read);
-            transport->input(buffer,bytes_read,std::chrono::milliseconds(1000));
-        } else if (bytes_read == 0) {
-            // 对端关闭连接
-            std::cout << "Connection closed by peer." << std::endl;
-            close(sock);
-            sleep(5);
-            sock = reconnect();
-        } else {
-            // 读取发生错误，检查 errno
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                std::cout << "No data available now, try again later." << std::endl;
-            } else if (errno == EINTR) {
-                std::cout << "Interrupted by signal, retrying." << std::endl;
-            } else {
-                std::cerr << "Read error: " << strerror(errno) << std::endl;
-                close(sock);
-                sleep(5);
-                sock = reconnect();
-            }
-            ;
-        }
-    });    
-    if (cmd == "create") {
-        create_tbl();
-    } else if (cmd == "show") {
-        show_tbl();
-    } else if (cmd == "insert") {
-        insert_tbl();
-    } else if (cmd == "get") {
-        get_tbl();
+    if (mdbclient.joinable()) {
+        mdbclient.join();
     }
-
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-    timer.stop();
     // 关闭连接
-    close(sock);
-    auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    std::cout << "Sleeping until a specific time...\n";
-    std::this_thread::sleep_until(wake_up_time);
+    client_ptr->stop();
+    
     return 0;
 }

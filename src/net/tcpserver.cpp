@@ -89,7 +89,7 @@ void TcpServer::on_new_connection(uv_stream_t* server, int status) {
 				memcpy(connection->client_ip,client_ip,sizeof(connection->client_ip));
 				connection->client_port = client_port;
 				logger.log(Logger::LogLevel::INFO,"New connection[{}][{}:{}]:transport[{}]",
-					unique_id,client_ip, client_port, port_info.first);
+					unique_id.load(),client_ip, client_port, port_info.first);
 			} else {
 				uv_close((uv_handle_t*)client, nullptr);
 				delete client;

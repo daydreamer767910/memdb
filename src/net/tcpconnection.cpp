@@ -71,7 +71,7 @@ void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* 
 		connection->stop();
 	} else {
 #ifdef DEBUG
-		printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
+		printf("[%s]TCP[%d] RECV[%ld]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
 		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
 #endif
 		if (connection->transport_ && nread > 0) {

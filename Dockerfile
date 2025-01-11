@@ -32,7 +32,7 @@ FROM skeleton AS build
 
 # 安装 C++ 编译工具和 CMake
 RUN apt-get update && apt-get install -y \
-    build-essential cmake libuv1-dev nlohmann-json3-dev pkg-config && \
+    build-essential cmake libuv1-dev nlohmann-json3-dev pkg-config libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # 复制项目源代码

@@ -45,7 +45,7 @@ using ptr = std::shared_ptr<TransportSrv>;
 	//获取所有打开的 port_id 列表
     std::vector<uint32_t> get_all_ports();
 
-	trans_pair open_port(uv_loop_t* loop);
+	trans_pair open_port(uv_loop_t* loop = nullptr);
 	void close_port(uint32_t port_id);
 	std::shared_ptr<Transport> get_port(uint32_t port_id);
 private:

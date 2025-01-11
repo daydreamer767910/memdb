@@ -38,7 +38,8 @@ trans_pair TransportSrv::open_port(uv_loop_t* loop) {
 	std::lock_guard<std::mutex> lock(mutex_);
 	ports_count++;
 	unique_id++;
-	auto port = std::make_shared<Transport>(transport_buff_szie,loop,unique_id);
+    uv_loop_t* loop_ = loop?loop:uv_default_loop();
+	auto port = std::make_shared<Transport>(transport_buff_szie,loop_,unique_id);
 	ports_.emplace(unique_id, port);
     this->notify_new_transport(port);
 	return std::make_pair(unique_id,port);
