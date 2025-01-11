@@ -34,7 +34,10 @@ int32_t TcpConnection::write(const char* data,ssize_t length) {
 	if (ret < 0) {
 		logger.log(Logger::LogLevel::ERROR,"write err {}: {}" ,ret, uv_strerror(ret));
 		free(write_req);
-		stop();
+		if (ret == UV_ECONNRESET || ret == UV_EPIPE) {
+			std::cerr << "write err " << uv_strerror(ret) << " and close the connection" << std::endl;
+			stop();
+		}
 	}
 #ifdef DEBUG
 	printf("[%s]TCP[%d] SEND: \r\n", get_timestamp().c_str(), transport_id_);
@@ -50,8 +53,9 @@ void TcpConnection::on_write(uv_write_t* req, int status) {
 		logger.log(Logger::LogLevel::ERROR,"Write error {}: {}",status,uv_strerror(status));
 	}
 	free(req);  // 释放写请求
-	if (status == UV_EPIPE) {
-		logger.log(Logger::LogLevel::ERROR,"Connection closed by peer.");
+	if (status == UV_ECONNRESET || status == UV_EPIPE) {
+		auto connection = static_cast<TcpConnection*>(req->data);
+		connection->stop();
 	}
 }
 
@@ -59,24 +63,21 @@ void TcpConnection::on_write(uv_write_t* req, int status) {
 void TcpConnection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 	//logger.log(Logger::LogLevel::INFO, "TcpConnection::on_read in");
 	auto connection = static_cast<TcpConnection*>(client->data);
-	if (nread < 0) {
+	if (nread == 0) {
+		std::cerr << "Read error " << uv_strerror(nread) << std::endl;
+	}
+	else if (nread < 0) {
 		logger.log(Logger::LogLevel::ERROR,"Read error({}): {}",nread,uv_strerror(nread));
-		if (nread == UV_EOF) {
-			printf("Read error(%d): {%s}\n",nread,uv_strerror(nread));
-			connection->stop();
-		}
+		connection->stop();
 	} else {
 #ifdef DEBUG
 		printf("[%s]TCP[%d] RECV[%d]: \r\n", get_timestamp().c_str(), connection->transport_id_,nread);
 		print_packet(reinterpret_cast<const uint8_t*>(buf->base),nread);
 #endif
-		if (connection->transport_) {
+		if (connection->transport_ && nread > 0) {
 			int ret = connection->transport_->input(buf->base, nread,std::chrono::milliseconds(100));
-			if (ret == 0) {
-				logger.log(Logger::LogLevel::ERROR, "transport is unavailable for TCP recv");
-			}
-			else if (ret < 0) {
-				logger.log(Logger::LogLevel::WARNING, "CircularBuffer full, data discarded");
+			if (ret <= 0) {
+				logger.log(Logger::LogLevel::WARNING, "write CircularBuffer err {}, {} bytes data discarded",ret,nread);
 			}
 		} 		
 	}
