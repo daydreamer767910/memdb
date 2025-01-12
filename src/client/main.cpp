@@ -27,6 +27,7 @@ bool exiting = false;
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
     int ret = 0;
+    
     ret = mdb_send(jsonConfig.c_str(),1, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed." << std::endl;
@@ -36,6 +37,7 @@ int test(const std::string jsonConfig) {
         }
         return ret;
     }
+    
     // 读操作，支持超时
     char buffer[1024*10] = {};
     ret = mdb_recv(buffer, sizeof(buffer) , 2000);

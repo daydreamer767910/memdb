@@ -2,6 +2,7 @@
 #define TCPCLIENT_HPP
 
 #include <boost/asio.hpp>
+#include <boost/bind.hpp>
 #include <iostream>
 #include <string>
 #include <chrono>
@@ -10,6 +11,16 @@
 #define TCP_BUFFER_SIZE 1460
 
 class TcpClient {
+protected:
+	virtual void handle_read(const boost::system::error_code& error, size_t nread) = 0;
+	void set_async_read(char* buf, size_t buf_size) {
+		socket_.async_read_some(
+			boost::asio::buffer(buf, buf_size),
+			[this](const boost::system::error_code& error, std::size_t nread) {
+				this->handle_read(error, nread);
+			}
+		);
+	}
 public:
     TcpClient(boost::asio::io_context& io_context)
         : io_context_(io_context), socket_(io_context), timer_(io_context) {}
@@ -128,10 +139,12 @@ public:
 
     // 关闭接口
     void close() {
-        if (socket_.is_open()) {
+        try {
 			socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 			socket_.close();
 			std::cout << "Connection closed." << std::endl;
+		} catch (const std::exception& e) {
+			std::cerr << "Exception during lose: " << e.what() << std::endl;
 		}
     }
 
