@@ -200,11 +200,10 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
 }
 
 
-int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::milliseconds timeout) {
-	std::string serialized = json_data.dump();
-	size_t total_size = serialized.size();
+int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout) {
+	size_t total_size = data.size();
 	size_t segment_id = 0;
-	//std::cout << "appSend:" << serialized << std::endl;
+	//std::cout << "appSend:" << data << std::endl;
 	size_t offset = 0;
 	while (offset < total_size) {
 		size_t chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
@@ -220,7 +219,7 @@ int Transport::send(const json& json_data, uint32_t msg_id, std::chrono::millise
 		}
 		
 
-		msg.payload.assign(serialized.begin() + offset, serialized.begin() + offset + chunk_size);
+		msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
 		msg.footer.checksum = calculateChecksum(msg.payload);
         // Print CRC in hexadecimal format
         /*std::cout << "CRC32: 0x" << std::hex 

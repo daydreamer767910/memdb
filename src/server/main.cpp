@@ -18,7 +18,7 @@
 
 DBService::ptr db_server = DBService::getInstance();
 TransportSrv::ptr tranport_server = TransportSrv::get_instance();
-auto server = TcpServer("0.0.0.0", 7899);
+auto server = TcpServer("0.0.0.0", 7900);
 
 void signal_handler(int signal) {
     if (signal == SIGINT) {

@@ -82,9 +82,9 @@ void MdbClient::on_data_received(int result) {
 	}
 }
 
-int MdbClient::send(const json& json_data, uint32_t msg_id, uint32_t timeout) {
+int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) {
 	try {
-        return transport_->send(json_data,4,std::chrono::milliseconds(timeout));
+        return transport_->send(data,4,std::chrono::milliseconds(timeout));
     } catch (const std::exception& e) {
         std::cerr << "Send error: " << e.what() << std::endl;
         return false;

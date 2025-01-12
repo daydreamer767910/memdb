@@ -11,41 +11,47 @@
 #include "mdbclient.hpp"
 
 extern "C" {
-    MdbClient::ptr init();
+    void mdb_init();
+    void mdb_stop();
+    int mdb_start(const char* ip, int port);
+    int mdb_reconnect(const char* ip, int port);
+    int mdb_recv(char* buffer, int size, int timeout);
+    int mdb_send(const char* json_strdata, int msg_id, int timeout);
 }
 
-MdbClient::ptr client_ptr = init();
 
+const char ip[] = "127.0.0.1";
+int port = 7900;
 bool exiting = false;
 
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
     int ret = 0;
-    json jsonData = nlohmann::json::parse(jsonConfig);
-    ret = client_ptr->send(jsonData,1, 1000);
+    ret = mdb_send(jsonConfig.c_str(),1, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed." << std::endl;
         if (ret == -2) {
-            client_ptr->reconnect("127.0.0.1","7899");
+            mdb_reconnect(ip,port);
             return 0;
         }
         return ret;
     }
     // 读操作，支持超时
-    std::vector<json> jsonDatas;
-    ret = client_ptr->recv(jsonDatas, 2000);
+    char buffer[1024*10] = {};
+    ret = mdb_recv(buffer, sizeof(buffer) , 2000);
     if (ret<0) {
         std::cerr << "Read operation failed." << std::endl;
         if (ret == -2) {
-            client_ptr->reconnect("127.0.0.1","7899");
+            mdb_reconnect(ip,port);
             return 0;
         }
         return ret;
     }
 
-    for (auto recvJson : jsonDatas) {
-        printf("APP RECV[%d]:\r\n",jsonDatas.size());
-        std::cout << recvJson.dump(4) << std::endl;
+    if (ret>0) {
+        printf("APP RECV[%d]:\r\n",ret);
+        json jsonData = json::parse(buffer);
+        std::cout << jsonData.dump(2) << std::endl;
     }
     return ret;
     
@@ -116,8 +122,8 @@ void signal_handler(int signal) {
 int main(int argc, char* argv[]) {
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
-
-    while(client_ptr->start("127.0.0.1","7899")<0) {
+    mdb_init();
+    while(mdb_start(ip,port)<0) {
         sleep(3);
         if(exiting) goto EXIT;
     }
@@ -131,7 +137,7 @@ int main(int argc, char* argv[]) {
     }
     
     // 关闭连接
-    client_ptr->stop();
+    mdb_stop();
 EXIT:
     return 0;
 }

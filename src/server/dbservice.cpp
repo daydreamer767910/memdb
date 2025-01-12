@@ -11,7 +11,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 		if (msg_type == 1 ) { 
 			auto port = TransportSrv::get_instance()->get_port(transport);
 			if (port) {
-				int ret = port->send(jsonData, msg_id++ ,std::chrono::milliseconds(100));
+				int ret = port->send(jsonData.dump(), msg_id++ ,std::chrono::milliseconds(100));
 				if (ret<0) {
 					logger.log(Logger::LogLevel::WARNING, "appSend fail, data full");
 				} else {
@@ -21,7 +21,7 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 		} else if (msg_type == 0 ) {
 			auto port = TransportSrv::get_instance()->get_port(transport);
 			if (port) {
-				int ret = port->send(jsonData, 0xffffffff ,std::chrono::milliseconds(100));
+				int ret = port->send(jsonData.dump(), 0xffffffff ,std::chrono::milliseconds(100));
 				if (ret<0) {
 					logger.log(Logger::LogLevel::WARNING, "appSend fail, data full");
 				} else {
