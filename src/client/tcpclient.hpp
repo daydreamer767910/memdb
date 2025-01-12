@@ -27,6 +27,10 @@ public:
         }
     }
 
+	bool is_connected() const {
+		return socket_.is_open();
+	}
+
     // 读接口，支持超时
     int read_with_timeout(char* buffer, size_t length, int timeout_ms) {
 		boost::system::error_code ec;
@@ -57,7 +61,12 @@ public:
 			}
 
 			if (ec) {
-				std::cerr << "Read error: " << ec.message() << std::endl;
+				std::cerr << "Read error: " << ec.message() << " (code: " << ec.value() << ")" << std::endl;
+				if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset
+					|| ec == boost::asio::error::not_connected || ec ==boost::asio::error::bad_descriptor){
+						socket_.close();
+						return -2;
+				}
 				return -1;  // 出现错误
 			}
 
@@ -99,7 +108,13 @@ public:
 			}
 
 			if (ec) {
-				std::cerr << "Write error: " << ec.message() << std::endl;
+				std::cerr << "Write error: " << ec.message() << " (code: " << ec.value() << ")" << std::endl;
+				if (ec == boost::asio::error::broken_pipe|| ec == boost::asio::error::connection_reset
+					|| ec == boost::asio::error::not_connected || ec ==boost::asio::error::bad_descriptor) {
+						socket_.close();
+						return -2;
+				}
+					
 				return -1;  // 返回-1表示写入失败
 			}
 
@@ -113,9 +128,11 @@ public:
 
     // 关闭接口
     void close() {
-        socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-        socket_.close();
-        std::cout << "Connection closed." << std::endl;
+        if (socket_.is_open()) {
+			socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+			socket_.close();
+			std::cout << "Connection closed." << std::endl;
+		}
     }
 
 private:

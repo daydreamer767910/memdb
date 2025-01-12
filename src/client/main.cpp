@@ -10,39 +10,44 @@
 #include "tcpclient.hpp"
 #include "mdbclient.hpp"
 
-boost::asio::io_context io_context;
-
-// 创建 TcpClient 对象
-std::string host = "127.0.0.1";
-std::string port = "7899";
-auto client_ptr = MdbClient::create(io_context, host, port);
-
-int init() {
-    // 连接到服务器
-    MdbClient::start(client_ptr);
-    return 0;
+extern "C" {
+    MdbClient::ptr init();
 }
+
+MdbClient::ptr client_ptr = init();
+
+bool exiting = false;
 
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
-    
+    int ret = 0;
     json jsonData = nlohmann::json::parse(jsonConfig);
-    if (client_ptr->send(jsonData,1, 1000)<0) {
+    ret = client_ptr->send(jsonData,1, 1000);
+    if (ret<0) {
         std::cerr << "Write operation failed." << std::endl;
-        return 1;
+        if (ret == -2) {
+            client_ptr->reconnect("127.0.0.1","7899");
+            return 0;
+        }
+        return ret;
     }
     // 读操作，支持超时
     std::vector<json> jsonDatas;
-    if (client_ptr->recv(jsonDatas, 2000)<0) {
+    ret = client_ptr->recv(jsonDatas, 2000);
+    if (ret<0) {
         std::cerr << "Read operation failed." << std::endl;
-        return 1;
+        if (ret == -2) {
+            client_ptr->reconnect("127.0.0.1","7899");
+            return 0;
+        }
+        return ret;
     }
 
     for (auto recvJson : jsonDatas) {
         printf("APP RECV[%d]:\r\n",jsonDatas.size());
         std::cout << recvJson.dump(4) << std::endl;
     }
-    return 0;
+    return ret;
     
 }
 
@@ -100,23 +105,33 @@ void get() {
     test(jsonConfig);
 }
 
-
+void signal_handler(int signal) {
+    if (signal == SIGINT) {
+        std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
+        //logger.terminate();
+        exiting = true;
+    }
+}
 
 int main(int argc, char* argv[]) {
-    std::thread mdbclient(init);
-    sleep(2);
+    // 设置信号处理程序
+    std::signal(SIGINT, signal_handler);
+
+    while(client_ptr->start("127.0.0.1","7899")<0) {
+        sleep(3);
+        if(exiting) goto EXIT;
+    }
+    
     create_tbl();
     show_tbl();
     insert_tbl();
-    while(true) {
+    while(!exiting) {
         get();
-        sleep(10);
+        sleep(3);
     }
-    if (mdbclient.joinable()) {
-        mdbclient.join();
-    }
+    
     // 关闭连接
     client_ptr->stop();
-    
+EXIT:
     return 0;
 }
