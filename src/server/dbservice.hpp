@@ -51,7 +51,7 @@ public:
 	}
 
 	void on_new_transport(const std::shared_ptr<Transport>& transport) override {
-		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
+		std::cout << "on_new_transport" << transport->get_id() << std::endl;
 		auto dbtask = std::make_shared<DbTask>(transport->get_id());
         transport->add_callback(dbtask);
     }
@@ -64,7 +64,7 @@ private:
 private:
 	MemDatabase::ptr& db;
 	Timer timer;
-	static constexpr uint32_t keep_alv_timer = 60000;
+	static constexpr uint32_t keep_alv_timer = 120000;
 };
 
 

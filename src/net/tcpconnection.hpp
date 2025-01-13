@@ -1,78 +1,55 @@
 #ifndef TCPCONNECTION_HPP
 #define TCPCONNECTION_HPP
 
-#include <iostream>
-#include <uv.h>
-#include <fstream>
-#include <string>
-#include <cstring>
-#include <thread>
-#include <atomic>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <tuple>
+#include <boost/asio.hpp>
 #include <memory>
-#include <unordered_map>
-#include <algorithm>
-#include "util/timer.hpp"
-#include "transportsrv.hpp"
+#include <atomic>
+#include <iostream>
+#include <deque>
+#include "transport.hpp"
 
+using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
-class TcpConnection :public IDataCallback {
+class TcpConnection : public IDataCallback ,public std::enable_shared_from_this<TcpConnection>{
     friend class TcpServer;
 public:
-    // TcpConnection 构造函数
-    TcpConnection(uv_loop_t* loop, uv_tcp_t* client,trans_pair& tranport_info) 
-        : loop_(loop), client_(client) {
-		client_->data = this;
-        status_ = -1;
-        transport_id_ = tranport_info.first;
-        transport_ = tranport_info.second;
+    TcpConnection(boost::asio::io_context& io_context, tcp::socket socket);
+    ~TcpConnection();
+
+    void start();    // 启动连接
+    void stop();     // 停止连接
+    bool is_idle();  // 判断是否空闲
+    void write(const std::string& data); // 主动发送数据
+
+    // IDataCallback 接口实现
+    void on_data_received(int result) override;
+    DataVariant& get_data() override;
+
+    void set_transport_id(uint32_t id) {
+        transport_id_ = id;
+        cached_data_ = std::make_tuple(write_buffer_, sizeof(write_buffer_), id);
+    }
+    void set_transport(std::shared_ptr<Transport> transport) {
+        transport_ = transport;
     }
 
-    virtual ~TcpConnection() {
-#ifdef DEBUG
-        std::cout << "tcp client[" << client_ip << ":" << client_port << "] destoryed" << std::endl;
-#endif
-    }
-
-    void start();
-    void stop();
-    bool is_idle() {
-        return status_ == 0;
-    }
-    
-    DataVariant& get_data() override {
-		memset(write_buf,0,sizeof(write_buf));
-		cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport_id_);
-        return cached_data_;
-    }
-	void on_data_received(int result) override ;
 private:
-    uv_loop_t* loop_;
-    uv_tcp_t* client_;  // 当前连接的 TCP 客户端
-    int status_;
+    void do_read();          // 异步读取数据
+    void do_write();         // 异步写入数据
+    void handle_read(const boost::system::error_code& ec, size_t bytes_transferred);
+    void handle_write(const boost::system::error_code& ec, size_t bytes_transferred);
+
+    boost::asio::io_context& io_context_;
+    tcp::socket socket_;
+    std::atomic<bool> is_idle_;
+    std::mutex write_mutex_;
+    std::deque<std::string> write_queue_;
     uint32_t transport_id_;
     std::shared_ptr<Transport> transport_;
-    char client_ip[INET6_ADDRSTRLEN];
-	int client_port;
-
-    char read_buf[TCP_BUFFER_SIZE];
-    char write_buf[TCP_BUFFER_SIZE];
-    DataVariant cached_data_;
-
-    int32_t write(const char* data,ssize_t length);
-    // 写入客户端的回调
-    static void on_write(uv_write_t* req, int status);
-	static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
-	// 分配内存的回调
-    static void on_alloc_buffer(uv_handle_t* handle, size_t /*suggested_size*/, uv_buf_t* buf) {
-        buf->base = reinterpret_cast<TcpConnection*>(handle->data)->read_buf;
-        buf->len = sizeof(reinterpret_cast<TcpConnection*>(handle->data)->read_buf);
-    }
-
+    
+    char read_buffer_[TCP_BUFFER_SIZE];     // 读缓冲区
+    char write_buffer_[TCP_BUFFER_SIZE];    // 写缓冲区
+    DataVariant cached_data_;    // 数据缓存
 };
-
-#endif
+#endif // TCPCONNECTION_HPP

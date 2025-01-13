@@ -74,7 +74,7 @@ private:
 	std::thread uv_eventLoopThread;
 	std::thread asio_eventLoopThread;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-	uv_loop_t loop;
+	uv_loop_t* loop_;
 };
 
 #endif

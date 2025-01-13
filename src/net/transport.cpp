@@ -15,8 +15,19 @@ Transport::Transport(size_t buffer_size, uv_loop_t* loop, uint32_t id)
 	}
 	int flags = fcntl(pipe_fds[0], F_GETFL, 0);
 	fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK);
-	uv_poll_init(loop_,&poll_handle,pipe_fds[0]);
-	uv_poll_start(&poll_handle, UV_READABLE, Transport::process_event);
+	//uv_poll_init(loop_,&poll_handle,pipe_fds[0]);
+    int init_result = uv_poll_init(loop_, &poll_handle, pipe_fds[0]);
+    if (init_result != 0) {
+        std::cerr << "uv_poll_init error: " << uv_strerror(init_result) << std::endl;
+        return; // 返回，避免继续执行
+    }
+    // 启动 poll 监听
+    int start_result = uv_poll_start(&poll_handle, UV_READABLE, Transport::process_event);
+    if (start_result != 0) {
+        std::cerr << "uv_poll_start error: " << uv_strerror(start_result) << std::endl;
+        return; // 返回，避免继续执行
+    }
+	//uv_poll_start(&poll_handle, UV_READABLE, Transport::process_event);
 	poll_handle.data = this;
 }
 
@@ -65,7 +76,7 @@ void Transport::on_send() {
             using T = std::decay_t<decltype(data)>;
             if constexpr (std::is_same_v<T, std::tuple<char*,int,uint32_t>>) {
                 auto [buffer,buffer_size, port_id] = data;
-                //printf("on_send size:%d port:%d\n",buffer_size, port_id);
+                std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
                 if (port_id == this->id_) {
                     int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
                     if (len > 0) {
@@ -82,6 +93,7 @@ void Transport::on_send() {
 void Transport::on_input() {
 	//std::cout << "input signal\n";
     for (auto& callback : callbacks_) {
+        //std::cout << "callback\n";
         if (!callback) continue;
         try {
             // 获取回调绑定的数据
@@ -91,6 +103,7 @@ void Transport::on_input() {
                 using T = std::decay_t<decltype(data)>;
                 if constexpr (std::is_same_v<T, std::tuple<std::vector<json>*,uint32_t>>) {
                     auto [json_data, port_id] = data;
+                    std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
                     if (port_id == 0xffffffff || port_id == this->id_) {
                         int len = this->read(*json_data, std::chrono::milliseconds(100));
                         if (len > 0) {
@@ -232,7 +245,7 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
 			return -1; // 写入超时
 		}
 		triger_event(ChannelType::UP_LOW);
-		
+		std::cout << "APP OUT :" << std::this_thread::get_id() << std::endl;
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
 		offset += chunk_size;
 	}
@@ -251,7 +264,7 @@ int Transport::output(char* buffer, size_t size, std::chrono::milliseconds timeo
 
 
 int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds timeout) {
-	//std::cout << "tcpReceive: \n";
+	//std::cout << "Transport::input: \n";
 	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
 	int ret = tcp_to_app_.write(buffer, size, timeout);
     if (ret > 0) triger_event(ChannelType::LOW_UP);
@@ -287,6 +300,7 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
 
         // 如果有完成的消息，退出循环
         if (!json_datas.empty()) {
+            std::cout << "APP IN :" << std::this_thread::get_id() << std::endl;
             return json_datas.size(); // 返回成功条数
         }
 

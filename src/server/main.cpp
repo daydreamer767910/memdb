@@ -24,6 +24,7 @@ void signal_handler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
         //logger.terminate();
+        tranport_server->stop();
         server.stop();
     }
 }
@@ -40,6 +41,7 @@ int main() {
     
     db_server->start();
     tranport_server->add_observer(db_server);
+    tranport_server->start();
     // 启动 TCP 服务器
     server.start();
 

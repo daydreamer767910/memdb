@@ -1,54 +1,36 @@
 #ifndef TCPSERVER_HPP
 #define TCPSERVER_HPP
 
-#include <iostream>
-#include <uv.h>
-#include <fstream>
-#include <string>
-#include <cstring>
-#include <thread>
+#include <boost/asio.hpp>
 #include <atomic>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <tuple>
 #include <memory>
 #include <unordered_map>
-#include <algorithm>
-#include "util/timer.hpp"
-#include "util/threadbase.hpp"
-#include "transport.hpp"
+#include <mutex>
 #include "tcpconnection.hpp"
+#include "log/logger.hpp"
+#include "transport.hpp"
 
+#define MAX_CONNECTIONS 1000
 
-// TCP 服务器类
 class TcpServer {
 public:
-    TcpServer(const char* ip, int port);
-	~TcpServer() {
-        std::cout << "tcp server destoryed!" << std::endl;
-    }
-    // 启动服务器
+    TcpServer(const std::string& ip, int port);
     void start();
     void stop();
-    // 处理新连接
-    static void on_new_connection(uv_stream_t* server, int status);
-    // 处理废弃连接
-    void on_timer();
+
 private:
+    void on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);
     void cleanup();
+    void on_timer();
 
-    static constexpr uint32_t transport_buff_szie = 4096;
-    static constexpr uint16_t max_connection_num = 4096;
-    uv_loop_t* loop_;
-    uv_tcp_t server;
-    struct sockaddr_in addr;
-    Timer timer;//定期清理无用connection
-    std::mutex mutex_;  // 互斥锁，保护 connections_ 容器
-    static std::atomic<uint32_t> unique_id;
-    static std::atomic<int> connection_count;  // 连接数
-	std::unordered_map<uint32_t, std::shared_ptr<TcpConnection>> connections_;
-
+    boost::asio::io_context io_context_;
+    boost::asio::ip::tcp::acceptor acceptor_;
+    std::unordered_map<uint32_t, std::shared_ptr<TcpConnection>> connections_;
+    std::mutex mutex_;
+    std::atomic<int> connection_count;
+    std::atomic<uint32_t> unique_id;
+    uint32_t max_connection_num = MAX_CONNECTIONS;
+    std::shared_ptr<boost::asio::steady_timer> timer_;
 };
 
-#endif
+#endif // TCPSERVER_HPP

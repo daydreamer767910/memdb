@@ -91,7 +91,7 @@ void insert_tbl() {
     jsonData["action"] = "insert";
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
-    for (int i=0;i<20;i++) {
+    for (int i=0;i<130;i++) {
         json row;
         row["id"] = i;
         row["name"] = "test name" + std::to_string(i);
