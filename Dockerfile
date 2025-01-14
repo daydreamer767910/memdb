@@ -32,7 +32,7 @@ FROM skeleton AS build
 
 # 安装 C++ 编译工具和 CMake
 RUN apt-get update && apt-get install -y \
-    build-essential cmake libuv1-dev nlohmann-json3-dev pkg-config libboost-all-dev && \
+    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # 复制项目源代码
@@ -75,7 +75,8 @@ RUN groupadd --gid "$GROUP_ID"  "$DOCKER_USER" && \
 
 COPY --chown=$USER_ID:$GROUP_ID \
 	--chmod=755 \
-	entrypoint.sh /mdb/entrypoint.sh
+	entrypoint.sh /mdb/entrypoint.sh \
+    .env /mdb/
 
 USER $DOCKER_USER
 

@@ -1,7 +1,17 @@
 services:
   memdb:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: memdb:latest
     container_name: memdb
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Los_Angeles
     ports:
-      - '7899:7899'
+      - "7899:7899"
+      - "7900:7900"
+      - "7901:7901"
+      - "7902:7902"
 

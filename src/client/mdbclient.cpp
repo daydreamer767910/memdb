@@ -21,6 +21,8 @@ int MdbClient::reconnect(const std::string& host, const std::string& port) {
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
+	
+	transport_srv->get_port(transport_id_)->reset(Transport::ChannelType::ALL);
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	return 0;
 }
@@ -66,19 +68,24 @@ void MdbClient::stop() {
 
 void MdbClient::on_data_received(int result) {
 	//printf("port to tcp\n");
-	std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
+	//std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
 	if (result > 0) {
-		int ret = this->write_with_timeout(write_buf,result,1);
+		int ret = this->write_with_timeout(write_buf,result,50);
 		if ( ret == -2 ) {
 			//close();
-			reconnect();
+			//reconnect();
 		}
+		if(ret>0)
+		print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
 	}
 }
 
 int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) {
 	try {
-        return transport_->send(data,4,std::chrono::milliseconds(timeout));
+        int ret= transport_->send(data,4,std::chrono::milliseconds(timeout));
+		if(ret>0)
+		std::cout << "send to transport:" << ret << std::endl;
+		return ret;
     } catch (const std::exception& e) {
         std::cerr << "Send error: " << e.what() << std::endl;
         return false;
@@ -90,7 +97,7 @@ int MdbClient::recv(std::vector<json>& json_datas, uint32_t timeout) {
 }
 
 void MdbClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
-	std::cout << "tcp read thread ID: " << std::this_thread::get_id() << std::endl;
+	//std::cout << "tcp read thread ID: " << std::this_thread::get_id() << std::endl;
 	if (!error) {
 		//std::cout << "handle_read: " << nread << std::endl;
 		int ret = transport_->input(read_buf, nread,std::chrono::milliseconds(100));

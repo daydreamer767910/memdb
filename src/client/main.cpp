@@ -30,19 +30,19 @@ int test(const std::string jsonConfig) {
     
     ret = mdb_send(jsonConfig.c_str(),1, 1000);
     if (ret<0) {
-        std::cerr << "Write operation failed." << std::endl;
+        std::cerr << "Write operation failed:" << ret << std::endl;
         if (ret == -2) {
-            mdb_reconnect(ip,port);
-            return 0;
+            //mdb_reconnect(ip,port);
+            //return 0;
         }
-        return ret;
+        //return ret;
     }
     
     // 读操作，支持超时
     char buffer[1024*50] = {};
-    ret = mdb_recv(buffer, sizeof(buffer) , 2000);
+    ret = mdb_recv(buffer, sizeof(buffer) , 1000);
     if (ret<0) {
-        std::cerr << "Read operation failed." << std::endl;
+        std::cerr << "Read operation failed:" << ret << std::endl;
         if (ret == -2) {
             mdb_reconnect(ip,port);
             return 0;
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
     insert_tbl();
     while(!exiting) {
         get();
-        sleep(3);
+        sleep(1);
     }
     
     // 关闭连接

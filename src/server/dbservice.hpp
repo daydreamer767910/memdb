@@ -77,7 +77,7 @@ private:
 	MemDatabase::ptr& db;
 	Timer timer;
 	std::thread timer_thread_;    // 独立线程用于处理事件循环
-	static constexpr uint32_t keep_alv_timer = 20000;
+	static constexpr uint32_t keep_alv_timer = 200000;
 };
 
 

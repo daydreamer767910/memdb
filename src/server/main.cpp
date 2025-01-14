@@ -7,6 +7,7 @@
 #include <set>
 #include <fstream>
 #include <csignal>
+#include <cstdlib>
 #include <nlohmann/json.hpp>
 #include "dbcore/memtable.hpp"
 #include "dbcore/memdatabase.hpp"
@@ -42,7 +43,9 @@ int main() {
     tranport_server->add_observer(db_server);
     tranport_server->start();
     // 启动 TCP 服务器
-    server.start("0.0.0.0", 7900);
+    const char* port_id = std::getenv("COMM_PORT");
+    const char* ip = std::getenv("COMM_ADDR");
+    server.start(ip?ip:"0.0.0.0", port_id?std::stoi(port_id):7899);
 
     std::cout << "Exiting program." << std::endl;
     return 0;

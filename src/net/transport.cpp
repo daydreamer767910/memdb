@@ -44,11 +44,15 @@ void Transport::on_send() {
                 auto [buffer,buffer_size, port_id] = data;
                 //std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
                 if (port_id == this->id_) {
-                    int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
-                    if (len > 0) {
-                        //printf("output len:%d port:%d\n",len, this->id_);
-                        callback->on_data_received(len);
-                    }
+                    //APP有可能发大数据 有segmentation 需要多次发
+                    while (true) {
+                        int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
+                        if (len > 0) {
+                            //printf("output len:%d port:%d\n",len, this->id_);
+                            callback->on_data_received(len);
+                        }
+                        else break;
+                    } 
                 }
             }
             // 如果未来有其他类型可以在这里扩展
@@ -71,6 +75,7 @@ void Transport::on_input() {
                     auto [json_data, port_id] = data;
                     //std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
                     if (port_id == 0xffffffff || port_id == this->id_) {
+                        //把传输层数据一次收整 不需要循环
                         int len = this->read(*json_data, std::chrono::milliseconds(100));
                         if (len > 0) {
                             callback->on_data_received(this->id_);
