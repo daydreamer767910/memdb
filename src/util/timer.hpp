@@ -12,7 +12,7 @@ public:
     // 构造函数，接收io_context、超时时间、是否重复、回调函数
     Timer(boost::asio::io_context& io, int timeout_ms, bool repeat, std::function<void(int,int,std::thread::id)> callback)
         : io_(io), timer_(io), interval_(timeout_ms), repeat_(repeat), callback_(std::move(callback)), count_(0) {
-        startTimer();  // 初始化时启动定时器
+        //startTimer();  // 初始化时启动定时器
     }
 
     // 禁止拷贝构造和拷贝赋值
