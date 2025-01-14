@@ -24,13 +24,24 @@ using DBMsg = std::variant<std::tuple<int,int,json>>;
 class DBService : public ThreadBase<std::tuple<int,int,json>>, public ITransportObserver{
 public:
 	DBService() :db(MemDatabase::getInstance()),
-	timer(uv_default_loop(), keep_alv_timer, keep_alv_timer, [this]() {
-        this->on_timer();
+	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
+        this->on_timer(tick,time,id);
     }) {
 		std::cout << "DBService start" << std::endl;
+		// 启动定时器
+        timer.start();
+
+        // 启动事件循环
+        timer_thread_ = std::thread([this]() {
+            io_.run();
+        });
 	}
 	
 	~DBService() {
+		if (timer_thread_.joinable()) {
+            io_.stop();  // 停止事件循环
+            timer_thread_.join();  // 等待线程退出
+        }
 		#ifdef DEBUG
 		std::cout << "DB service destoryed!" << std::endl;
 		#endif
@@ -59,12 +70,14 @@ public:
 private:
 	
     void on_msg(const std::shared_ptr<DBMsg> msg) override;
-	void on_timer();
+	void on_timer(int tick, int time, std::thread::id id);
 
 private:
+	boost::asio::io_context io_;
 	MemDatabase::ptr& db;
 	Timer timer;
-	static constexpr uint32_t keep_alv_timer = 120000;
+	std::thread timer_thread_;    // 独立线程用于处理事件循环
+	static constexpr uint32_t keep_alv_timer = 20000;
 };
 
 

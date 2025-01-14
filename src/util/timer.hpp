@@ -2,94 +2,99 @@
 #define TIMER_HPP
 
 #include <iostream>
-#include <uv.h>
+#include <boost/asio.hpp>
 #include <functional>
+#include <chrono>
+#include <thread>
 
 class Timer {
 public:
-    using TimerCallback = std::function<void()>;
-
-    // 构造函数：初始化定时器
-    Timer(uv_loop_t* loop,uint64_t timeout, uint64_t repeat, TimerCallback callback)
-        : loop_(loop), callback_(std::move(callback)) ,timeout_(timeout), repeat_(repeat) {
-        // 初始化 timer handle
-        timer_ = new uv_timer_t();
-        uv_timer_init(loop_, timer_);
-        timer_->data = this; // 关联 timer handle 和当前对象
-
-        // 启动定时器
-        uv_timer_start(timer_, Timer::onTimerCallback, timeout_, repeat_);
+    // 构造函数，接收io_context、超时时间、是否重复、回调函数
+    Timer(boost::asio::io_context& io, int timeout_ms, bool repeat, std::function<void(int,int,std::thread::id)> callback)
+        : io_(io), timer_(io), interval_(timeout_ms), repeat_(repeat), callback_(std::move(callback)), count_(0) {
+        startTimer();  // 初始化时启动定时器
     }
 
-    // 禁止拷贝
+    // 禁止拷贝构造和拷贝赋值
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
 
     // 移动构造函数
     Timer(Timer&& other) noexcept
-        : loop_(other.loop_), timer_(other.timer_), callback_(std::move(other.callback_)),
-          timeout_(other.timeout_), repeat_(other.repeat_) {
-        other.timer_ = nullptr;
+        : io_(other.io_), timer_(std::move(other.timer_)), interval_(other.interval_), repeat_(other.repeat_),
+          callback_(std::move(other.callback_)), count_(other.count_) {
+        other.count_ = 0;  // 移动后原对象的状态清空
     }
 
     // 移动赋值运算符
     Timer& operator=(Timer&& other) noexcept {
         if (this != &other) {
-            stop();
-            loop_ = other.loop_;
-            timer_ = other.timer_;
-            callback_ = std::move(other.callback_);
-            timeout_ = other.timeout_;
+            // io_context 不可以被赋值，保留原来的 io_context
+            interval_ = other.interval_;
             repeat_ = other.repeat_;
-            other.timer_ = nullptr;
+            callback_ = std::move(other.callback_);
+            count_ = other.count_;
+            
+            // 移动 timer_
+            timer_ = std::move(other.timer_);
+
+            other.count_ = 0;  // 移动后原对象的状态清空
         }
         return *this;
     }
 
+
+
     // 启动定时器
     void start() {
-        if (!timer_) {
-            timer_ = new uv_timer_t();
-            uv_timer_init(loop_, timer_);
-            timer_->data = this;
-        }
-        uv_timer_start(timer_, Timer::onTimerCallback, timeout_, repeat_);
+        startTimer();
     }
-    
+
     // 停止定时器
     void stop() {
-        if (timer_) {
-            uv_timer_stop(timer_);
-            uv_close(reinterpret_cast<uv_handle_t*>(timer_), Timer::onCloseCallback);
-            timer_ = nullptr;
-        }
+        timer_.cancel();
     }
 
-    // 析构函数：释放资源
-    ~Timer() {
-        stop();
+    // 动态修改定时器的超时时间
+    void setTimeout(int timeout_ms) {
+        interval_ = timeout_ms;  // 更新超时时间
+        startTimer();  // 重新启动定时器
     }
 
+    void setRepeat(bool repeat) {
+        repeat_ = repeat;
+    }
 private:
-    uv_loop_t* loop_;
-    uv_timer_t* timer_;
-    TimerCallback callback_;
-    uint64_t timeout_;
-    uint64_t repeat_;
-    
+    // 启动定时器并安排下一次触发
+    void startTimer() {
+        timer_.expires_after(std::chrono::milliseconds(interval_));
+        timer_.async_wait([this](const boost::system::error_code& ec) {
+            if (!ec) {
+                auto now = std::chrono::steady_clock::now();
+                
+                // 调用用户提供的回调函数
+                if (callback_) {
+                    callback_( count_,
+                        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count(),
+                        std::this_thread::get_id());
+                }
 
-    // 定时器触发回调（静态方法）
-    static void onTimerCallback(uv_timer_t* handle) {
-        auto* self = static_cast<Timer*>(handle->data);
-        if (self->callback_) {
-            self->callback_();
-        }
+                ++count_;
+
+                // 如果是重复定时器，则重新启动定时器
+                if (repeat_) {
+                    startTimer();  // 重复启动定时器
+                }
+            }
+        });
     }
 
-    // 关闭定时器时的回调
-    static void onCloseCallback(uv_handle_t* handle) {
-        delete reinterpret_cast<uv_timer_t*>(handle);
-    }
+    boost::asio::io_context& io_;
+    boost::asio::steady_timer timer_;
+    int interval_;  // 超时时间（毫秒）
+    bool repeat_;   // 是否重复执行
+    std::function<void(int,int,std::thread::id)> callback_;  // 用户的回调函数
+    int count_;     // 计数器
 };
 
 

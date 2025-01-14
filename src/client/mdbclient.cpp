@@ -35,50 +35,13 @@ int MdbClient::start(const std::string& host, const std::string& port) {
 	}
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
-	loop_ = new uv_loop_t;
-	uv_loop_init(loop_);
 	
-	uv_async_t async;
-	uv_async_init(loop_, &async, [](uv_async_t* handle) {
-		auto* self = static_cast<MdbClient*>(handle->data);
-		auto port_info = self->transport_srv->open_port(self->loop_);
-		self->set_transport(port_info);
-		port_info.second->add_callback(self->my_instance);
-	});
-
 	
+	auto port_info = transport_srv->open_port();
+	set_transport(port_info);
+	port_info.second->add_callback(my_instance);
 
-	std::promise<void> promise;
-    std::future<void> future = promise.get_future();
-	// Run the event loop in a new thread
-    uv_eventLoopThread = std::thread([this](std::promise<void> promise) {
-		
-        uv_signal_t sig;
-        // Set up signal listener
-        uv_signal_init(loop_, &sig);
-        uv_signal_start(&sig, [](uv_signal_t* handle, int signum) {
-            std::cout << "Signal received: " << signum << std::endl;
-            uv_stop(handle->loop); // Stop the loop
-            uv_signal_stop(handle); // Stop the signal listener
-            uv_close((uv_handle_t*)handle, nullptr); // Free resources
-        }, SIGUSR1); // Capture SIGINT signal
-
-        promise.set_value(); // Notify the main thread
-        std::cout << "Event loop starting:" << std::this_thread::get_id() << std::endl;
-
-        // Run the loop
-        uv_run(loop_, UV_RUN_DEFAULT);
-
-        // Clean up
-        std::cout << "Event loop stopped." << std::endl;
-        uv_loop_close(loop_);
-		delete loop_;
-    }, std::move(promise));
-	future.wait(); // 等待子线程通知
-	// 在主线程中触发
-	async.data = this;
-	uv_async_send(&async);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	transport_srv->start();
 
 	asio_eventLoopThread = std::thread([this]() {
         std::cout << "asoi Event loop starting:" << std::this_thread::get_id() << std::endl;
@@ -96,11 +59,7 @@ void MdbClient::stop() {
 	close();
 	io_context_.stop();
 	transport_srv->close_port(this->transport_id_);
-	//uv_stop(loop_);
-	pthread_t threadId = uv_eventLoopThread.native_handle();
-	pthread_kill(threadId, SIGUSR1);
-	if (uv_eventLoopThread.joinable())
-		uv_eventLoopThread.join();
+	transport_srv->stop();
 	if (asio_eventLoopThread.joinable())
 		asio_eventLoopThread.join();
 }

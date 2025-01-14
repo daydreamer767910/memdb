@@ -9,19 +9,20 @@
 #include "tcpconnection.hpp"
 #include "log/logger.hpp"
 #include "transport.hpp"
+#include "util/timer.hpp"
 
 #define MAX_CONNECTIONS 1000
 
 class TcpServer {
 public:
-    TcpServer(const std::string& ip, int port);
-    void start();
+    TcpServer();
+    void start(const std::string& ip, int port);
     void stop();
 
 private:
     void on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);
     void cleanup();
-    void on_timer();
+    void on_timer(std::thread::id id);
 
     boost::asio::io_context io_context_;
     boost::asio::ip::tcp::acceptor acceptor_;
@@ -30,7 +31,7 @@ private:
     std::atomic<int> connection_count;
     std::atomic<uint32_t> unique_id;
     uint32_t max_connection_num = MAX_CONNECTIONS;
-    std::shared_ptr<boost::asio::steady_timer> timer_;
+    Timer timer_;
 };
 
 #endif // TCPSERVER_HPP

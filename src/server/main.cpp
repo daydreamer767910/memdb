@@ -8,7 +8,6 @@
 #include <fstream>
 #include <csignal>
 #include <nlohmann/json.hpp>
-#include <uv.h>
 #include "dbcore/memtable.hpp"
 #include "dbcore/memdatabase.hpp"
 #include "net/tcpserver.hpp"
@@ -18,7 +17,7 @@
 
 DBService::ptr db_server = DBService::getInstance();
 TransportSrv::ptr tranport_server = TransportSrv::get_instance();
-auto server = TcpServer("0.0.0.0", 7900);
+auto server = TcpServer();
 
 void signal_handler(int signal) {
     if (signal == SIGINT) {
@@ -43,7 +42,7 @@ int main() {
     tranport_server->add_observer(db_server);
     tranport_server->start();
     // 启动 TCP 服务器
-    server.start();
+    server.start("0.0.0.0", 7900);
 
     std::cout << "Exiting program." << std::endl;
     return 0;

@@ -2,7 +2,6 @@
 #define TRANSPORTSRV_HPP
 
 #include <iostream>
-#include <uv.h>
 #include <fstream>
 #include <string>
 #include <cstring>
@@ -17,6 +16,7 @@
 #include <algorithm>
 #include <thread>
 #include <future>
+#include <boost/asio.hpp>
 #include "transport.hpp"
 #include "tcpconnection.hpp"
 
@@ -33,18 +33,12 @@ class TransportSrv {
 public:
 using ptr = std::shared_ptr<TransportSrv>;
 
-struct AsyncData {
-    std::shared_ptr<TcpConnection> connection;
-	TransportSrv* transport;
-    // 其他成员
-};
-
     static ptr& get_instance(){
 		static ptr instance(new TransportSrv());
 		return instance;
 	};
-	TransportSrv() {
-		loop_ = uv_default_loop();
+	TransportSrv() :io_(),
+		work_guard_(boost::asio::make_work_guard(io_)){
 		std::cout << "TransportSrv start" << std::endl;
 	};
     ~TransportSrv();
@@ -56,7 +50,7 @@ struct AsyncData {
 	//获取所有打开的 port_id 列表
     std::vector<uint32_t> get_all_ports();
 
-	trans_pair open_port(uv_loop_t* loop = nullptr);
+	trans_pair open_port();
 	void close_port(uint32_t port_id);
 	std::shared_ptr<Transport> get_port(uint32_t port_id);
 
@@ -74,10 +68,10 @@ private:
 	static uint32_t unique_id;
 	static std::atomic<uint32_t> ports_count;  // 连接数
 	std::unordered_map<uint32_t, std::shared_ptr<Transport>> ports_;
-	uv_loop_t* loop_;
-	std::thread uv_eventLoopThread;
+	boost::asio::io_context io_;
+	std::thread eventLoopThread_;
 	std::vector<std::shared_ptr<ITransportObserver>> observers_;
-
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
 };
 
 #endif

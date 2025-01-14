@@ -39,7 +39,7 @@ int test(const std::string jsonConfig) {
     }
     
     // 读操作，支持超时
-    char buffer[1024*10] = {};
+    char buffer[1024*50] = {};
     ret = mdb_recv(buffer, sizeof(buffer) , 2000);
     if (ret<0) {
         std::cerr << "Read operation failed." << std::endl;
@@ -91,7 +91,7 @@ void insert_tbl() {
     jsonData["action"] = "insert";
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
-    for (int i=0;i<130;i++) {
+    for (int i=0;i<300;i++) {
         json row;
         row["id"] = i;
         row["name"] = "test name" + std::to_string(i);

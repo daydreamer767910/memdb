@@ -32,14 +32,15 @@ void DBService::on_msg(const std::shared_ptr<DBMsg> msg) {
 	}, *msg);
 }
 
-void DBService::on_timer() {
+void DBService::on_timer(int tick, int time, std::thread::id id) {
 	auto port_ids = TransportSrv::get_instance()->get_all_ports();
-
+	std::cout << "Timer time: " << time << " Timer thread id: " << id <<std::endl;
 	json jsonData;
 	for (int port_id : port_ids) {
 		jsonData["type"] = "keep alive(s)";
-		jsonData["timer"] = keep_alv_timer/1000;
-		this->on_msg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
+		jsonData["timer"] = tick;
+		jsonData["timeout"] = keep_alv_timer/1000;
+		this->sendmsg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
 	}
 }
 

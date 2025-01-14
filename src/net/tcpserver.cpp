@@ -3,31 +3,29 @@
 #include "transport.hpp"
 #include "transportsrv.hpp"
 
-TcpServer::TcpServer(const std::string& ip, int port)
-    : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0) {
-    boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::make_address(ip), port);
+TcpServer::TcpServer()
+    : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0) ,
+	timer_(io_context_, 1000, true, [this](int /*tick*/, int /*time*/, std::thread::id id) {
+        this->on_timer(id);
+    }) {
     
+}
+
+void TcpServer::start(const std::string& ip, int port) {
+	boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::make_address(ip), port);
     // 设置 SO_REUSEADDR 选项，允许重新绑定端口
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
     
     acceptor_.bind(endpoint);
-    acceptor_.listen(boost::asio::socket_base::max_listen_connections);
+	acceptor_.listen(boost::asio::socket_base::max_listen_connections);
     
     logger.log(Logger::LogLevel::INFO, "TCP server listening on {}:{}", ip, port);
 
-    // Timer for periodic cleanup
-    timer_ = std::make_shared<boost::asio::steady_timer>(io_context_, boost::asio::chrono::seconds(1));
-    timer_->async_wait([this](const boost::system::error_code&) {
-        on_timer();
-    });
-}
-
-
-void TcpServer::start() {
     acceptor_.async_accept([this](const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
         on_new_connection(error, std::move(socket));
     });
+	timer_.start();
     io_context_.run();
 }
 
@@ -69,7 +67,7 @@ void TcpServer::cleanup() {
     connection_count = 0;
 }
 
-void TcpServer::on_timer() {
+void TcpServer::on_timer(std::thread::id /*id*/) {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto it = connections_.begin(); it != connections_.end();) {
         if (it->second->is_idle()) {
@@ -82,8 +80,4 @@ void TcpServer::on_timer() {
             ++it;
         }
     }
-    timer_->expires_at(timer_->expiry() + boost::asio::chrono::seconds(1));
-    timer_->async_wait([this](const boost::system::error_code&) {
-        on_timer();
-    });
 }

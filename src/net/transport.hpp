@@ -12,11 +12,11 @@
 #include <variant>
 #include <functional>
 #include <typeindex>
-#include <uv.h>
 #include <unordered_map>
 #include <type_traits>
 #include <nlohmann/json.hpp> // 使用 nlohmann/json 库解析 JSON
 #include "util/msgbuffer.hpp"
+#include "util/timer.hpp"
 
 
 using json = nlohmann::json;
@@ -73,7 +73,7 @@ public:
         LOW_UP,
         ALL
     };
-    Transport(size_t buffer_size, uv_loop_t* loop, uint32_t port_id = 0);
+    Transport(size_t buffer_size, boost::asio::io_context& io_context, uint32_t port_id = 0);
     ~Transport();
     void stop();
     uint32_t get_id() {
@@ -112,17 +112,16 @@ private:
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据
-    uv_loop_t* loop_;
+    boost::asio::io_context& io_context_;
+    Timer timer_[2];
     uint32_t id_;
-    uv_poll_t poll_handle;
-    int pipe_fds[2];
+
     
     std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
 
     void triger_event(ChannelType type);
     void on_send();
     void on_input();
-    static void process_event(uv_poll_t* handle, int status, int events);
 
 	// 计算校验和
 	uint32_t calculateChecksum(const std::vector<char>& data);

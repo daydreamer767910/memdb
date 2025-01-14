@@ -46,7 +46,7 @@ private:
     std::mutex write_mutex_;
     std::deque<std::string> write_queue_;
     uint32_t transport_id_;
-    std::shared_ptr<Transport> transport_;
+    std::weak_ptr<Transport> transport_;
     
     char read_buffer_[TCP_BUFFER_SIZE];     // 读缓冲区
     char write_buffer_[TCP_BUFFER_SIZE];    // 写缓冲区

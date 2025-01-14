@@ -73,7 +73,7 @@ void TcpConnection::do_write() {
     );
 	//std::cout << "tcp write :" << std::this_thread::get_id() << std::endl;
 #ifdef DEBUG
-	printf("[%s]TCP[%d] SEND ID[%d]: \r\n", get_timestamp().c_str(), transport_id_,std::this_thread::get_id());
+	std::cout << "[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" << transport_id_ << "] SEND: \n";
 	print_packet(reinterpret_cast<const uint8_t*>(data.c_str()),data.size());
 #endif
 }
@@ -86,15 +86,20 @@ void TcpConnection::handle_read(const boost::system::error_code& ec, size_t byte
     }
 
 #ifdef DEBUG
-    printf("[%s]TCP[%d] RECV[%ld]ID[%d]: \r\n", get_timestamp().c_str(), transport_id_, bytes_transferred,std::this_thread::get_id());
+	std::cout << "[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
+		<< transport_id_ << "][" << bytes_transferred << "] RECV: \n";
+    //printf("[%s]TCP[%d] RECV[%ld]ID[%d]: \r\n", get_timestamp().c_str(), transport_id_, bytes_transferred,std::this_thread::get_id());
     print_packet(reinterpret_cast<const uint8_t*>(read_buffer_), bytes_transferred);
 #endif
 //std::cout << "tcp read :" << std::this_thread::get_id() << std::endl;
-    if (transport_ && bytes_transferred > 0) {
-        int ret = transport_->input(read_buffer_, bytes_transferred, std::chrono::milliseconds(100));
-        if (ret <= 0) {
-            logger.log(Logger::LogLevel::WARNING, "CircularBuffer error {}, {} bytes discarded", ret, bytes_transferred);
-        }
+    if ( bytes_transferred > 0 ) {
+		auto locked = transport_.lock();
+		if (locked) {
+			int ret = locked->input(read_buffer_, bytes_transferred, std::chrono::milliseconds(100));
+			if (ret <= 0) {
+				logger.log(Logger::LogLevel::WARNING, "CircularBuffer error {}, {} bytes discarded", ret, bytes_transferred);
+			}
+		}
     }
 
     do_read();
