@@ -39,7 +39,6 @@ RUN apt-get update && apt-get install -y \
 COPY src /mdb/src
 COPY CMakeLists.txt /mdb/CMakeLists.txt
 COPY etc /mdb/etc
-COPY data /mdb/data
 
 # 设置工作目录
 WORKDIR /mdb/build
@@ -75,8 +74,8 @@ RUN groupadd --gid "$GROUP_ID"  "$DOCKER_USER" && \
 
 COPY --chown=$USER_ID:$GROUP_ID \
 	--chmod=755 \
-	entrypoint.sh /mdb/entrypoint.sh \
-    .env /mdb/
+	entrypoint.sh /mdb/entrypoint.sh
+COPY .env /mdb
 
 USER $DOCKER_USER
 

@@ -43,7 +43,8 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
     if (connection_count < max_connection_num) {
         connection_count++;
         unique_id++;
-        auto connection = std::make_shared<TcpConnection>(acceptor_.get_executor().context(), std::move(socket));
+        auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
+		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket));
         connections_.emplace(unique_id, connection);
 		TransportSrv::get_instance()->on_new_connection(connection);
         connection->start();
