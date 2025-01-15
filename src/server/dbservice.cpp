@@ -40,7 +40,7 @@ void DBService::on_timer(int tick, int time, std::thread::id id) {
 		jsonData["type"] = "keep alive(s)";
 		jsonData["timer"] = tick;
 		jsonData["timeout"] = keep_alv_timer/1000;
-		this->sendmsg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
+		//this->sendmsg(std::make_shared<DBMsg>(std::make_tuple(0,port_id,jsonData)));
 	}
 }
 

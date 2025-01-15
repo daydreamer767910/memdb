@@ -33,6 +33,7 @@ public:
 
         // 启动事件循环
         timer_thread_ = std::thread([this]() {
+			std::cout << "DBService loop starting:" << std::this_thread::get_id() << std::endl;
             io_.run();
         });
 	}

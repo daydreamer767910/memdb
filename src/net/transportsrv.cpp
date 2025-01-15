@@ -29,7 +29,7 @@ void TransportSrv::start() {
 	// Run the event loop in a new thread
     eventLoopThread_ = std::thread([this](std::promise<void> promise) {
         promise.set_value(); // Notify the main thread
-        //std::cout << "Event loop starting:" << std::this_thread::get_id() << std::endl;
+        std::cout << "TransportSrv loop starting:" << std::this_thread::get_id() << std::endl;
         // Run the loop
         io_.run();
         //std::cout << "Event loop stopped." << std::endl;

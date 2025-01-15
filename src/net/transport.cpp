@@ -10,10 +10,10 @@ Transport::Transport(size_t buffer_size,boost::asio::io_context& io_context, uin
 	: app_to_tcp_(buffer_size), 
 	tcp_to_app_(buffer_size), 
     io_context_(io_context),
-    timer_{Timer(io_context_, 0, false, [this](int /*tick*/, int /*time*/, std::thread::id /*id*/) {
+    timer_{Timer(io_context_, 0, false, [this](int , int , std::thread::id ) {
         this->on_send();
     }),
-    Timer(io_context_, 0, false, [this](int /*tick*/, int /*time*/, std::thread::id /*id*/) {
+    Timer(io_context_, 0, false, [this](int , int , std::thread::id ) {
         this->on_input();;
     })},
     id_(id) {
@@ -91,12 +91,25 @@ void Transport::on_input() {
 }
 
 void Transport::triger_event(ChannelType type) {
+    
     if (ChannelType::ALL == type) {
+        /*io_context_.post([this]() {
+            this->on_send();
+        });
+        io_context_.post([this]() {
+            this->on_input();
+        });*/
         timer_[0].start();
         timer_[1].start();
     } else if (ChannelType::UP_LOW == type) {
+        /*io_context_.post([this]() {
+            this->on_send();
+        });*/
         timer_[0].start();;
     } else if (ChannelType::LOW_UP == type) {
+        /*io_context_.post([this]() {
+            this->on_input();
+        });*/
         timer_[1].start();;
     }
 }

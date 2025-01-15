@@ -41,7 +41,7 @@ void TcpConnection::write(const std::string& data) {
 }
 
 void TcpConnection::on_data_received(int result) {
-	//std::cout << "PORT->TCP :" << std::this_thread::get_id() << std::endl;
+	std::cout << "PORT->TCP :" << std::this_thread::get_id() << std::endl;
     if (result > 0) {
         write(std::string(write_buffer_, result));
     }
@@ -74,7 +74,7 @@ void TcpConnection::do_write() {
 	//std::cout << "tcp write :" << std::this_thread::get_id() << std::endl;
 #ifdef DEBUG
 	std::cout << "[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" << transport_id_ << "] SEND: \n";
-	print_packet(reinterpret_cast<const uint8_t*>(data.c_str()),data.size());
+	//print_packet(reinterpret_cast<const uint8_t*>(data.c_str()),data.size());
 #endif
 }
 
@@ -89,7 +89,7 @@ void TcpConnection::handle_read(const boost::system::error_code& ec, size_t byte
 	std::cout << "[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
 		<< transport_id_ << "][" << bytes_transferred << "] RECV: \n";
     //printf("[%s]TCP[%d] RECV[%ld]ID[%d]: \r\n", get_timestamp().c_str(), transport_id_, bytes_transferred,std::this_thread::get_id());
-    print_packet(reinterpret_cast<const uint8_t*>(read_buffer_), bytes_transferred);
+    //print_packet(reinterpret_cast<const uint8_t*>(read_buffer_), bytes_transferred);
 #endif
 //std::cout << "tcp read :" << std::this_thread::get_id() << std::endl;
     if ( bytes_transferred > 0 ) {
