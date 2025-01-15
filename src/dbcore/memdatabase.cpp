@@ -1,3 +1,5 @@
+#include <iostream>
+#include <filesystem>
 #include "memdatabase.hpp"
 
 // Add a new table to the database
@@ -10,7 +12,7 @@ void MemDatabase::addTable(const std::string& tableName, const std::vector<Colum
 
 void MemDatabase::addTableFromJson(const std::string& jsonConfig) {
     auto root = nlohmann::json::parse(jsonConfig);
-
+    //std::cout << root.dump(4) << std::endl;
     std::string tableName = root["name"];
     auto columns = jsonToColumns(root);
     addTable(tableName, columns);
@@ -71,3 +73,79 @@ std::vector<MemTable::ptr> MemDatabase::listTables() const {
     return tableInstances;
 }
 
+void MemDatabase::saveTableToFile(MemTable::ptr table, const std::string& filePath) {
+    const std::string& tableName = table->name;
+
+    // 将表信息序列化为 JSON
+    nlohmann::json root;
+    root["name"] = tableName;
+    root["columns"] = columnsToJson(table->columns);
+
+    // 将 JSON 写入文件
+    std::ofstream outputFile(filePath);
+    if (!outputFile.is_open()) {
+        throw std::runtime_error("Unable to open file for writing: " + filePath);
+    }
+    outputFile << root.dump(4); // 格式化为缩进 4 的 JSON
+    outputFile.close();
+}
+
+
+void MemDatabase::save(const std::string& filePath) {
+    try {
+        std::string baseDir = filePath;  // 基目录
+        std::string subDir = "config";   // tables config
+        std::filesystem::path fullPath = std::filesystem::path(baseDir) / subDir;
+        // 创建目录及其所有父目录
+        if (std::filesystem::create_directories(fullPath)) {
+            //std::cout << "Successfully created directories: " << fullPath << '\n';
+        } else {
+            //std::cout << "Directories already exist: " << fullPath << '\n';
+        }
+        for (const auto table : tables) {
+            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+            saveTableToFile(table.second, tablePath.string());
+        }
+
+
+        subDir = "data"; //data
+        fullPath = std::filesystem::path(baseDir) / subDir;
+        // 创建目录及其所有父目录
+        if (std::filesystem::create_directories(fullPath)) {
+            //std::cout << "Successfully created directories: " << fullPath << '\n';
+        } else {
+            //std::cout << "Directories already exist: " << fullPath << '\n';
+        }
+        for (const auto table : tables) {
+            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+            table.second->exportToFile(tablePath.string());
+        }
+
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error: " << e.what() << '\n';
+    }
+}
+
+void MemDatabase::upload(const std::string& filePath) {
+    try {
+        std::string subDir = "config";   // 子目录
+        std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir;
+        for (const auto& entry : std::filesystem::directory_iterator(fullPath)) {
+            if (entry.is_regular_file()) { // 只打印文件（排除目录等其他类型）
+                std::filesystem::path tblFile = std::filesystem::path(fullPath) / entry.path().filename();
+                this->addTableFromFile(tblFile.string());
+                std::cout << "load table[" << entry.path().filename() << "] sucessfully!" << std::endl;
+            }
+        }
+                
+        subDir = "data";
+        fullPath = std::filesystem::path(filePath) / subDir;
+        for (const auto table : tables) {
+            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+            table.second->importRowsFromFile(tablePath.string());
+            std::cout << "load rows of table[" << table.first << "] sucessfully!" << std::endl;
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error: " << e.what() << '\n';
+    }
+}

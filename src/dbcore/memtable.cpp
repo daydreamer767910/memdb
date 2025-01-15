@@ -161,21 +161,6 @@ std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Fie
     return result;
 }
 
-// 封装列的序列化逻辑
-nlohmann::json MemTable::columnsToJson(const std::vector<Column>& columns) {
-    nlohmann::json jsonColumns = nlohmann::json::array();
-    for (const auto& column : columns) {
-        nlohmann::json colJson;
-        colJson["name"] = column.name;
-        colJson["type"] = column.type;
-        colJson["nullable"] = column.nullable;
-        colJson["defaultValue"] = fieldToJson(column.defaultValue);
-        colJson["primaryKey"] = column.primaryKey;
-        jsonColumns.push_back(colJson);
-    }
-    return jsonColumns;
-}
-
 // 封装行的序列化逻辑
 nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
     nlohmann::json jsonRows = nlohmann::json::array();
@@ -211,13 +196,10 @@ nlohmann::json MemTable::showRows() {
 }
 
 void MemTable::exportToFile(const std::string& filePath) {
-    nlohmann::json jsonTable = tableToJson();
-
-    std::vector<uint8_t> packet = pack_data(jsonTable,1);
     // Write to file
     std::ofstream outFile(filePath);
     if (outFile.is_open()) {
-        outFile << packet;
+        outFile << showRows().dump(4);
         //outFile << jsonTable.dump(4); // Pretty print with 4-space indentation
         outFile.close();
     } else {

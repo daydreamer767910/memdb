@@ -23,6 +23,7 @@ extern "C" {
 const char ip[] = "127.0.0.1";
 int port = 7900;
 bool exiting = false;
+static int id = 0;
 
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
@@ -39,7 +40,7 @@ int test(const std::string jsonConfig) {
     }
     
     // 读操作，支持超时
-    char buffer[1024*50] = {};
+    char buffer[1024*500] = {};
     ret = mdb_recv(buffer, sizeof(buffer) , 1000);
     if (ret<0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
@@ -52,8 +53,10 @@ int test(const std::string jsonConfig) {
 
     if (ret>0) {
         printf("APP RECV[%d]:\r\n",ret);
-        json jsonData = json::parse(buffer);
-        std::cout << jsonData.dump(2) << std::endl;
+        for(int i=0;i<ret;i=i+1024)
+            print_packet(reinterpret_cast<const uint8_t*>(buffer+i),1024);
+        //json jsonData = json::parse(buffer);
+        //std::cout << jsonData.dump(2) << std::endl;
     }
     return ret;
     
@@ -91,13 +94,15 @@ void insert_tbl() {
     jsonData["action"] = "insert";
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
-    for (int i=0;i<300;i++) {
+
+    for (int i=0;i<30;i++) {
         json row;
-        row["id"] = i;
-        row["name"] = "test name" + std::to_string(i);
-        row["age"] = 20+i;
-        row["addr"] = "street " + std::to_string(i);
+        row["id"] = id;
+        row["name"] = "test name" + std::to_string(id);
+        row["age"] = 20+i%50;
+        row["addr"] = "street " + std::to_string(id);
         jsonRows.push_back(row);
+        id++;
     }
     jsonData["rows"] = jsonRows;
 
@@ -135,7 +140,9 @@ int main(int argc, char* argv[]) {
     insert_tbl();
     while(!exiting) {
         get();
-        sleep(1);
+        break;
+        //insert_tbl();
+        //sleep(10);
     }
     
     // 关闭连接

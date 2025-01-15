@@ -29,7 +29,6 @@ public:
     //std::map<std::any, int> groupBy(const std::string& columnName) ;
 
     nlohmann::json showTable();
-    nlohmann::json columnsToJson(const std::vector<Column>& columns);
     nlohmann::json rowsToJson(const std::vector<Row>& rows);
     nlohmann::json tableToJson();
     void exportToFile(const std::string& filePath) ;

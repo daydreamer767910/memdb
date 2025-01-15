@@ -28,6 +28,9 @@ public:
         this->on_timer(tick,time,id);
     }) {
 		std::cout << "DBService start" << std::endl;
+		std::string baseDir = std::string(std::getenv("HOME"));
+		std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
+		db->upload(fullPath.string());
 		// 启动定时器
         timer.start();
 
@@ -69,7 +72,7 @@ public:
     }
 
 private:
-	
+	void keep_alive();
     void on_msg(const std::shared_ptr<DBMsg> msg) override;
 	void on_timer(int tick, int time, std::thread::id id);
 
@@ -78,7 +81,7 @@ private:
 	MemDatabase::ptr& db;
 	Timer timer;
 	std::thread timer_thread_;    // 独立线程用于处理事件循环
-	static constexpr uint32_t keep_alv_timer = 200000;
+	static constexpr uint32_t keep_alv_timer = 30000;
 };
 
 

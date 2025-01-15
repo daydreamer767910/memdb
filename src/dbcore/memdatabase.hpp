@@ -26,6 +26,7 @@ public:
 
 
     void addTableFromFile(const std::string& filePath);
+    void saveTableToFile(MemTable::ptr table, const std::string& filePath);
 
     // Methods to manipulate tables
     void addTableFromJson(const std::string& jsonConfig);
@@ -37,6 +38,9 @@ public:
     // Methods for listing tables
     std::vector<std::string> listTableNames() const;
     std::vector<MemTable::ptr> listTables() const;
+
+    void save(const std::string& filePath);
+    void upload(const std::string& filePath);
 };
 
 

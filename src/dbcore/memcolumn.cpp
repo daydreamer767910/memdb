@@ -88,6 +88,7 @@ bool isValidType(const Field& value, const std::string& type) {
 }
 
 std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns) {
+    //std::cout << jsonColumns.dump(4) << std::endl;
     std::vector<Column> columns = {};
     for (const auto& col : jsonColumns["columns"]) {
         Field defaultValue;
@@ -102,7 +103,8 @@ std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns) {
             } else if (col["type"] == "bool") {
                 defaultValue = defaultVal.get<bool>();
             } else if (col["type"] == "date") {
-                defaultValue = defaultVal.get<std::time_t>();
+                //defaultValue = defaultVal.get<std::time_t>();
+                defaultValue = stringToTimeT(defaultVal.get<std::string>());
             } else if (col["type"] == "array") {
                 defaultValue = std::vector<uint8_t>(defaultVal.begin(), defaultVal.end());
             }
@@ -122,4 +124,24 @@ std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns) {
         });
     }
     return columns;
+}
+
+nlohmann::json columnsToJson(const std::vector<Column>& columns) {
+    nlohmann::json jsonColumns = nlohmann::json::array();
+    for (const auto& column : columns) {
+        nlohmann::json colJson;
+        colJson["name"] = column.name;
+        colJson["type"] = column.type;
+        colJson["nullable"] = column.nullable;
+        colJson["primaryKey"] = column.primaryKey;
+
+        // 使用 fieldToJson 转换 defaultValue 为 JSON
+        if (column.defaultValue.index() != std::variant_npos) {
+            colJson["defaultValue"] = fieldToJson(column.defaultValue);
+        }
+
+        jsonColumns.push_back(colJson);
+    }
+
+    return jsonColumns;
 }

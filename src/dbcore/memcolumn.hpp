@@ -36,5 +36,6 @@ Field getDefault(const std::string& type);
 
 bool isValidType(const Field& value, const std::string& type);
 std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns);
+nlohmann::json columnsToJson(const std::vector<Column>& columns);
 
 #endif
