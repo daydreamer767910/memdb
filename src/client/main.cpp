@@ -33,10 +33,10 @@ int test(const std::string jsonConfig) {
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         if (ret == -2) {
-            //mdb_reconnect(ip,port);
-            //return 0;
+            mdb_reconnect(ip,port);
+            return 0;
         }
-        //return ret;
+        return ret;
     }
     
     // 读操作，支持超时
@@ -53,8 +53,7 @@ int test(const std::string jsonConfig) {
 
     if (ret>0) {
         printf("APP RECV[%d]:\r\n",ret);
-        for(int i=0;i<ret;i=i+1024)
-            print_packet(reinterpret_cast<const uint8_t*>(buffer+i),1024);
+        print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
         //json jsonData = json::parse(buffer);
         //std::cout << jsonData.dump(2) << std::endl;
     }
@@ -140,9 +139,9 @@ int main(int argc, char* argv[]) {
     insert_tbl();
     while(!exiting) {
         get();
-        break;
-        //insert_tbl();
-        //sleep(10);
+
+        insert_tbl();
+        sleep(5);
     }
     
     // 关闭连接

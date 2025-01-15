@@ -72,8 +72,8 @@ void MdbClient::on_data_received(int result) {
 	if (result > 0) {
 		int ret = this->write_with_timeout(write_buf,result,50);
 		if ( ret == -2 ) {
-			//close();
-			//reconnect();
+			close();
+			reconnect();
 		}
 		if(ret>0)
 		print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
