@@ -199,12 +199,25 @@ void MemTable::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
     if (outFile.is_open()) {
-        outFile << showRows().dump(4);
-        //outFile << jsonTable.dump(4); // Pretty print with 4-space indentation
+        outFile << "{\n\"rows\":\n["; // Start the JSON array
+
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const auto& row = rows[i];
+            nlohmann::json rowJson;
+            for (const auto& [key, value] : row) {
+                rowJson[key] = fieldToJson(value);
+            }
+            outFile << rowJson.dump(); // Write each row without formatting
+            if (i < rows.size() - 1) { // Avoid trailing comma
+                outFile << ",";
+            }
+        }
+
+        outFile << "]\n}"; // End the JSON array
         outFile.close();
     } else {
         throw std::runtime_error("Failed to open file for writing: " + filePath);
-    }
+    }    
 }
 
 void MemTable::importRowsFromFile(const std::string& filePath) {
