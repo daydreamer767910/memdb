@@ -50,7 +50,7 @@ public:
 	// 1. APP 缓存到下行 CircularBuffer
     int send(const std::string& data, uint32_t msg_id, uint32_t timeout);
 	// 4. APP 读取上行 CircularBuffer
-    int recv(std::vector<json>& json_datas, uint32_t timeout);
+    int recv(std::vector<json>& json_datas, size_t size, uint32_t timeout);
 	int reconnect(const std::string& host = "", const std::string& port = "");
 	DataVariant& get_data() override {
 		memset(write_buf,0,sizeof(write_buf));

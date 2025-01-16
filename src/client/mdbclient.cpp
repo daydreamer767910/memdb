@@ -92,8 +92,8 @@ int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) 
     }
 }
 
-int MdbClient::recv(std::vector<json>& json_datas, uint32_t timeout) {
-	return transport_->read(json_datas,std::chrono::milliseconds(timeout));
+int MdbClient::recv(std::vector<json>& json_datas, size_t size,uint32_t timeout) {
+	return transport_->read(json_datas,size,std::chrono::milliseconds(timeout));
 }
 
 void MdbClient::handle_read(const boost::system::error_code& error, std::size_t nread) {

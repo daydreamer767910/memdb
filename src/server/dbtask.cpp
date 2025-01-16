@@ -1,10 +1,18 @@
 #include "dbtask.hpp"
 #include "dbservice.hpp"
 
-void DbTask::handle_task() {
+
+void DbTask::on_data_received(int result) {
+	if (result >0 ) {
+		auto msg = std::make_shared<DBVariantMsg>(std::make_tuple(json_datas,port_id_));
+		DBService::getInstance()->sendmsg(msg);
+	}
+}
+
+void DbTask::handle_task(uint32_t msg_id, std::vector<json>& json_datasCopy) {
 	json jsonResp;
 	//std::cout << "DbTask handle_task:" << std::this_thread::get_id() << std::endl;
-	for (auto& jsonTask : this->json_datas) {
+	for (auto& jsonTask : json_datasCopy) {
 		//std::cout << jsonTask.dump(4) << std::endl;
 		std::string action = jsonTask["action"];
 		auto db = DBService::getInstance()->getDb();
@@ -50,8 +58,14 @@ void DbTask::handle_task() {
 			std::cerr << "Unknown exception occurred!" << std::endl;
 			jsonResp["error"] = "Unknown exception occurred!";
 		}
-		auto msg = std::make_shared<DBMsg>(std::make_tuple(1,port_id_,jsonResp));
-		DBService::getInstance()->sendmsg(msg);
+		auto port = TransportSrv::get_instance()->get_port(port_id_);
+		if (port) {
+			int ret = port->send(jsonResp.dump(), msg_id ,std::chrono::milliseconds(100));
+			if (ret<0) {
+				std::cout << "APP SEND err:" << ret <<  std::endl;
+			}
+		}
+		
 	}
 	
 }

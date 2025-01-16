@@ -25,6 +25,7 @@ using trans_pair = std::pair<uint32_t,std::shared_ptr<Transport>>;
 class ITransportObserver {
 public:
     virtual void on_new_transport(const std::shared_ptr<Transport>& transport) = 0;
+	virtual void on_close_transport(const uint32_t port_id) = 0;
     virtual ~ITransportObserver() = default;
 };
 
@@ -61,6 +62,11 @@ private:
 	void notify_new_transport(const std::shared_ptr<Transport>& transport) {
         for (const auto& observer : observers_) {
             observer->on_new_transport(transport);
+        }
+    }
+	void notify_close_transport(const uint32_t port_id) {
+        for (const auto& observer : observers_) {
+            observer->on_close_transport(port_id);
         }
     }
 	static constexpr size_t transport_buff_szie = 1024*9; //9K

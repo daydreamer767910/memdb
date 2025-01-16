@@ -51,11 +51,10 @@ struct MessageBuffer {
 
 
 // 定义数据类型的别名
+using tcpMsg=std::tuple<char*, int, uint32_t>;
+using appMsg=std::tuple<std::vector<json>*,int, uint32_t>;
 // 定义可以在回调中处理的数据类型
-using DataVariant = std::variant<
-    std::tuple<char*, int, uint32_t>, 
-    std::tuple<std::vector<json>*, uint32_t>
->;
+using DataVariant = std::variant<tcpMsg, appMsg>;
 
 // 定义接口类
 class IDataCallback {
@@ -92,7 +91,7 @@ public:
     // 3. TCP 缓存到上行 CircularBuffer
     int input(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    int read(std::vector<json>& json_datas, std::chrono::milliseconds timeout);
+    int read(std::vector<json>& json_datas, size_t size, std::chrono::milliseconds timeout);
 
 	void reset(ChannelType type) {
         if (ChannelType::ALL == type) {
@@ -107,8 +106,8 @@ public:
 
 private:
     static constexpr size_t segment_size_ = 1024; // 分段大小
-    static constexpr size_t max_message_size_ = 10 * 1024 * 1024; // 限制最大消息大小为 10 MB
-    static constexpr size_t max_cache_size = 16;  // 缓存的最大消息数量
+    static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
+    
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据

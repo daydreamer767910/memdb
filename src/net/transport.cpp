@@ -40,7 +40,7 @@ void Transport::on_send() {
         // 使用 std::visit 处理不同类型
         std::visit([this, &callback](auto&& data) {
             using T = std::decay_t<decltype(data)>;
-            if constexpr (std::is_same_v<T, std::tuple<char*,int,uint32_t>>) {
+            if constexpr (std::is_same_v<T, tcpMsg>) {
                 auto [buffer,buffer_size, port_id] = data;
                 //std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
                 if (port_id == this->id_) {
@@ -71,12 +71,12 @@ void Transport::on_input() {
             // 使用 std::visit 处理不同类型
             std::visit([this, &callback](auto&& data) {
                 using T = std::decay_t<decltype(data)>;
-                if constexpr (std::is_same_v<T, std::tuple<std::vector<json>*,uint32_t>>) {
-                    auto [json_data, port_id] = data;
+                if constexpr (std::is_same_v<T, appMsg>) {
+                    auto [json_data, max_cache_size, port_id] = data;
                     //std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
                     if (port_id == 0xffffffff || port_id == this->id_) {
-                        //把传输层数据一次收整 不需要循环
-                        int len = this->read(*json_data, std::chrono::milliseconds(100));
+                        //把传输层数据一次收整 
+                        int len = this->read(*json_data, max_cache_size, std::chrono::milliseconds(100));
                         if (len > 0) {
                             callback->on_data_received(this->id_);
                         }
@@ -93,23 +93,11 @@ void Transport::on_input() {
 void Transport::triger_event(ChannelType type) {
     
     if (ChannelType::ALL == type) {
-        /*io_context_.post([this]() {
-            this->on_send();
-        });
-        io_context_.post([this]() {
-            this->on_input();
-        });*/
         timer_[0].start();
         timer_[1].start();
     } else if (ChannelType::UP_LOW == type) {
-        /*io_context_.post([this]() {
-            this->on_send();
-        });*/
         timer_[0].start();;
     } else if (ChannelType::LOW_UP == type) {
-        /*io_context_.post([this]() {
-            this->on_input();
-        });*/
         timer_[1].start();;
     }
 }
@@ -234,8 +222,12 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
         triger_event(ChannelType::UP_LOW);
 		if (ret<0) {
             //retry 1 time
+            std::cout << "app -> CircularBuffer fail and retry" << std::endl;
             ret = app_to_tcp_.write(network_data.data(), network_data.size(), timeout);
-            if(ret<0) return -1; // 写入超时
+            if(ret<0) {
+                std::cerr << "app -> CircularBuffer fail" << std::endl;
+                return -1; // 写入超时
+            }
             triger_event(ChannelType::UP_LOW);
 		}
 		//std::cout << "APP->PORT :" << std::this_thread::get_id() << std::endl;
@@ -262,14 +254,19 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 	int ret = tcp_to_app_.write(buffer, size, timeout);
     triger_event(ChannelType::LOW_UP);
     if (ret < 0) {
+        std::cout << "tcp -> CircularBuffer fail and retry" << std::endl;
         //retry 1 time
         ret = tcp_to_app_.write(buffer, size, timeout);
+        if (ret < 0 ) {
+            std::cerr << "tcp -> CircularBuffer fail" << std::endl;
+        }
         triger_event(ChannelType::LOW_UP);
     } 
     return ret;
 }
 
 int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
+    size_t max_cache_size, // 缓存的最大消息数量
     std::chrono::milliseconds timeout) 
 {
     while (true) {
