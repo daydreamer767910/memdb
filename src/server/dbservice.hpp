@@ -76,6 +76,7 @@ private:
 	std::mutex mutex_;
 	std::unordered_map<uint32_t, std::shared_ptr<DbTask>> tasks_;
 	static constexpr uint32_t keep_alv_timer = 30000;
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
 };
 
 

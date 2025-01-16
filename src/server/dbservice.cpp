@@ -8,7 +8,8 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()),
 	db(MemDatabase::getInstance()),
 	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
         this->on_timer(tick,time,id);
-}) {
+	}),
+	work_guard_(boost::asio::make_work_guard(io_)) {
 	std::cout << "DBService start" << std::endl;
 	load_db();
 	// 启动定时器
@@ -33,13 +34,14 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()),
 DBService::~DBService() {
 	// 停止事件循环
     io_.stop();
-
+	
     // 停止线程池
     thread_pool_.stop();
-
+	std::cout << "DBService thread pool stoped\n";
+	work_guard_.reset();
     // 等待线程池中的所有线程完成任务
     thread_pool_.join();
-
+	std::cout << "DBService thread pool joined\n";
     // 清理任务
     {
         std::lock_guard<std::mutex> lock(mutex_);
