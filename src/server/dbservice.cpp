@@ -3,6 +3,59 @@
 #include "net/transportsrv.hpp"
 #include "util/util.hpp"
 
+DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()),
+	io_(),
+	db(MemDatabase::getInstance()),
+	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
+        this->on_timer(tick,time,id);
+}) {
+	std::cout << "DBService start" << std::endl;
+	load_db();
+	// 启动定时器
+	timer.start();
+
+	// 启动事件循环
+	std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency() << " threads." << std::endl;
+	// 在线程池中运行 io_context
+	for (std::size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
+		boost::asio::post(thread_pool_, [this]() {
+			io_.run();
+		});
+	}
+	/*timer_thread_ = std::thread([this]() {
+		std::cout << "DBService loop starting:" << std::this_thread::get_id() << std::endl;
+		io_.run();
+		save_db();
+		std::cout << "DBService saved and stop" << std::endl;
+	});*/
+}
+
+DBService::~DBService() {
+	// 停止事件循环
+    io_.stop();
+
+    // 停止线程池
+    thread_pool_.stop();
+
+    // 等待线程池中的所有线程完成任务
+    thread_pool_.join();
+
+    // 清理任务
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        tasks_.clear();  // 清空 map
+    }
+    std::cout << "DBtasks stopped" << std::endl;
+
+    // 保存数据库
+    save_db();
+    std::cout << "DBService saved" << std::endl;
+
+    #ifdef DEBUG
+    std::cout << "DB service destroyed!" << std::endl;
+    #endif
+}
+
 void DBService::on_msg(const std::shared_ptr<DBVariantMsg> msg) {
 	static std::atomic<uint32_t> msg_id(0);
 	std::visit([this](auto&& message) {
@@ -10,7 +63,11 @@ void DBService::on_msg(const std::shared_ptr<DBVariantMsg> msg) {
         auto [jsonDatas, port_id] = message;
 		auto it = tasks_.find(port_id);
 		if (it != tasks_.end()) {
-			it->second->handle_task(msg_id++, jsonDatas);
+			// 显式捕获 msg_id 和 jsonDatas
+            boost::asio::post(io_, [task = it->second, msg_id = msg_id.load(), jsonDatas]() {
+                task->handle_task(msg_id, jsonDatas);
+            });
+			msg_id++;
 		}
     }, *msg);
 }

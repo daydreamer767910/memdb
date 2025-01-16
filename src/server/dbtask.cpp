@@ -4,15 +4,15 @@
 
 void DbTask::on_data_received(int result) {
 	if (result >0 ) {
-		auto msg = std::make_shared<DBVariantMsg>(std::make_tuple(json_datas,port_id_));
+		auto msg = std::make_shared<DBVariantMsg>(std::make_tuple(std::make_shared<std::vector<json>>(json_datas),port_id_));
 		DBService::getInstance()->sendmsg(msg);
 	}
 }
 
-void DbTask::handle_task(uint32_t msg_id, std::vector<json>& json_datasCopy) {
+void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datasCopy) {
 	json jsonResp;
-	//std::cout << "DbTask handle_task:" << std::this_thread::get_id() << std::endl;
-	for (auto& jsonTask : json_datasCopy) {
+	//std::cout << "DbTask[" << port_id_ << "]:Pid[" << std::this_thread::get_id() << "]:handle_task" << std::endl;
+	for (auto& jsonTask : *json_datasCopy) {
 		//std::cout << jsonTask.dump(4) << std::endl;
 		std::string action = jsonTask["action"];
 		auto db = DBService::getInstance()->getDb();

@@ -23,7 +23,8 @@ auto server = TcpServer();
 void signal_handler(int signal) {
     if (signal == SIGINT) {
         std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
-        //logger.terminate();
+        logger.terminate();
+        db_server->terminate();
         tranport_server->stop();
         server.stop();
     }

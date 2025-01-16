@@ -43,7 +43,7 @@ public:
     }
 	void on_data_received(int result) override;
 
-	void handle_task(uint32_t msg_id, std::vector<json>& json_datasCopy);
+	void handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datasCopy);
 private:
 	std::vector<json> json_datas;//the container to read msg from transport layer
 	uint32_t port_id_;

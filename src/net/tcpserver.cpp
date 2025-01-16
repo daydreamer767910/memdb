@@ -30,8 +30,10 @@ void TcpServer::start(const std::string& ip, int port) {
 }
 
 void TcpServer::stop() {
-    cleanup();
+    timer_.stop();
     io_context_.stop();
+    cleanup();
+    std::cout << "TcpServer stopped." << std::endl;
 }
 
 void TcpServer::on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {

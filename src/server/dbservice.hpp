@@ -20,42 +20,13 @@
 #include "util/timer.hpp"
 #include "dbtask.hpp"
 
-using DBMsg = std::tuple<std::vector<json>,uint32_t>;
+using DBMsg = std::tuple<std::shared_ptr<std::vector<json>>,uint32_t>;
 using DBVariantMsg = std::variant<DBMsg>;
 class DBService : public ThreadBase<DBMsg>, public ITransportObserver{
 public:
-	DBService() :db(MemDatabase::getInstance()),
-	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
-        this->on_timer(tick,time,id);
-    }) {
-		std::cout << "DBService start" << std::endl;
-		load_db();
-		// 启动定时器
-        timer.start();
-
-        // 启动事件循环
-        timer_thread_ = std::thread([this]() {
-			std::cout << "DBService loop starting:" << std::this_thread::get_id() << std::endl;
-            io_.run();
-			save_db();
-			std::cout << "DBService saved and stop" << std::endl;
-        });
-	}
+	DBService();
 	
-	~DBService() {
-		// 遍历并清理所有连接
-		{
-			std::lock_guard<std::mutex> lock(mutex_);
-			tasks_.clear(); // 清空 map
-		}
-		if (timer_thread_.joinable()) {
-            io_.stop();  // 停止事件循环
-            timer_thread_.join();  // 等待线程退出
-        }
-		#ifdef DEBUG
-		std::cout << "DB service destoryed!" << std::endl;
-		#endif
-	}
+	~DBService();
 	DBService(const DBService&) = delete;
     DBService& operator=(const DBService&) = delete;
 
@@ -97,10 +68,11 @@ private:
 	void on_timer(int tick, int time, std::thread::id id);
 
 private:
+	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;
 	MemDatabase::ptr& db;
 	Timer timer;
-	std::thread timer_thread_;    // 独立线程用于处理事件循环
+	//std::thread timer_thread_;    // 独立线程用于处理事件循环
 	std::mutex mutex_;
 	std::unordered_map<uint32_t, std::shared_ptr<DbTask>> tasks_;
 	static constexpr uint32_t keep_alv_timer = 30000;

@@ -32,7 +32,7 @@ void TransportSrv::start() {
         std::cout << "TransportSrv loop starting:" << std::this_thread::get_id() << std::endl;
         // Run the loop
         io_.run();
-        //std::cout << "Event loop stopped." << std::endl;
+        std::cout << "TransportSrv loop stopped." << std::endl;
     }, std::move(promise));
 	future.wait(); // 等待子线程通知
 }
@@ -42,6 +42,7 @@ void TransportSrv::stop() {
         io_.stop();
         eventLoopThread_.join();
     }
+    std::cout << "TransportSrv stopped." << std::endl;
 }
 
 std::vector<uint32_t> TransportSrv::get_all_ports() {
