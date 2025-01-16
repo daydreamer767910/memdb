@@ -81,7 +81,7 @@ public:
     }
     // 添加回调
     void add_callback(const std::shared_ptr<IDataCallback>& callback) {
-        std::cout << "add callback" << std::endl;
+        //std::cout << "add callback" << std::endl;
         callbacks_.push_back(callback);
     }
 

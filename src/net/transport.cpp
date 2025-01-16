@@ -230,11 +230,15 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
 
 
 		std::vector<char> network_data = serializeMsg(msg);
-		if (app_to_tcp_.write(network_data.data(), network_data.size(), timeout)<0) {
-			return -1; // 写入超时
+        int ret = app_to_tcp_.write(network_data.data(), network_data.size(), timeout);
+        triger_event(ChannelType::UP_LOW);
+		if (ret<0) {
+            //retry 1 time
+            ret = app_to_tcp_.write(network_data.data(), network_data.size(), timeout);
+            if(ret<0) return -1; // 写入超时
+            triger_event(ChannelType::UP_LOW);
 		}
-		triger_event(ChannelType::UP_LOW);
-		//std::cout << "APP OUT :" << std::this_thread::get_id() << std::endl;
+		//std::cout << "APP->PORT :" << std::this_thread::get_id() << std::endl;
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
 		offset += chunk_size;
 	}
@@ -256,7 +260,12 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 	//std::cout << "Transport::input: \n";
 	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
 	int ret = tcp_to_app_.write(buffer, size, timeout);
-    if (ret > 0) triger_event(ChannelType::LOW_UP);
+    triger_event(ChannelType::LOW_UP);
+    if (ret < 0) {
+        //retry 1 time
+        ret = tcp_to_app_.write(buffer, size, timeout);
+        triger_event(ChannelType::LOW_UP);
+    } 
     return ret;
 }
 

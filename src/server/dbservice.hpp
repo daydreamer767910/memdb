@@ -28,9 +28,7 @@ public:
         this->on_timer(tick,time,id);
     }) {
 		std::cout << "DBService start" << std::endl;
-		std::string baseDir = std::string(std::getenv("HOME"));
-		std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
-		db->upload(fullPath.string());
+		load_db();
 		// 启动定时器
         timer.start();
 
@@ -38,6 +36,8 @@ public:
         timer_thread_ = std::thread([this]() {
 			std::cout << "DBService loop starting:" << std::this_thread::get_id() << std::endl;
             io_.run();
+			save_db();
+			std::cout << "DBService saved and stop" << std::endl;
         });
 	}
 	
@@ -66,10 +66,13 @@ public:
 	}
 
 	void on_new_transport(const std::shared_ptr<Transport>& transport) override {
-		std::cout << "on_new_transport" << transport->get_id() << std::endl;
-		auto dbtask = std::make_shared<DbTask>(transport->get_id());
+		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
+		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
         transport->add_callback(dbtask);
     }
+
+	void save_db();
+	void load_db();
 
 private:
 	void keep_alive();

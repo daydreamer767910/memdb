@@ -30,10 +30,10 @@ bool MemTable::validatePrimaryKey(const Row& row) {
     for (const auto& column : columns) {
         if (column.primaryKey) {
             auto primaryKeyValue = row.at(column.name);
-            for (const auto& existingRow : rows) {
-                if (existingRow.at(column.name) == primaryKeyValue) {
-                    throw std::invalid_argument("Primary key value already exists.");
-                }
+
+            // 检查主键是否存在于索引中
+            if (primaryKeyIndex.find(primaryKeyValue) != primaryKeyIndex.end()) {
+                throw std::invalid_argument("Primary key value already exists: " + column.name);
             }
         }
     }
@@ -55,6 +55,8 @@ Row MemTable::processRowDefaults(const Row& row) {
 }
 
 void MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+    std::vector<size_t> newIndexes; // 记录需要更新索引的行
+    int i = 0;
     for (const auto& jsonRow : jsonRows["rows"]) {
         Row row;
         for (const auto& [key, value] : jsonRow.items()) {
@@ -66,8 +68,24 @@ void MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
                 row[key] = jsonToField(columnIt->type,value);
             }
         }
-        insertRow(row);
+        Row newRow = processRowDefaults(row);
+        if (validateRow(newRow) && validatePrimaryKey(newRow)) {
+            rows.push_back(newRow);
+            newIndexes.push_back(rows.size() - 1);
+            i++;
+            // 如果有主键，更新主键索引
+            for (const auto& column : columns) {
+                if (column.primaryKey) {
+                    auto primaryKeyValue = newRow.at(column.name);
+                    primaryKeyIndex[primaryKeyValue] = rows.size() - 1;
+                }
+            }
+        } 
     }
+
+    // 批量更新索引
+    updateIndexesBatch(newIndexes);
+    std::cout << "insert " << i << " rows into table[" << this->name << "] successfully!" << std::endl;
 }
 
 bool MemTable::insertRow(const Row& row) {
@@ -75,6 +93,14 @@ bool MemTable::insertRow(const Row& row) {
     if (validateRow(newRow) && validatePrimaryKey(newRow)) {
         rows.push_back(newRow);
         updateIndexes(newRow, rows.size() - 1);
+
+        // 如果有主键，更新主键索引
+        for (const auto& column : columns) {
+            if (column.primaryKey) {
+                auto primaryKeyValue = newRow.at(column.name);
+                primaryKeyIndex[primaryKeyValue] = rows.size() - 1;
+            }
+        }
         return true;
     }
     return false;
@@ -87,6 +113,15 @@ bool MemTable::insertRows(const std::vector<Row>& newRows) {
         if (validateRow(newRow) && validatePrimaryKey(newRow)) {
             rows.push_back(newRow);
             newIndexes.push_back(rows.size() - 1);
+
+            // 如果有主键，更新主键索引
+            for (const auto& column : columns) {
+                if (column.primaryKey) {
+                    auto primaryKeyValue = newRow.at(column.name);
+                    primaryKeyIndex[primaryKeyValue] = rows.size() - 1;
+                }
+            }
+
         } else {
             return false;
         }
@@ -226,6 +261,14 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
     }
+    // 将文件内容读取到std::string中
+    std::stringstream buffer;
+    buffer << inputFile.rdbuf();
+    //std::cout << "read file ok " << get_timestamp() << std::endl;
+    nlohmann::json jsonData = nlohmann::json::parse(buffer.str());
+    //std::cout << "parse buffer ok " << get_timestamp() << std::endl;
+    insertRowsFromJson(jsonData);
+    //std::cout << "insert table ok " << get_timestamp() << std::endl;
     /*[[maybe_unused]] auto result = nlohmann::json::parse(inputFile, [](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
         switch (event) {
             case nlohmann::json::parse_event_t::key:
@@ -251,12 +294,12 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         }
         // Continue parsing
         return true;
-    });*/
+    });
     nlohmann::json::parser_callback_t callback = [this](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
         if (depth == 2 && event == nlohmann::json::parse_event_t::object_end) {
             Row row;
             for (const auto& [key, value] : parsed.items()) {
-                //std::cout << "Key: " << key << " Value: " << value << "\n";
+                std::cout << "Key: " << key << " Value: " << value << "\n";
                 auto columnIt = std::find_if(columns.begin(), columns.end(), [&key](const Column& col) {
                     return col.name == key;
                 });
@@ -270,7 +313,7 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         return true; // Continue parsing
     };
 
-    [[maybe_unused]] auto result = nlohmann::json::parse(inputFile, callback);
+    [[maybe_unused]] auto result = nlohmann::json::parse(inputFile, callback);*/
     inputFile.close();
 }
 

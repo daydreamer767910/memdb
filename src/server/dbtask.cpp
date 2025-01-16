@@ -3,7 +3,9 @@
 
 void DbTask::handle_task() {
 	json jsonResp;
-	for (auto jsonTask : json_datas) {
+	//std::cout << "DbTask handle_task:" << std::this_thread::get_id() << std::endl;
+	for (auto& jsonTask : this->json_datas) {
+		//std::cout << jsonTask.dump(4) << std::endl;
 		std::string action = jsonTask["action"];
 		auto db = DBService::getInstance()->getDb();
 		try {

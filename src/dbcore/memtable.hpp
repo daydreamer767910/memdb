@@ -1,6 +1,6 @@
 #ifndef MEMTABLE_HPP
 #define MEMTABLE_HPP
-
+#include <unordered_map>
 #include "memcolumn.hpp"
 
 class MemTable {
@@ -11,6 +11,7 @@ public:
     std::vector<Column> columns;
     std::vector<Row> rows;
     std::map<std::string, Index> indexes;  // Indexes on the columns (if any)
+    PrimaryKeyIndex primaryKeyIndex; 
 
     MemTable(const std::string& tableName, const std::vector<Column>& columns);
     

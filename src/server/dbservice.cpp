@@ -43,11 +43,20 @@ void DBService::keep_alive() {
 	}
 }
 
-void DBService::on_timer(int , int , std::thread::id ) {
+void DBService::save_db() {
 	std::string baseDir = std::string(std::getenv("HOME"));
 	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
 //std::cout << "DBService::on_timer :save db to" << fullPath.string() << std::endl;
 	db->save(fullPath.string());
-	
+}
+
+void DBService::load_db() {
+	std::string baseDir = std::string(std::getenv("HOME"));
+	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
+	db->upload(fullPath.string());
+}
+
+void DBService::on_timer(int , int , std::thread::id ) {
+	//save_db();
 }
 

@@ -134,7 +134,7 @@ void MemDatabase::upload(const std::string& filePath) {
             if (entry.is_regular_file()) { // 只打印文件（排除目录等其他类型）
                 std::filesystem::path tblFile = std::filesystem::path(fullPath) / entry.path().filename();
                 this->addTableFromFile(tblFile.string());
-                std::cout << "load table[" << entry.path().filename() << "] sucessfully!" << std::endl;
+                //std::cout << "load table[" << entry.path().filename() << "] sucessfully!" << std::endl;
             }
         }
                 
@@ -143,7 +143,7 @@ void MemDatabase::upload(const std::string& filePath) {
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             table.second->importRowsFromFile(tablePath.string());
-            std::cout << "load rows of table[" << table.first << "] sucessfully!" << std::endl;
+            std::cout << "load table[" << table.first << "] sucessfully!" << std::endl;
         }
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Error: " << e.what() << '\n';
