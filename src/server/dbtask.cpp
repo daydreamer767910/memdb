@@ -23,7 +23,7 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 		std::string action = jsonTask["action"];
 		auto db = DBService::getInstance()->getDb();
 		try {
-			if (action == "create table") {	
+			if (action == "create") {	
 				std::string tableName = jsonTask["name"];
 				auto columns = jsonToColumns(jsonTask);
 				db->addTable(tableName, columns);
@@ -41,7 +41,7 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
-			} else if(action == "show tables") {
+			} else if(action == "show") {
 				auto tables = db->listTables();
 				for ( auto table: tables) {
 					jsonResp[table->name] = table->showTable();
@@ -53,6 +53,15 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				auto tb = db->getTable(tableName);
 				if (tb) {
 					jsonResp[tableName] = tb->rowsToJson(tb->getWithLimitAndOffset(limit,offset));
+				} else {
+					jsonResp["error"] = "table[" + tableName + "] not exist";
+				}
+			} else if(action == "count") {
+				std::string tableName = jsonTask["name"];
+				auto tb = db->getTable(tableName);
+				if (tb) {
+					jsonResp[tableName] = tableName;
+					jsonResp["total"] = tb->getTotalRows();
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}

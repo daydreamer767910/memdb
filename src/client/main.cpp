@@ -64,8 +64,8 @@ int test(const std::string jsonConfig) {
 void create_tbl() {
 //1.create table
     std::string jsonConfig = R"({
-        "action": "create table",
-        "name": "client-test",
+        "action": "create",
+        "name": "user",
         "columns": [
             { "name": "id", "type": "int", "primaryKey": true },
             { "name": "name", "type": "string" },
@@ -81,7 +81,7 @@ void create_tbl() {
 void show_tbl() {
 //2.show tables
     std::string jsonConfig = R"({
-        "action": "show tables"
+        "action": "show"
     })";
     
     test(jsonConfig);
@@ -91,7 +91,7 @@ void insert_tbl() {
 //3.insert rows
     json jsonData;
     jsonData["action"] = "insert";
-    jsonData["name"] = "client-test";
+    jsonData["name"] = "user";
     json jsonRows = json::array();
 
     for (int i=0;i<30;i++) {
@@ -109,15 +109,24 @@ void insert_tbl() {
     test(jsonConfig);
 }
 
-void get() {
+void get(std::string& name) {
     static int offset = 0;
     int limit = 30;
     json jsonData;
     jsonData["action"] = "get";
-    jsonData["name"] = "client-test";
+    jsonData["name"] = name;
     jsonData["limit"] = limit;
     jsonData["offset"] = offset;
     offset += limit;
+    std::string jsonConfig = jsonData.dump(1);
+    test(jsonConfig);
+}
+
+void count(std::string& name) {
+    json jsonData;
+    jsonData["action"] = "count";
+    jsonData["name"] = name;
+
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
@@ -133,7 +142,7 @@ void signal_handler(int signal) {
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <command>\n";
-        std::cerr << "Commands: create, desc, insert, get\n";
+        std::cerr << "Commands: create, show, insert, get, count\n";
         return 1;
     }
 
@@ -152,11 +161,14 @@ int main(int argc, char* argv[]) {
 
     // 根据命令行参数执行相应的操作
     std::string command = argv[1];
+    std::string param = argv[2];
     
     if (command == "create") {
         create_tbl();
-    } else if (command == "desc") {
+    } else if (command == "show") {
         show_tbl();
+    } else if (command == "count") {
+        count(param);
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl();
@@ -164,11 +176,11 @@ int main(int argc, char* argv[]) {
         }
     } else if (command == "get") {
         while (!exiting) {
-            get();
+            get(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     } else {
-        std::cerr << "Invalid command. Valid commands are: create_tbl, insert_tbl, get.\n";
+        std::cerr << "Invalid command. Valid commands are: create, show, insert, get, count.\n";
     }
     
     // 关闭连接

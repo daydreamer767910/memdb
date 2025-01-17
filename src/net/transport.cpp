@@ -101,9 +101,15 @@ void Transport::triger_event(ChannelType type) {
         timer_[0].start();
         timer_[1].start();
     } else if (ChannelType::UP_LOW == type) {
-        timer_[0].start();;
+        /*boost::asio::post(*io_context_[0], [this]() {
+            this->on_send();
+        });*/
+        timer_[0].start();
     } else if (ChannelType::LOW_UP == type) {
-        timer_[1].start();;
+        timer_[1].start();
+        /*boost::asio::post(*io_context_[1], [this]() {
+            this->on_input();
+        });*/
     }
 }
 

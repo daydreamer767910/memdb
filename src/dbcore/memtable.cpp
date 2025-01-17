@@ -139,6 +139,10 @@ std::vector<Row> MemTable::getRows() const{
     return rows;
 }
 
+size_t MemTable::getTotalRows() const{
+    return rows.size();
+}
+
 void MemTable::showIndexs() {
     for (const auto& [colName, index] : indexes) {
         // 打印索引更新信息

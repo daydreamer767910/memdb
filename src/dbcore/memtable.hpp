@@ -25,13 +25,14 @@ public:
     // Move constructor and move assignment operator (optional, if needed)
     MemTable(MemTable&&) = default;
     MemTable& operator=(MemTable&&) = default;
-    
+
     // Methods related to rows and columns
     int insertRowsFromJson(const nlohmann::json& jsonRows);
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
     nlohmann::json showRows();
     std::vector<Row> getRows() const;
+    size_t getTotalRows() const;
         
     // Indexing methods
     void showIndexs();
