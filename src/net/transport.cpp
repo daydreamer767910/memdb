@@ -35,28 +35,34 @@ void Transport::on_send() {
 	//std::cout << "send signal\n";
 	for (auto& callback : callbacks_) {
         if (!callback) continue;
-        // 获取回调绑定的数据
-        DataVariant& variant = callback->get_data();
-        // 使用 std::visit 处理不同类型
-        std::visit([this, &callback](auto&& data) {
-            using T = std::decay_t<decltype(data)>;
-            if constexpr (std::is_same_v<T, tcpMsg>) {
-                auto [buffer,buffer_size, port_id] = data;
-                //std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
-                if (port_id == this->id_) {
-                    //APP有可能发大数据 有segmentation 需要多次发
-                    while (true) {
-                        int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
-                        if (len > 0) {
-                            //printf("output len:%d port:%d\n",len, this->id_);
-                            callback->on_data_received(len);
-                        }
-                        else break;
-                    } 
+        try {
+            // 确保捕获 shared_ptr
+            auto callback_ptr = callback->shared_from_this();
+            // 获取回调绑定的数据
+            DataVariant& variant = callback_ptr->get_data();
+            // 使用 std::visit 处理不同类型
+            std::visit([this, callback_ptr](auto&& data) {
+                using T = std::decay_t<decltype(data)>;
+                if constexpr (std::is_same_v<T, tcpMsg>) {
+                    auto [buffer,buffer_size, port_id] = data;
+                    //std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
+                    if (port_id == this->id_) {
+                        //APP有可能发大数据 有segmentation 需要多次发
+                        while (true) {
+                            int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
+                            if (len > 0) {
+                                //printf("output len:%d port:%d\n",len, this->id_);
+                                callback_ptr->on_data_received(len);
+                            }
+                            else break;
+                        } 
+                    }
                 }
-            }
-            // 如果未来有其他类型可以在这里扩展
-        }, variant);
+                // 如果未来有其他类型可以在这里扩展
+            }, variant);
+        } catch (const std::exception& e) {
+            std::cerr << "Callback processing error: " << e.what() << std::endl;
+        }
     }
 }
 
@@ -66,10 +72,12 @@ void Transport::on_input() {
         //std::cout << "callback\n";
         if (!callback) continue;
         try {
+            // 确保捕获 shared_ptr
+            auto callback_ptr = callback->shared_from_this();
             // 获取回调绑定的数据
-            DataVariant& variant = callback->get_data();
+            DataVariant& variant = callback_ptr->get_data();
             // 使用 std::visit 处理不同类型
-            std::visit([this, &callback](auto&& data) {
+            std::visit([this, callback_ptr](auto&& data) {
                 using T = std::decay_t<decltype(data)>;
                 if constexpr (std::is_same_v<T, appMsg>) {
                     auto [json_data, max_cache_size, port_id] = data;
@@ -78,7 +86,7 @@ void Transport::on_input() {
                         //把传输层数据一次收整 
                         int len = this->read(*json_data, max_cache_size, std::chrono::milliseconds(100));
                         if (len > 0) {
-                            callback->on_data_received(this->id_);
+                            callback_ptr->on_data_received(this->id_);
                         }
                     }
                 }

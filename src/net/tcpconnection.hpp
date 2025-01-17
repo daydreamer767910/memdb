@@ -11,7 +11,7 @@
 using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
-class TcpConnection : public IDataCallback ,public std::enable_shared_from_this<TcpConnection>{
+class TcpConnection : public IDataCallback {
     friend class TcpServer;
 public:
     TcpConnection(boost::asio::io_context& io_context, tcp::socket socket);

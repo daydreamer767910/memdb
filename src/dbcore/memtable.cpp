@@ -40,7 +40,7 @@ bool MemTable::validatePrimaryKey(const Row& row) {
     return true;
 }
 
-Row MemTable::processRowDefaults(const Row& row) {
+Row MemTable::processRowDefaults(const Row& row) const{
     Row newRow = row;
     for (const auto& column : columns) {
         if (newRow.find(column.name) == newRow.end()) {
@@ -131,7 +131,7 @@ bool MemTable::insertRows(const std::vector<Row>& newRows) {
     return true;
 }
 
-std::vector<Row> MemTable::getRows() {
+std::vector<Row> MemTable::getRows() const{
     return rows;
 }
 
@@ -179,20 +179,38 @@ void MemTable::addIndex(const std::string& columnName) {
     indexes[columnName] = index;
 }
 
-std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Field& value) {
+std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Field& value) const {
     std::vector<Row> result;
-    if (indexes.find(columnName) != indexes.end()) {
-        //std::cout << "index for column: " << columnName << " with value:" << fieldToJson(value).dump() << std::endl;
-        const auto& index = indexes[columnName];
-        auto it = index.find(value);
-        if (it != index.end()) {
-            for (const auto& rowIndex : it->second) {
-                //std::cout << rowIndex << std::endl;
+    
+    // 使用 find 查找，避免使用 operator[]，不会修改 indexes
+    auto it = indexes.find(columnName);
+    if (it != indexes.end()) {
+        const auto& index = it->second;
+        auto itValue = index.find(value);
+        if (itValue != index.end()) {
+            for (const auto& rowIndex : itValue->second) {
                 result.push_back(rows[rowIndex]);
             }
         }
     }
-    //std::cout << rowsToJson(result).dump(4) << std::endl;
+    return result;
+}
+
+
+// 获取从第 n 行开始的 limit 个数据
+std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
+    std::vector<Row> result;
+    
+    // 如果 offset 超过表中的行数，直接返回空结果
+    if (offset >= rows.size()) {
+        return result;
+    }
+
+    // 从 offset 行开始，最多获取 limit 行
+    for (int i = offset; i < std::min(static_cast<int>(rows.size()), offset + limit); ++i) {
+        result.push_back(rows[i]);
+    }
+
     return result;
 }
 

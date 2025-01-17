@@ -94,7 +94,7 @@ void insert_tbl() {
     jsonData["name"] = "client-test";
     json jsonRows = json::array();
 
-    for (int i=0;i<100;i++) {
+    for (int i=0;i<30;i++) {
         json row;
         row["id"] = id;
         row["name"] = "test name" + std::to_string(id);
@@ -110,10 +110,15 @@ void insert_tbl() {
 }
 
 void get() {
-    std::string jsonConfig = R"({
-        "action": "get",
-        "name": "client-test"
-    })";
+    static int offset = 0;
+    int limit = 30;
+    json jsonData;
+    jsonData["action"] = "get";
+    jsonData["name"] = "client-test";
+    jsonData["limit"] = limit;
+    jsonData["offset"] = offset;
+    offset += limit;
+    std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
 
@@ -126,26 +131,48 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <command>\n";
+        std::cerr << "Commands: create, desc, insert, get\n";
+        return 1;
+    }
+
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
-    mdb_init();
-    while(mdb_start(ip,port)<0) {
-        sleep(3);
-        if(exiting) goto EXIT;
-    }
     
-    create_tbl();
-    show_tbl();
-    insert_tbl();
-    while(!exiting) {
-        get();
+    mdb_init();
+    
+    // 如果数据库连接失败，则每隔 3 秒重试
+    while (mdb_start(ip, port) < 0) {
+        sleep(3);
+        if (exiting) {
+            break;
+        }
+    }
 
-        insert_tbl();
-        sleep(5);
+    // 根据命令行参数执行相应的操作
+    std::string command = argv[1];
+    
+    if (command == "create") {
+        create_tbl();
+    } else if (command == "desc") {
+        show_tbl();
+    } else if (command == "insert") {
+        while (!exiting) {
+            insert_tbl();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    } else if (command == "get") {
+        while (!exiting) {
+            get();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    } else {
+        std::cerr << "Invalid command. Valid commands are: create_tbl, insert_tbl, get.\n";
     }
     
     // 关闭连接
     mdb_stop();
-EXIT:
+
     return 0;
 }

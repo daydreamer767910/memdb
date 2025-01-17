@@ -59,14 +59,12 @@ public:
 		}
     }
 
-	void save_db();
-	void load_db();
-
 private:
 	void keep_alive();
     void on_msg(const std::shared_ptr<DBVariantMsg> msg) override;
 	void on_timer(int tick, int time, std::thread::id id);
-
+	void save_db();
+	void load_db();
 private:
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;

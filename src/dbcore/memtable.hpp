@@ -20,12 +20,13 @@ public:
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
     nlohmann::json showRows();
-    std::vector<Row> getRows() ;
+    std::vector<Row> getRows() const;
         
     // Indexing methods
     void showIndexs();
     void addIndex(const std::string& columnName);
-    std::vector<Row> queryByIndex(const std::string& columnName, const Field& value) ;
+    std::vector<Row> queryByIndex(const std::string& columnName, const Field& value) const;
+    std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
     //std::set<std::any> selectDistinct(const std::string& columnName) ;
     //std::map<std::any, int> groupBy(const std::string& columnName) ;
 
@@ -40,7 +41,7 @@ private:
     bool validatePrimaryKey(const Row& row) ;
     void updateIndexes(const Row& row, int rowIndex);
     void updateIndexesBatch(const std::vector<size_t>& rowIdxes);
-    Row processRowDefaults(const Row& row) ;
+    Row processRowDefaults(const Row& row) const;
 
 };
 
