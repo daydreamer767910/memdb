@@ -3,7 +3,7 @@
 #include "net/transportsrv.hpp"
 #include "util/util.hpp"
 
-DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()),
+DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	io_(),
 	db(MemDatabase::getInstance()),
 	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
@@ -16,7 +16,7 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()),
 	timer.start();
 
 	// 启动事件循环
-	std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency() << " threads." << std::endl;
+	std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency()/2 << " threads." << std::endl;
 	// 在线程池中运行 io_context
 	for (std::size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
 		boost::asio::post(thread_pool_, [this]() {

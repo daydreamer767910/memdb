@@ -6,22 +6,14 @@
 #include <cstring>
 #include <chrono>
 #include <mutex>
-#include <condition_variable>
-#include <stdexcept>
+#include <array>
 #include <thread>
-#include <variant>
-#include <functional>
-#include <typeindex>
-#include <unordered_map>
-#include <type_traits>
 #include <nlohmann/json.hpp> // 使用 nlohmann/json 库解析 JSON
 #include "util/msgbuffer.hpp"
 #include "util/timer.hpp"
+#include "common.hpp"
 
 
-using json = nlohmann::json;
-using transport_callback = std::function<void(char* buffer, int len, uint32_t port_id)>;
-using transport_onread = std::function<void(std::vector<json>* json_datas, uint32_t port_id)>;
 
 // Msg 结构定义
 struct MsgHeader {
@@ -50,21 +42,6 @@ struct MessageBuffer {
 };
 
 
-// 定义数据类型的别名
-using tcpMsg=std::tuple<char*, int, uint32_t>;
-using appMsg=std::tuple<std::vector<json>*,int, uint32_t>;
-// 定义可以在回调中处理的数据类型
-using DataVariant = std::variant<tcpMsg, appMsg>;
-
-// 定义接口类
-class IDataCallback :public std::enable_shared_from_this<IDataCallback>{
-public:
-    virtual void on_data_received(int result) = 0;  // 回调处理逻辑
-    virtual DataVariant& get_data() = 0;  // 获取数据缓存
-    virtual ~IDataCallback() = default; // 虚析构函数
-};
-
-
 class Transport {
 public:
     enum class ChannelType {
@@ -72,7 +49,7 @@ public:
         LOW_UP,
         ALL
     };
-    Transport(size_t buffer_size, boost::asio::io_context& io_context, uint32_t port_id = 0);
+    Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id);
     ~Transport();
     void stop();
     uint32_t get_id() {
@@ -111,7 +88,7 @@ private:
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据
-    boost::asio::io_context& io_context_;
+    boost::asio::io_context* io_context_[2];
     Timer timer_[2];
     uint32_t id_;
 

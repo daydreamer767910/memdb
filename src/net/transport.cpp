@@ -6,18 +6,15 @@
 #include "transport.hpp"
 #include "util/util.hpp"
 
-Transport::Transport(size_t buffer_size,boost::asio::io_context& io_context, uint32_t id)
-	: app_to_tcp_(buffer_size), 
-	tcp_to_app_(buffer_size), 
-    io_context_(io_context),
-    timer_{Timer(io_context_, 0, false, [this](int , int , std::thread::id ) {
-        this->on_send();
-    }),
-    Timer(io_context_, 0, false, [this](int , int , std::thread::id ) {
-        this->on_input();;
-    })},
-    id_(id) {
+Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id)
+    : app_to_tcp_(buffer_size),
+      tcp_to_app_(buffer_size),
+      io_context_{io_contexts[0], io_contexts[1]},  // 初始化指针数组
+      timer_{ Timer(*io_context_[0], 0, false, [this](int, int, std::thread::id) { this->on_send(); }),
+              Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
+      id_(id) {
 }
+
 
 Transport::~Transport() {
     #ifdef DEBUG

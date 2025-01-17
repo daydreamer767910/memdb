@@ -7,7 +7,7 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-#include "tcpclient.hpp"
+
 #include "mdbclient.hpp"
 
 extern "C" {

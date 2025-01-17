@@ -12,7 +12,7 @@ TransportSrv::~TransportSrv() {
         std::cout << "TransportSrv destroyed!" << std::endl;
         ports_.clear(); // 清空 map
     }
-    work_guard_.reset();
+    //work_guard_.reset();
 }
 
 
@@ -24,24 +24,24 @@ void TransportSrv::on_new_connection(std::shared_ptr<TcpConnection> connection) 
 }
 
 void TransportSrv::start() {
-	std::promise<void> promise;
-    std::future<void> future = promise.get_future();
-	// Run the event loop in a new thread
-    eventLoopThread_ = std::thread([this](std::promise<void> promise) {
-        promise.set_value(); // Notify the main thread
-        std::cout << "TransportSrv loop starting:" << std::this_thread::get_id() << std::endl;
-        // Run the loop
-        io_.run();
-        std::cout << "TransportSrv loop stopped." << std::endl;
-    }, std::move(promise));
-	future.wait(); // 等待子线程通知
+    for (int i = 0; i < 2 ; ++i) {
+		boost::asio::post(thread_pool_, [this,i]() {
+			io_[i].run();
+		});
+	}
 }
 
 void TransportSrv::stop() {
-	if (eventLoopThread_.joinable()) {
-        io_.stop();
-        eventLoopThread_.join();
+    for (int i = 0; i < 2 ; ++i) {
+        io_[i].stop();
     }
+    
+    thread_pool_.stop();
+    for (int i = 0; i < 2 ; ++i) {
+        work_guard_[i].reset();
+    }
+    // 等待线程池中的所有线程完成任务
+    thread_pool_.join();
     std::cout << "TransportSrv stopped." << std::endl;
 }
 
@@ -69,7 +69,8 @@ trans_pair TransportSrv::open_port() {
 	std::lock_guard<std::mutex> lock(mutex_);
 	ports_count++;
 	unique_id++;
-	auto port = std::make_shared<Transport>(transport_buff_szie,io_,unique_id);
+    std::vector<boost::asio::io_context*> io_contexts = { &io_[0], &io_[1] };
+    auto port = std::make_shared<Transport>(transport_buff_szie, io_contexts, unique_id);
 	ports_.emplace(unique_id, port);
     this->notify_new_transport(port);
 	return std::make_pair(unique_id,port);

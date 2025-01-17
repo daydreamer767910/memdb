@@ -22,13 +22,6 @@
 
 using trans_pair = std::pair<uint32_t,std::shared_ptr<Transport>>;
 
-class ITransportObserver {
-public:
-    virtual void on_new_transport(const std::shared_ptr<Transport>& transport) = 0;
-	virtual void on_close_transport(const uint32_t port_id) = 0;
-    virtual ~ITransportObserver() = default;
-};
-
 
 class TransportSrv {
 public:
@@ -38,8 +31,8 @@ using ptr = std::shared_ptr<TransportSrv>;
 		static ptr instance(new TransportSrv());
 		return instance;
 	};
-	TransportSrv() :io_(),
-		work_guard_(boost::asio::make_work_guard(io_)){
+	TransportSrv() :thread_pool_(2),
+		work_guard_{boost::asio::make_work_guard(io_[0]), boost::asio::make_work_guard(io_[1]) } {
 		std::cout << "TransportSrv start" << std::endl;
 	};
     ~TransportSrv();
@@ -74,10 +67,10 @@ private:
 	static uint32_t unique_id;
 	static std::atomic<uint32_t> ports_count;  // 连接数
 	std::unordered_map<uint32_t, std::shared_ptr<Transport>> ports_;
-	boost::asio::io_context io_;
-	std::thread eventLoopThread_;
+	boost::asio::io_context io_[2];
+	boost::asio::thread_pool thread_pool_;
 	std::vector<std::shared_ptr<ITransportObserver>> observers_;
-	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_[2];
 };
 
 #endif
