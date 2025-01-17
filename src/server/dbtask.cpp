@@ -34,9 +34,10 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				std::string tableName = jsonTask["name"];
 				auto tb = db->getTable(tableName);
 				if (tb) {
-					tb->insertRowsFromJson(jsonTask);
+					int num = tb->insertRowsFromJson(jsonTask);
 					jsonResp["response"] = "insert table sucess";
 					jsonResp["status"] = "200";
+					jsonResp["rows inserted"] = num;
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}

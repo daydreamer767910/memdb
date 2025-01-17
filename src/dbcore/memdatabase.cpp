@@ -38,13 +38,13 @@ MemTable::ptr MemDatabase::getTable(const std::string& tableName) {
 }
 
 // Update an existing table
-void MemDatabase::updateTable(const MemTable& updatedTable) {
+/*void MemDatabase::updateTable(MemTable&& updatedTable) {
     auto it = tables.find(updatedTable.name);
     if (it == tables.end()) {
         throw std::invalid_argument("Table " + updatedTable.name + " does not exist.");
     }
-    it->second = std::make_shared<MemTable>(updatedTable);
-}
+    it->second = std::make_shared<MemTable>(std::move(updatedTable));  // Use move semantics here
+}*/
 
 // Remove a table by its name
 void MemDatabase::removeTable(const std::string& tableName) {

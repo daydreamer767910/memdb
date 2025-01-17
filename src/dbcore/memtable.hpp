@@ -1,6 +1,7 @@
 #ifndef MEMTABLE_HPP
 #define MEMTABLE_HPP
 #include <unordered_map>
+#include <mutex>
 #include "memcolumn.hpp"
 
 class MemTable {
@@ -14,9 +15,19 @@ public:
     PrimaryKeyIndex primaryKeyIndex; 
 
     MemTable(const std::string& tableName, const std::vector<Column>& columns);
+    // Delete copy constructor and copy assignment operator
+    MemTable(const MemTable&) = delete;
+    MemTable& operator=(const MemTable&) = delete;
+
+    // Default constructor (move semantics can be allowed)
+    MemTable() = default;
+
+    // Move constructor and move assignment operator (optional, if needed)
+    MemTable(MemTable&&) = default;
+    MemTable& operator=(MemTable&&) = default;
     
     // Methods related to rows and columns
-    void insertRowsFromJson(const nlohmann::json& jsonRows);
+    int insertRowsFromJson(const nlohmann::json& jsonRows);
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
     nlohmann::json showRows();
@@ -43,6 +54,8 @@ private:
     void updateIndexesBatch(const std::vector<size_t>& rowIdxes);
     Row processRowDefaults(const Row& row) const;
 
+private:
+    std::mutex mutex_;
 };
 
 #endif // MEMTABLE_H

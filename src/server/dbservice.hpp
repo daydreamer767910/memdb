@@ -38,8 +38,8 @@ public:
         return instance;
     }
 	
-	static MemDatabase* getDb() {
-		return DBService::getInstance()->db.get();
+	static std::shared_ptr<MemDatabase> getDb() {
+		return DBService::getInstance()->db;
 	}
 
 	void on_new_transport(const std::shared_ptr<Transport>& transport) override {

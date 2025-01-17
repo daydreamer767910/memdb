@@ -54,7 +54,8 @@ Row MemTable::processRowDefaults(const Row& row) const{
     return newRow;
 }
 
-void MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
     for (const auto& jsonRow : jsonRows["rows"]) {
@@ -85,10 +86,12 @@ void MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
 
     // 批量更新索引
     updateIndexesBatch(newIndexes);
-    std::cout << "insert " << i << " rows into table[" << this->name << "] successfully!" << std::endl;
+    //std::cout << "insert " << i << " rows into table[" << this->name << "] successfully!" << std::endl;
+    return i;
 }
 
 bool MemTable::insertRow(const Row& row) {
+    std::lock_guard<std::mutex> lock(mutex_);
     Row newRow = processRowDefaults(row);
     if (validateRow(newRow) && validatePrimaryKey(newRow)) {
         rows.push_back(newRow);
@@ -107,6 +110,7 @@ bool MemTable::insertRow(const Row& row) {
 }
 
 bool MemTable::insertRows(const std::vector<Row>& newRows) {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     for (const auto& row : newRows) {
         Row newRow = processRowDefaults(row);
@@ -170,6 +174,7 @@ void MemTable::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
 }
 
 void MemTable::addIndex(const std::string& columnName) {
+    std::lock_guard<std::mutex> lock(mutex_);
     Index index;
     for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
         if (rows[i].find(columnName) != rows[i].end()) {

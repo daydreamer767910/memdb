@@ -16,7 +16,7 @@ private:
     MemDatabase(const MemDatabase&) = delete;
     MemDatabase& operator=(const MemDatabase&) = delete;
 public:
-    using ptr = std::unique_ptr<MemDatabase>;
+    using ptr = std::shared_ptr<MemDatabase>;
 
     // 获取单例实例
     static ptr& getInstance() {
@@ -32,7 +32,7 @@ public:
     void addTableFromJson(const std::string& jsonConfig);
     void addTable(const std::string& tableName, const std::vector<Column>& columns);
     MemTable::ptr getTable(const std::string& tableName);
-    void updateTable(const MemTable& updatedTable);
+    //void updateTable(MemTable&& updatedTable);
     void removeTable(const std::string& tableName);
 
     // Methods for listing tables

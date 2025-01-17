@@ -52,10 +52,10 @@ int test(const std::string jsonConfig) {
     }
 
     if (ret>0) {
-        printf("APP RECV[%d]:\r\n",ret);
-        print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
-        //json jsonData = json::parse(buffer);
-        //std::cout << jsonData.dump(2) << std::endl;
+        //printf("APP RECV[%d]:\r\n",ret);
+        //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
+        json jsonData = json::parse(buffer);
+        std::cout << jsonData.dump(2) << std::endl;
     }
     return ret;
     
