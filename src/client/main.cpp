@@ -74,23 +74,27 @@ void create_tbl(std::string& name) {
     jsonCols.push_back({ 
         {"name", "id"}, 
         {"type", "int"}, 
+        {"nullable", false},
         {"primaryKey", true} 
     });
 
     jsonCols.push_back({ 
         {"name", "name"}, 
-        {"type", "string"} 
+        {"type", "string"},
+        {"nullable", true},
+        {"defaultValue", "sb"}
     });
 
     jsonCols.push_back({ 
         {"name", "age"}, 
         {"type", "int"}, 
-        {"defaultValue", 20} 
+        //{"defaultValue", 20} 
     });
 
     jsonCols.push_back({ 
         {"name", "addr"}, 
         {"type", "string"}, 
+        {"nullable", true},
         {"defaultValue", "xxxx"} 
     });
 
@@ -128,7 +132,7 @@ void insert_tbl(std::string& name) {
     for (int i=0;i<30;i++) {
         json row;
         row["id"] = id;
-        row["name"] = "test name" + std::to_string(id);
+        //row["name"] = "test name" + std::to_string(id);
         row["age"] = 20+i%50;
         row["addr"] = "street " + std::to_string(id);
         jsonRows.push_back(row);

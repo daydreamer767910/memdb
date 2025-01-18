@@ -10,6 +10,11 @@ MemTable::MemTable(const std::string& tableName, const std::vector<Column>& colu
         if (column.name.empty() || column.type.empty()) {
             throw std::invalid_argument("Each column must have a name and a type.");
         }
+
+        // 如果列可以为空且没有默认值，抛出异常
+        if (column.nullable && std::holds_alternative<std::monostate>(column.defaultValue)) {
+            throw std::invalid_argument("Nullable column must have a default value: " + column.name);
+        }
     }
 }
 
@@ -68,12 +73,22 @@ Row MemTable::processRowDefaults(const Row& row) const {
                 newRow.push_back(field);
             } else {
                 // 如果类型不匹配，用默认值
-                newRow.push_back(getDefault(column.type));
+                //newRow.push_back(getDefault(column.type));
+                if (column.type == "date") {
+                    newRow.push_back(getDefault(column.type));
+                } else {
+                    newRow.push_back(column.defaultValue);
+                }
             }
             rowIndex++;
         } else {
             // 如果 row 中没有更多的列，插入该列的默认值
-            newRow.push_back(getDefault(column.type));
+            //newRow.push_back(getDefault(column.type));
+            if (column.type == "date") {
+                newRow.push_back(getDefault(column.type));
+            } else {
+                newRow.push_back(column.defaultValue);
+            }
         }
     }
     

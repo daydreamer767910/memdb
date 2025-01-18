@@ -32,6 +32,7 @@ std::ostream& operator<<(std::ostream& os, const Field& field) {
 
 
 Field getDefault(const std::string& type) {
+    /*
     if (type == "int") {
         return 0;
     } else if (type == "double") {
@@ -44,8 +45,10 @@ Field getDefault(const std::string& type) {
         return std::time(nullptr);
     } else if (type == "array") {
         return std::vector<uint8_t>{};
+    }*/
+    if (type == "date") {
+        return std::time(nullptr);
     }
-    // 如果没有匹配到任何类型，返回 std::monostate
     return std::monostate{};
 }
 
