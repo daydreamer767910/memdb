@@ -49,10 +49,12 @@ public:
     bool update(const std::string& columnName,const Field& newValue,const std::function<bool(const Field&)>& predicate);
     json showTable();
     json rowsToJson(const std::vector<Row>& rows);
+    std::vector<Row> jsonToRows(const json& jsonRows);
+    Row jsonToRow(const json& jsonRow);
     json tableToJson();
     void exportToFile(const std::string& filePath) ;
     void importRowsFromFile(const std::string& filePath);
-    
+    void importRowsFromFile(const std::string& filePath, size_t batchSize );
 private:
     bool validateRow(const Row& row) ;
     bool validatePrimaryKey(const Row& row) ;

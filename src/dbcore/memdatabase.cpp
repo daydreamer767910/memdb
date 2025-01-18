@@ -142,8 +142,9 @@ void MemDatabase::upload(const std::string& filePath) {
         fullPath = std::filesystem::path(filePath) / subDir;
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
-            table.second->importRowsFromFile(tablePath.string());
-            std::cout << "load table[" << table.first << "] sucessfully!" << std::endl;
+            std::cout << get_timestamp() << " start loading table[" << table.first << "]:\n";
+            table.second->importRowsFromFile(tablePath.string(),10000);
+            std::cout << get_timestamp() << "done sucessfully! "  << std::endl;
         }
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Error: " << e.what() << '\n';

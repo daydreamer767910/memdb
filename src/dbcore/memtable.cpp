@@ -97,6 +97,54 @@ Row MemTable::processRowDefaults(const Row& row) const {
     return newRow;
 }
 
+Row MemTable::jsonToRow(const json& jsonRow) {
+    Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
+
+    // 遍历 JSON 对象的所有字段
+    for (const auto& [key, value] : jsonRow.items()) {
+        // 找到对应的列
+        auto columnIt = std::find_if(columns_.begin(), columns_.end(), [&key](const Column& col) {
+            return col.name == key;
+        });
+
+        if (columnIt != columns_.end()) {
+            size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
+            row[index] = jsonToField(columnIt->type, value);  // 使用列类型转换字段
+        }
+    }
+
+    return row;
+}
+
+std::vector<Row> MemTable::jsonToRows(const json& jsonRows) {
+    std::vector<Row> rows;
+
+    // 创建一个列名到列索引的映射
+    std::unordered_map<std::string, size_t> columnNameToIndex;
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        columnNameToIndex[columns_[i].name] = i;
+    }
+
+    for (const auto& jsonRow : jsonRows["rows"]) {
+        Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
+
+        for (const auto& [key, value] : jsonRow.items()) {
+            // 查找列名对应的索引
+            auto columnIt = columnNameToIndex.find(key);
+            if (columnIt != columnNameToIndex.end()) {
+                size_t index = columnIt->second;  // 获取列的索引
+                row[index] = jsonToField(columns_[index].type, value);  // 使用索引填充行
+            }
+        }
+
+        rows.push_back(row);
+    }
+
+    return rows;
+}
+
+
+
 int MemTable::insertRowsFromJson(const json& jsonRows) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
@@ -627,8 +675,10 @@ void MemTable::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
     if (outFile.is_open()) {
-        outFile << "{\n\"rows\":\n["; // Start the JSON array
+        outFile << "{\"rows\":[\n"; // Start the JSON array
 
+        std::string allRowsJson;
+        
         for (size_t i = 0; i < rows_.size(); ++i) {
             const auto& row = rows_[i];
             json rowJson;
@@ -642,18 +692,23 @@ void MemTable::exportToFile(const std::string& filePath) {
                 rowJson[column.name] = fieldToJson(field);
             }
 
-            outFile << rowJson.dump(); // Write each row without formatting
+            // Accumulate the row's JSON in the allRowsJson string
+            allRowsJson += rowJson.dump();
             if (i < rows_.size() - 1) { // Avoid trailing comma
-                outFile << ",\n";
+                allRowsJson += ",\n";
             }
         }
 
-        outFile << "]\n}"; // End the JSON array
+        // Write the accumulated JSON to file all at once
+        outFile << allRowsJson;
+        
+        outFile << "\n]}"; // End the JSON array
         outFile.close();
     } else {
         throw std::runtime_error("Failed to open file for writing: " + filePath);
     }    
 }
+
 
 void MemTable::importRowsFromFile(const std::string& filePath) {
     std::ifstream inputFile(filePath);
@@ -676,31 +731,74 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         throw std::runtime_error("Invalid file format: missing 'rows' array.");
     }
 
-    // 解析每一行 JSON 数据
-    for (auto& rowJson : jsonData["rows"]) {
-        Row row;
-
-        // 逐列处理
-        for (size_t i = 0; i < columns_.size(); ++i) {
-            const auto& column = columns_[i];
-
-            if (rowJson.contains(column.name)) {
-                // 反序列化列值并移动到行中
-                row.push_back(jsonToField(column.type, std::move(rowJson[column.name])));
-            } else {
-                // 填充默认值
-                if (column.type == "date") {
-                    row.push_back(getDefault(column.type));
-                } else {
-                    row.push_back(column.defaultValue);
-                }
-            }
-        }
-
-        // 验证主键并插入
-        validatePrimaryKey(row);
-        rows_.push_back(std::move(row));
-    }
-
+    insertRowsFromJson(jsonData);
+    // 显式尝试释放 jsonData 中未使用的内存
+    jsonData.clear();
     inputFile.close();
 }
+
+void MemTable::importRowsFromFile(const std::string& filePath, size_t batchSize ) {
+    std::ifstream inputFile(filePath, std::ios::in | std::ios::binary);
+
+    if (!inputFile.is_open()) {
+        throw std::runtime_error("Unable to open file: " + filePath);
+    }
+
+    // 读取整个文件到内存
+    std::stringstream buffer;
+    buffer << inputFile.rdbuf();
+    std::string fileContent = buffer.str();
+    
+    inputFile.close(); // 关闭文件，文件内容已经全部加载到内存
+
+    // 按行分割文件内容并逐行解析 JSON
+    std::istringstream stream(fileContent);
+    std::string line;
+    std::getline(stream, line);  // 跳过 "{rows["
+    // 逐行读取文件内容
+    size_t rowsRead = 0;
+    
+    std::vector<Row> batchRows;
+    batchRows.reserve(batchSize);
+    
+    // 读取每一行的 JSON 对象并分批处理
+    while (std::getline(stream, line)) {
+        if (line.empty()) continue;  // 跳过空行
+        if (line == "]}") {  // 结束 "rows" 数组部分
+            break;
+        }
+        // 去掉行尾的逗号
+        if (line.back() == ',') {
+            line.pop_back();  // 去掉末尾的逗号
+        }
+        try {
+            json jsonRow = json::parse(line);  // 解析单行 JSON 数据
+            batchRows.push_back(jsonToRow(jsonRow));
+        } catch (const json::parse_error& e) {
+            std::cerr << "Error parsing row: " << e.what() << std::endl;
+        }
+
+        // 如果当前批次已达到指定的大小，插入数据并清空批次
+        if (batchRows.size() >= batchSize) {
+            this->insertRows(batchRows);
+            batchRows.clear();  // 清空当前批次
+            batchRows.shrink_to_fit();
+        }
+
+        rowsRead++;
+        if (rowsRead % 1000 == 0) {
+            std::cout << ".";
+            std::cout.flush();
+        }
+    }
+
+    // 插入最后一批未满批次的行
+    if (!batchRows.empty()) {
+        this->insertRows(batchRows);
+        batchRows.clear();
+        batchRows.shrink_to_fit();
+    }
+    std::cout << std::endl;
+    inputFile.close();
+}
+

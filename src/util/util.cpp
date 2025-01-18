@@ -63,27 +63,26 @@ std::string get_timestamp() {
 
 
 std::time_t stringToTimeT(const std::string& dateTimeStr) {
-	std::vector<std::string> formats = {
-        "%b %d %H:%M:%S %Y",  // "Dec 28 13:15:37 2024"
-        "%a %b %d %H:%M:%S %Y",  // "Sat Dec 28 13:15:37 2024"
-        "%Y-%m-%d %H:%M:%S",  // "2024-12-28 13:15:37"
-        "%m/%d/%Y %H:%M:%S",  // "12/28/2024 13:15:37"
-        "%Y/%m/%d %H:%M:%S"   // "2024/12/28 13:15:37"
+    std::vector<std::string> formats = {
+        "%b %d %H:%M:%S %Y",
+        "%a %b %d %H:%M:%S %Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%m/%d/%Y %H:%M:%S",
+        "%Y/%m/%d %H:%M:%S"
     };
+    
     std::tm tm = {};
-	for (const auto& format : formats) {
-        std::stringstream ss(dateTimeStr);
+    std::stringstream ss;
+    
+    for (const auto& format : formats) {
+        ss.clear();  // Clear the error flag
+        ss.str(dateTimeStr);  // Reset stringstream with the current input string
+        
         ss >> std::get_time(&tm, format.c_str());
         if (!ss.fail()) {
             return std::mktime(&tm);  // Successfully parsed
         }
     }
-	throw std::runtime_error("Failed to parse date/time string: " + dateTimeStr);
-	/*
-    std::istringstream ss(dateTimeStr);
-    ss >> std::get_time(&tm, format.c_str());
-    if (ss.fail()) {
-        throw std::runtime_error("Failed to parse date/time string: " + dateTimeStr);
-    }
-    return std::mktime(&tm);*/
+
+    throw std::runtime_error("Failed to parse date/time string: " + dateTimeStr);
 }
