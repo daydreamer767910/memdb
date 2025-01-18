@@ -74,12 +74,12 @@ std::vector<MemTable::ptr> MemDatabase::listTables() const {
 }
 
 void MemDatabase::saveTableToFile(MemTable::ptr table, const std::string& filePath) {
-    const std::string& tableName = table->name;
+    const std::string& tableName = table->name_;
 
     // 将表信息序列化为 JSON
     nlohmann::json root;
     root["name"] = tableName;
-    root["columns"] = columnsToJson(table->columns);
+    root["columns"] = columnsToJson(table->columns_);
 
     // 将 JSON 写入文件
     std::ofstream outputFile(filePath);

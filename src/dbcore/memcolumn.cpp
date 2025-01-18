@@ -5,7 +5,10 @@
 nlohmann::json fieldToJson(const Field& field) {
     return std::visit([](auto&& value) -> nlohmann::json {
         using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, std::time_t>) {
+        // 处理 std::monostate
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            return nullptr;  // 返回 null，表示空值
+        } else if constexpr (std::is_same_v<T, std::time_t>) {
 			std::string timeStr = std::ctime(&value);
 			timeStr.erase(std::remove(timeStr.begin(), timeStr.end(), '\n'), timeStr.end());
 			return timeStr;
@@ -42,8 +45,10 @@ Field getDefault(const std::string& type) {
     } else if (type == "array") {
         return std::vector<uint8_t>{};
     }
-    throw std::invalid_argument("Unknown type for default value");
-};
+    // 如果没有匹配到任何类型，返回 std::monostate
+    return std::monostate{};
+}
+
 
 Field jsonToField(const std::string& type,const nlohmann::json& value) {
     if (type == "int") {

@@ -1,5 +1,5 @@
-#ifndef MEMTABLE_HPP
-#define MEMTABLE_HPP
+#ifndef COLLECTION_HPP
+#define COLLECTION_HPP
 #include <unordered_map>
 #include <mutex>
 #include "memcolumn.hpp"

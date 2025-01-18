@@ -44,7 +44,7 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 			} else if(action == "show") {
 				auto tables = db->listTables();
 				for ( auto table: tables) {
-					jsonResp[table->name] = table->showTable();
+					jsonResp[table->name_] = table->showTable();
 				}
 			} else if(action == "get") {
 				std::string tableName = jsonTask["name"];

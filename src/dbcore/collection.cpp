@@ -1,4 +1,4 @@
-#include "memtable.hpp"
+#include "collection.hpp"
 #include "util/util.hpp"
 
 MemTable::MemTable(const std::string& tableName, const std::vector<Column>& columns)
@@ -14,69 +14,43 @@ MemTable::MemTable(const std::string& tableName, const std::vector<Column>& colu
 }
 
 bool MemTable::validateRow(const Row& row) {
-    if (row.size() != columns_.size()) {
-        throw std::invalid_argument("Row size does not match column count.");
-    }
-    for (size_t i = 0; i < columns_.size(); ++i) {
-        const auto& column = columns_[i];
-        if (row[i].index() == 0 && !column.nullable) {
+    for (const auto& column : columns_) {
+        auto it = row.find(column.name);
+        if (it == row.end() && !column.nullable) {
             throw std::invalid_argument("Missing required field: " + column.name);
         }
-        if (!isValidType(row[i], column.type)) {
+        if (it != row.end() && !isValidType(it->second, column.type)) {
             throw std::invalid_argument("Invalid type for field: " + column.name);
         }
     }
     return true;
 }
 
-
 bool MemTable::validatePrimaryKey(const Row& row) {
-    for (size_t i = 0; i < columns_.size(); ++i) {
-        const auto& column = columns_[i];
+    for (const auto& column : columns_) {
         if (column.primaryKey) {
-            // 获取主键值，基于列索引
-            const auto& field = row[i];
+            auto primaryKeyValue = row.at(column.name);
 
-            // 检查主键值是否存在于索引中
-            std::visit([&](const auto& value) {
-                // 如果主键值已经存在于索引中，抛出异常
-                if (primaryKeyIndex_.find(value) != primaryKeyIndex_.end()) {
-                    throw std::invalid_argument("Primary key value already exists: " + column.name);
-                }
-                // 如果主键值没有重复，插入主键值到主键索引中
-                primaryKeyIndex_[value] = rows_.size() - 1;  // 或者插入行号、唯一标识符等
-            }, field);
+            // 检查主键是否存在于索引中
+            if (primaryKeyIndex_.find(primaryKeyValue) != primaryKeyIndex_.end()) {
+                throw std::invalid_argument("Primary key value already exists: " + column.name);
+            }
         }
     }
     return true;
 }
 
-
-Row MemTable::processRowDefaults(const Row& row) const {
-    Row newRow;
-    size_t rowIndex = 0;  // 用来追踪当前 row 中的列位置
-
-    // 遍历每个列，检查列是否在 row 中有对应的字段
-    for (size_t i = 0; i < columns_.size(); ++i) {
-        const auto& column = columns_[i];
-        
-        // 检查 row 中是否有对应的字段，如果 row 中的列数不足，就插入默认值
-        if (rowIndex < row.size()) {
-            const Field& field = row[rowIndex];
-            if (isValidType(field, column.type)) {
-                // 如果 row 中有值并且类型匹配，直接插入
-                newRow.push_back(field);
+Row MemTable::processRowDefaults(const Row& row) const{
+    Row newRow = row;
+    for (const auto& column : columns_) {
+        if (newRow.find(column.name) == newRow.end()) {
+            if (column.type == "date") {
+                newRow[column.name] = getDefault(column.type);
             } else {
-                // 如果类型不匹配，用默认值
-                newRow.push_back(getDefault(column.type));
+                newRow[column.name] = column.defaultValue;
             }
-            rowIndex++;
-        } else {
-            // 如果 row 中没有更多的列，插入该列的默认值
-            newRow.push_back(getDefault(column.type));
         }
     }
-    
     return newRow;
 }
 
@@ -85,15 +59,14 @@ int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
     for (const auto& jsonRow : jsonRows["rows"]) {
-        Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
+        Row row;
         for (const auto& [key, value] : jsonRow.items()) {
             auto columnIt = std::find_if(columns_.begin(), columns_.end(), [&key](const Column& col) {
                 return col.name == key;
             });
 
             if (columnIt != columns_.end()) {
-                size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
-                row[index] = jsonToField(columnIt->type, value);  // 使用索引填充行
+                row[key] = jsonToField(columnIt->type,value);
             }
         }
         Row newRow = processRowDefaults(row);
@@ -101,12 +74,19 @@ int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
             rows_.push_back(newRow);
             newIndexes.push_back(rows_.size() - 1);
             i++;
-            
-        }
+            // 如果有主键，更新主键索引
+            for (const auto& column : columns_) {
+                if (column.primaryKey) {
+                    auto primaryKeyValue = newRow.at(column.name);
+                    primaryKeyIndex_[primaryKeyValue] = rows_.size() - 1;
+                }
+            }
+        } 
     }
 
     // 批量更新索引
     updateIndexesBatch(newIndexes);
+    //std::cout << "insert " << i << " rows into table[" << this->name << "] successfully!" << std::endl;
     return i;
 }
 
@@ -117,11 +97,17 @@ bool MemTable::insertRow(const Row& row) {
         rows_.push_back(newRow);
         updateIndexes(newRow, rows_.size() - 1);
 
+        // 如果有主键，更新主键索引
+        for (const auto& column : columns_) {
+            if (column.primaryKey) {
+                auto primaryKeyValue = newRow.at(column.name);
+                primaryKeyIndex_[primaryKeyValue] = rows_.size() - 1;
+            }
+        }
         return true;
     }
     return false;
 }
-
 
 bool MemTable::insertRows(const std::vector<Row>& newRows) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -131,6 +117,14 @@ bool MemTable::insertRows(const std::vector<Row>& newRows) {
         if (validateRow(newRow) && validatePrimaryKey(newRow)) {
             rows_.push_back(newRow);
             newIndexes.push_back(rows_.size() - 1);
+
+            // 如果有主键，更新主键索引
+            for (const auto& column : columns_) {
+                if (column.primaryKey) {
+                    auto primaryKeyValue = newRow.at(column.name);
+                    primaryKeyIndex_[primaryKeyValue] = rows_.size() - 1;
+                }
+            }
 
         } else {
             return false;
@@ -164,20 +158,14 @@ void MemTable::showIndexs() {
 }
 
 void MemTable::updateIndexes(const Row& row, int rowIndex) {
-    for (size_t i = 0; i < columns_.size(); ++i) {
-        const auto& column = columns_[i];
-        if (indexes_.find(column.name) != indexes_.end()) {
-            auto& index = indexes_[column.name];
-            // 获取当前列的值
-            auto columnValue = row[i];
-
-            // 更新索引
-            index[columnValue].insert(rowIndex);
+    for (const auto& [colName, index] : indexes_) {
+        if (row.find(colName) != row.end()) {
+            indexes_[colName][row.at(colName)].insert(rowIndex);
 
             // 打印索引更新信息
-            std::cout << "Updated index for column: " << column.name << "\n";
+            std::cout << "Updated index for column: " << colName << "\n";
             std::cout << "  Value: ";
-            std::visit([](auto&& val) { std::cout << val; }, columnValue);
+            std::visit([](auto&& val) { std::cout << val; }, row.at(colName));
             std::cout << ", Row Index: " << rowIndex << "\n";
         }
     }
@@ -192,24 +180,11 @@ void MemTable::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
 void MemTable::addIndex(const std::string& columnName) {
     std::lock_guard<std::mutex> lock(mutex_);
     Index index;
-    
-    // Find the column index corresponding to the columnName
-    auto columnIt = std::find_if(columns_.begin(), columns_.end(),
-        [&columnName](const Column& col) {
-            return col.name == columnName;
-        });
-
-    if (columnIt == columns_.end()) {
-        throw std::invalid_argument("Column not found: " + columnName);
+    for (int i = 0; i < static_cast<int>(rows_.size()); ++i) {
+        if (rows_[i].find(columnName) != rows_[i].end()) {
+            index[rows_[i].at(columnName)].insert(i);
+        }
     }
-
-    size_t columnIndex = std::distance(columns_.begin(), columnIt); // Get the index of the column
-    
-    for (size_t i = 0; i < rows_.size(); ++i) {
-        const Field& fieldValue = rows_[i][columnIndex]; // Get the value from the row using the column index
-        index[fieldValue].insert(i); // Update the index
-    }
-
     indexes_[columnName] = index;
 }
 
@@ -248,20 +223,14 @@ std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
     return result;
 }
 
+// 封装行的序列化逻辑
 nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
     nlohmann::json jsonRows = nlohmann::json::array();
     for (const auto& row : rows) {
         nlohmann::json rowJson;
-        
-        // Iterate through each column in the row based on the column definitions
-        for (size_t i = 0; i < row.size(); ++i) {
-            const auto& column = columns_[i];  // Get the column definition
-            const auto& field = row[i];        // Get the value from the row
-            
-            // Add the field to the rowJson with the column's name as the key
-            rowJson[column.name] = fieldToJson(field);
+        for (const auto& [key, value] : row) {
+            rowJson[key] = fieldToJson(value);
         }
-
         jsonRows.push_back(rowJson);
     }
     return jsonRows;
@@ -297,16 +266,9 @@ void MemTable::exportToFile(const std::string& filePath) {
         for (size_t i = 0; i < rows_.size(); ++i) {
             const auto& row = rows_[i];
             nlohmann::json rowJson;
-
-            // Iterate through each field in the row using column definitions
-            for (size_t j = 0; j < row.size(); ++j) {
-                const auto& column = columns_[j]; // Get the column definition
-                const auto& field = row[j];       // Get the field value from the row
-                
-                // Add the field to the rowJson with the column's name as the key
-                rowJson[column.name] = fieldToJson(field);
+            for (const auto& [key, value] : row) {
+                rowJson[key] = fieldToJson(value);
             }
-
             outFile << rowJson.dump(); // Write each row without formatting
             if (i < rows_.size() - 1) { // Avoid trailing comma
                 outFile << ",";
@@ -326,43 +288,59 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
     }
-
     // 将文件内容读取到std::string中
     std::stringstream buffer;
     buffer << inputFile.rdbuf();
-
-    // Parse the JSON content
+    //std::cout << "read file ok " << get_timestamp() << std::endl;
     nlohmann::json jsonData = nlohmann::json::parse(buffer.str());
-
-    if (jsonData.contains("rows") && jsonData["rows"].is_array()) {
-        // Iterate over the rows in the JSON file
-        for (const auto& rowJson : jsonData["rows"]) {
+    //std::cout << "parse buffer ok " << get_timestamp() << std::endl;
+    insertRowsFromJson(jsonData);
+    //std::cout << "insert table ok " << get_timestamp() << std::endl;
+    /*[[maybe_unused]] auto result = nlohmann::json::parse(inputFile, [](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
+        switch (event) {
+            case nlohmann::json::parse_event_t::key:
+                std::cout << "Key: " << parsed << " (Depth: " << depth << ")\n";
+                break;
+            case nlohmann::json::parse_event_t::value:
+                std::cout << "Value: " << parsed << " (Depth: " << depth << ")\n";
+                break;
+            case nlohmann::json::parse_event_t::array_start:
+                std::cout << "Start of array (Depth: " << depth << ")\n";
+                break;
+            case nlohmann::json::parse_event_t::array_end:
+                std::cout << "End of array (Depth: " << depth << ")\n";
+                break;
+            case nlohmann::json::parse_event_t::object_start:
+                std::cout << "Start of object (Depth: " << depth << ")\n";
+                break;
+            case nlohmann::json::parse_event_t::object_end:
+                std::cout << "End of object (Depth: " << depth << ")\n";
+                break;
+            default:
+                break;
+        }
+        // Continue parsing
+        return true;
+    });
+    nlohmann::json::parser_callback_t callback = [this](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
+        if (depth == 2 && event == nlohmann::json::parse_event_t::object_end) {
             Row row;
+            for (const auto& [key, value] : parsed.items()) {
+                std::cout << "Key: " << key << " Value: " << value << "\n";
+                auto columnIt = std::find_if(columns.begin(), columns.end(), [&key](const Column& col) {
+                    return col.name == key;
+                });
 
-            // Iterate through each column in the row
-            for (size_t i = 0; i < columns_.size(); ++i) {
-                const auto& column = columns_[i];
-                if (rowJson.contains(column.name)) {
-                    // Deserialize the field value
-                    row.push_back(jsonToField(column.type, rowJson[column.name]));
-                } else {
-                    // If the column is missing, you can handle it as needed (e.g., add a default value)
-                    if (column.type == "date") {
-                        row.push_back(getDefault(column.type));
-                    } else {
-                        row.push_back(column.defaultValue);
-                    }
+                if (columnIt != columns.end()) {
+                    row[key] = jsonToField(columnIt->type,value);
                 }
             }
-            validatePrimaryKey(row);
-            // Add the row to rows_
-            rows_.push_back(row);
+            insertRow(row);
         }
-    } else {
-        throw std::runtime_error("Invalid file format: missing 'rows' array.");
-    }
+        return true; // Continue parsing
+    };
 
+    [[maybe_unused]] auto result = nlohmann::json::parse(inputFile, callback);*/
     inputFile.close();
 }
-
 

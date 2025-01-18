@@ -61,20 +61,51 @@ int test(const std::string jsonConfig) {
     
 }
 
-void create_tbl() {
-//1.create table
-    std::string jsonConfig = R"({
-        "action": "create",
-        "name": "user",
-        "columns": [
-            { "name": "id", "type": "int", "primaryKey": true },
-            { "name": "name", "type": "string" },
-            { "name": "age", "type": "int", "defaultValue": 20 },
-            { "name": "addr", "type": "string", "defaultValue": "xxxx" },
-            { "name": "created_at", "type": "date" }
-        ]
-    })";
+void create_tbl(std::string& name) {
+    // Create table action
+    json jsonData;
+    jsonData["action"] = "create";
+    jsonData["name"] = name;
     
+    // Create columns array
+    json jsonCols = json::array();
+
+    // Column definitions
+    jsonCols.push_back({ 
+        {"name", "id"}, 
+        {"type", "int"}, 
+        {"primaryKey", true} 
+    });
+
+    jsonCols.push_back({ 
+        {"name", "name"}, 
+        {"type", "string"} 
+    });
+
+    jsonCols.push_back({ 
+        {"name", "age"}, 
+        {"type", "int"}, 
+        {"defaultValue", 20} 
+    });
+
+    jsonCols.push_back({ 
+        {"name", "addr"}, 
+        {"type", "string"}, 
+        {"defaultValue", "xxxx"} 
+    });
+
+    jsonCols.push_back({ 
+        {"name", "created_at"}, 
+        {"type", "date"} 
+    });
+
+    // Attach columns to the main data
+    jsonData["columns"] = jsonCols;
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
     test(jsonConfig);
 }
 
@@ -87,11 +118,11 @@ void show_tbl() {
     test(jsonConfig);
 }
 
-void insert_tbl() {
+void insert_tbl(std::string& name) {
 //3.insert rows
     json jsonData;
     jsonData["action"] = "insert";
-    jsonData["name"] = "user";
+    jsonData["name"] = name;
     json jsonRows = json::array();
 
     for (int i=0;i<30;i++) {
@@ -164,14 +195,14 @@ int main(int argc, char* argv[]) {
     std::string param = argv[2];
     
     if (command == "create") {
-        create_tbl();
+        create_tbl(param);
     } else if (command == "show") {
         show_tbl();
     } else if (command == "count") {
         count(param);
     } else if (command == "insert") {
         while (!exiting) {
-            insert_tbl();
+            insert_tbl(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     } else if (command == "get") {

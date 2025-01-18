@@ -16,18 +16,18 @@
 template <typename T>
 struct always_false : std::false_type {};
 
-using Field = std::variant<int, double, bool, std::string, std::time_t, std::vector<uint8_t>>;
+using Field = std::variant<std::monostate,int, double, bool, std::string, std::time_t, std::vector<uint8_t>>;
 
 struct Column {
     std::string name = "";
     std::string type = "";
     bool nullable = false;
-    Field defaultValue = nullptr;
+    Field defaultValue = std::monostate{};;
     bool primaryKey = false;
 };
 
-using Row = std::unordered_map<std::string, Field>;
-
+using Document = std::unordered_map<std::string, Field>;
+using Row = std::vector<Field>;
 // Define an index type
 using Index = std::map<Field, std::set<int>>;
 
@@ -36,7 +36,10 @@ struct FieldHash {
     std::size_t operator()(const Field& field) const {
         return std::visit([](const auto& value) -> std::size_t {
             using T = std::decay_t<decltype(value)>;
-            if constexpr (std::is_same_v<T, int>) {
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                // 对 std::monostate 进行处理，返回一个固定的哈希值
+                return 0;
+            } else if constexpr (std::is_same_v<T, int>) {
                 return std::hash<int>{}(value);
             } else if constexpr (std::is_same_v<T, double>) {
                 return std::hash<double>{}(value);
