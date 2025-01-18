@@ -1,7 +1,7 @@
 #ifndef MEMTABLE_HPP
 #define MEMTABLE_HPP
 #include <unordered_map>
-#include <mutex>
+#include <shared_mutex>
 #include "memcolumn.hpp"
 
 class MemTable {
@@ -39,9 +39,14 @@ public:
     void addIndex(const std::string& columnName);
     std::vector<Row> queryByIndex(const std::string& columnName, const Field& value) const;
     std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
+    std::optional<Row> findRowByPrimaryKey(const Field& primaryKey) const;
+    size_t getColumnIndex(const std::string& columnName) const;
+    std::vector<Row> query(const std::string& columnName,const std::function<bool(const Field&)>& predicate) const;
+    std::vector<Row> query(const std::string& columnName,const std::string& op,const Field& queryValue) const;
     //std::set<std::any> selectDistinct(const std::string& columnName) ;
     //std::map<std::any, int> groupBy(const std::string& columnName) ;
-
+    bool update(const std::string& columnName,const Field& newValue,const std::string& op,const Field& queryValue);
+    bool update(const std::string& columnName,const Field& newValue,const std::function<bool(const Field&)>& predicate);
     nlohmann::json showTable();
     nlohmann::json rowsToJson(const std::vector<Row>& rows);
     nlohmann::json tableToJson();
@@ -56,7 +61,7 @@ private:
     Row processRowDefaults(const Row& row) const;
 
 private:
-    std::mutex mutex_;
+    mutable std::shared_mutex mutex_;
 };
 
 #endif // MEMTABLE_H

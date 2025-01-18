@@ -96,7 +96,7 @@ Row MemTable::processRowDefaults(const Row& row) const {
 }
 
 int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
     for (const auto& jsonRow : jsonRows["rows"]) {
@@ -126,7 +126,7 @@ int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
 }
 
 bool MemTable::insertRow(const Row& row) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     Row newRow = processRowDefaults(row);
     if (validateRow(newRow) && validatePrimaryKey(newRow)) {
         rows_.push_back(newRow);
@@ -139,7 +139,7 @@ bool MemTable::insertRow(const Row& row) {
 
 
 bool MemTable::insertRows(const std::vector<Row>& newRows) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     for (const auto& row : newRows) {
         Row newRow = processRowDefaults(row);
@@ -157,10 +157,12 @@ bool MemTable::insertRows(const std::vector<Row>& newRows) {
 }
 
 std::vector<Row> MemTable::getRows() const{
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     return rows_;
 }
 
 size_t MemTable::getTotalRows() const{
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     return rows_.size();
 }
 
@@ -205,7 +207,7 @@ void MemTable::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
 }
 
 void MemTable::addIndex(const std::string& columnName) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     Index index;
     
     // Find the column index corresponding to the columnName
@@ -229,6 +231,8 @@ void MemTable::addIndex(const std::string& columnName) {
 }
 
 std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Field& value) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+
     std::vector<Row> result;
     
     // 使用 find 查找，避免使用 operator[]，不会修改 indexes
@@ -245,9 +249,24 @@ std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Fie
     return result;
 }
 
+std::optional<Row> MemTable::findRowByPrimaryKey(const Field& primaryKey) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+
+    // 查找主键值是否存在于索引中
+    auto it = primaryKeyIndex_.find(primaryKey);
+    if (it != primaryKeyIndex_.end()) {
+        // 如果找到，返回对应行
+        return rows_[it->second];
+    }
+
+    // 如果主键不存在，返回 std::nullopt
+    return std::nullopt;
+}
 
 // 获取从第 n 行开始的 limit 个数据
 std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+
     std::vector<Row> result;
     
     // 如果 offset 超过表中的行数，直接返回空结果
@@ -261,6 +280,301 @@ std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
     }
 
     return result;
+}
+
+size_t MemTable::getColumnIndex(const std::string& columnName) const {
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName) {
+            return i;
+        }
+    }
+    throw std::invalid_argument("Column not found: " + columnName);
+}
+
+std::vector<Row> MemTable::query(
+    const std::string& columnName,
+    const std::function<bool(const Field&)>& predicate) const
+{
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::vector<Row> results;
+
+    size_t colIdx = getColumnIndex(columnName);
+
+    // 1. 主键查询优化（仅当 predicate 是等值查询时）
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName && columns_[i].primaryKey) {
+            for (const auto& [key, idx] : primaryKeyIndex_) {
+                if (predicate(key)) {
+                    results.push_back(rows_[idx]);
+                }
+            }
+            return results; // 主键查询结果直接返回
+        }
+    }
+
+    // 2. 索引查询优化
+    auto indexIt = indexes_.find(columnName);
+    if (indexIt != indexes_.end()) {
+        const auto& index = indexIt->second;
+        for (const auto& [key, idxSet] : index) {
+            // 如果 key 满足条件，遍历 set 中的所有 idx
+            if (predicate(key)) {
+                for (int idx : idxSet) {
+                    results.push_back(rows_[idx]);
+                }
+            }
+        }
+        return results;
+    }
+
+    // 3. 全表遍历
+    for (const auto& row : rows_) {
+        if (predicate(row[colIdx])) {
+            results.push_back(row);
+        }
+    }
+
+    return results;
+}
+
+std::vector<Row> MemTable::query(
+    const std::string& columnName,
+    const std::string& op,        // 比较操作符，如 "==", "<", ">", 等
+    const Field& queryValue) const
+{
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::vector<Row> results;
+
+    // 获取列索引
+    size_t colIdx = getColumnIndex(columnName);
+
+    // 1. 检查是否是主键列
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName && columns_[i].primaryKey) {
+            // 主键查询，使用主键索引
+            auto& index = primaryKeyIndex_;
+            for (const auto& [key, idx] : index) {
+                // 使用 std::visit 解包 variant
+                bool match = std::visit([&](const auto& value) {
+                    return compare(value, queryValue, op);
+                }, key);
+
+                if (match) {
+                    // 主键是唯一的，直接返回对应的行
+                    results.push_back(rows_[idx]);
+                }
+            }
+            return results;
+        }
+    }
+
+    // 2. 检查其他索引
+    auto indexIt = indexes_.find(columnName);
+    if (indexIt != indexes_.end()) {
+        const auto& index = indexIt->second;
+        for (const auto& [key, idxSet] : index) {
+            // 使用 std::visit 解包 variant
+            bool match = std::visit([&](const auto& value) {
+                return compare(value, queryValue, op);
+            }, key);
+
+            if (match) {
+                for (int idx : idxSet) {
+                    results.push_back(rows_[idx]);
+                }
+            }
+        }
+        return results;
+    }
+
+    // 3. 全表扫描，遍历所有行
+    for (const auto& row : rows_) {
+        const auto& field = row[colIdx];
+
+        // 使用 std::visit 来根据 Field 类型检查条件
+        std::visit([&](const auto& value) {
+            if (compare(value, queryValue, op)) {
+                results.push_back(row);
+            }
+        }, field);
+    }
+
+    return results;
+}
+
+bool MemTable::update(
+    const std::string& columnName,         // 待更新的列
+    const Field& newValue,                 // 新值
+    const std::string& op,                 // 比较操作符，如 "==", "<", ">", 等
+    const Field& queryValue)              // 查询条件的值
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
+    bool updated = false;
+
+    // 获取列索引
+    size_t colIdx = getColumnIndex(columnName);
+
+    // 1. 检查是否是主键列
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName && columns_[i].primaryKey) {
+            // 主键查询，使用主键索引
+            auto& index = primaryKeyIndex_;
+            for (auto& [key, idx] : index) {
+                bool match = std::visit([&](const auto& value) {
+                    return compare(value, queryValue, op);
+                }, key);
+
+                if (match) {
+                    // 更新主键对应的行
+                    rows_[idx][colIdx] = newValue;
+                    // 更新主键索引（移除旧的主键，插入新的主键）
+                    index.erase(key);
+                    std::visit([&](const auto& value) {
+                        index[value] = idx;  // 更新主键索引
+                    }, newValue);
+                    updated = true;
+                }
+            }
+            return updated;
+        }
+    }
+
+    // 2. 检查其他索引
+    auto indexIt = indexes_.find(columnName);
+    if (indexIt != indexes_.end()) {
+        auto& index = indexIt->second;
+        for (auto& [key, idxSet] : index) {
+            bool match = std::visit([&](const auto& value) {
+                return compare(value, queryValue, op);
+            }, key);
+
+            if (match) {
+                for (int idx : idxSet) {
+                    // 更新符合条件的行
+                    rows_[idx][colIdx] = newValue;
+                    // 更新索引：移除旧的值并插入新的值
+                    index.erase(key); // 移除旧的索引值
+                    std::visit([&](const auto& value) {
+                        index[value].insert(idx);  // 插入新的索引值
+                    }, newValue);
+                    updated = true;
+                }
+            }
+        }
+        return updated;
+    }
+
+    // 3. 全表扫描，遍历所有行
+    for (size_t i = 0; i < rows_.size(); ++i) {
+        const auto& field = rows_[i][colIdx];
+
+        // 使用 std::visit 来根据 Field 类型检查条件
+        std::visit([&](const auto& value) {
+            if (compare(value, queryValue, op)) {
+                // 更新行
+                rows_[i][colIdx] = newValue;
+                updated = true;
+
+                // 如果更新了索引列，需要同步更新索引
+                if (indexes_.find(columnName) != indexes_.end()) {
+                    auto& index = indexes_[columnName];  // 获取非 const 引用
+                    index[value].erase(i);  // 移除旧的索引
+                    std::visit([&](const auto& newIndexValue) {
+                        index[newIndexValue].insert(i);  // 插入新的索引值
+                    }, newValue);
+                }
+            }
+        }, field);
+    }
+
+    return updated;
+}
+
+bool MemTable::update(
+    const std::string& columnName,         // 待更新的列
+    const Field& newValue,                 // 新值
+    const std::function<bool(const Field&)>& predicate)  // 动态的查询谓词
+{
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
+    bool updated = false;
+
+    // 获取列索引
+    size_t colIdx = getColumnIndex(columnName);
+
+    // 1. 检查是否是主键列
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName && columns_[i].primaryKey) {
+            // 主键查询，使用主键索引
+            auto& index = primaryKeyIndex_;
+            for (auto& [key, idx] : index) {
+                bool match = std::visit([&](const auto& value) {
+                    return predicate(value);
+                }, key);
+
+                if (match) {
+                    // 更新主键对应的行
+                    rows_[idx][colIdx] = newValue;
+                    // 更新主键索引（移除旧的主键，插入新的主键）
+                    index.erase(key);
+                    std::visit([&](const auto& value) {
+                        index[value] = idx;  // 更新主键索引
+                    }, newValue);
+                    updated = true;
+                }
+            }
+            return updated;
+        }
+    }
+
+    // 2. 检查其他索引
+    auto indexIt = indexes_.find(columnName);
+    if (indexIt != indexes_.end()) {
+        auto& index = indexIt->second;
+        for (auto& [key, idxSet] : index) {
+            bool match = std::visit([&](const auto& value) {
+                return predicate(value);
+            }, key);
+
+            if (match) {
+                for (int idx : idxSet) {
+                    // 更新符合条件的行
+                    rows_[idx][colIdx] = newValue;
+                    // 更新索引：移除旧的值并插入新的值
+                    index.erase(key); // 移除旧的索引值
+                    std::visit([&](const auto& value) {
+                        index[value].insert(idx);  // 插入新的索引值
+                    }, newValue);
+                    updated = true;
+                }
+            }
+        }
+        return updated;
+    }
+
+    // 3. 全表扫描，遍历所有行
+    for (size_t i = 0; i < rows_.size(); ++i) {
+        const auto& field = rows_[i][colIdx];
+
+        // 使用 std::visit 来根据 Field 类型检查条件
+        std::visit([&](const auto& value) {
+            if (predicate(value)) {
+                // 更新行
+                rows_[i][colIdx] = newValue;
+                updated = true;
+
+                // 如果更新了索引列，需要同步更新索引
+                if (indexes_.find(columnName) != indexes_.end()) {
+                    auto& index = indexes_[columnName];  // 获取非 const 引用
+                    index[value].erase(i);  // 移除旧的索引
+                    std::visit([&](const auto& newIndexValue) {
+                        index[newIndexValue].insert(i);  // 插入新的索引值
+                    }, newValue);
+                }
+            }
+        }, field);
+    }
+
+    return updated;
 }
 
 nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
@@ -283,6 +597,8 @@ nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
 }
 
 nlohmann::json MemTable::tableToJson() {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+
     nlohmann::json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
@@ -298,6 +614,8 @@ nlohmann::json MemTable::showTable() {
 }
 
 nlohmann::json MemTable::showRows() {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+
     nlohmann::json jsonRows;
     jsonRows["rows"] = rowsToJson(rows_);
     return jsonRows;

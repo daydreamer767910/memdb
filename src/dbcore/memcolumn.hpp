@@ -29,7 +29,7 @@ struct Column {
 using Document = std::unordered_map<std::string, Field>;
 using Row = std::vector<Field>;
 // Define an index type
-using Index = std::map<Field, std::set<int>>;
+using Index = std::map<Field, std::set<size_t>>;
 
 // 自定义哈希函数
 struct FieldHash {
@@ -72,6 +72,43 @@ struct FieldEqual {
 
 // 定义主键索引
 using PrimaryKeyIndex = std::unordered_map<Field, size_t, FieldHash, FieldEqual>;
+
+template <typename T>
+bool compare(const T& value, const Field& queryValue, const std::string& op) {
+    // 处理具体的比较操作符
+    if (op == "==") {
+        return value == std::get<T>(queryValue);
+    } else if (op == "<") {
+        return value < std::get<T>(queryValue);
+    } else if (op == ">") {
+        return value > std::get<T>(queryValue);
+    } else if (op == "<=") {
+        return value <= std::get<T>(queryValue);
+    } else if (op == ">=") {
+        return value >= std::get<T>(queryValue);
+    } else {
+        throw std::invalid_argument("Unsupported comparison operator: " + op);
+    }
+}
+
+template <typename T>
+std::function<bool(const Field&)> createPredicate(const T& queryValue, const std::string& op) {
+    return [queryValue, op](const Field& fieldValue) -> bool {
+        const auto& value = std::get<T>(fieldValue);  // 取出Field中的实际值
+        if (op == "==") {
+            return value == queryValue;
+        } else if (op == "<") {
+            return value < queryValue;
+        } else if (op == ">") {
+            return value > queryValue;
+        } else if (op == "<=") {
+            return value <= queryValue;
+        } else if (op == ">=") {
+            return value >= queryValue;
+        }
+        return false;
+    };
+}
 
 // Field 转 JSON 的函数
 nlohmann::json fieldToJson(const Field& field);
