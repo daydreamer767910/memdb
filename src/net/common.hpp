@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include <condition_variable>
+#include "util/util.hpp"
 
 template <typename T>
 class IObserver {
@@ -25,7 +26,6 @@ public:
 };
 
 
-using json = nlohmann::json;
 // 定义数据类型的别名
 using tcpMsg=std::tuple<char*, int, uint32_t>;
 using appMsg=std::tuple<std::vector<json>*,int, uint32_t>;

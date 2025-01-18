@@ -11,7 +11,7 @@ void MemDatabase::addTable(const std::string& tableName, const std::vector<Colum
 }
 
 void MemDatabase::addTableFromJson(const std::string& jsonConfig) {
-    auto root = nlohmann::json::parse(jsonConfig);
+    auto root = json::parse(jsonConfig);
     //std::cout << root.dump(4) << std::endl;
     std::string tableName = root["name"];
     auto columns = jsonToColumns(root);
@@ -77,7 +77,7 @@ void MemDatabase::saveTableToFile(MemTable::ptr table, const std::string& filePa
     const std::string& tableName = table->name_;
 
     // 将表信息序列化为 JSON
-    nlohmann::json root;
+    json root;
     root["name"] = tableName;
     root["columns"] = columnsToJson(table->columns_);
 

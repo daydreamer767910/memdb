@@ -54,7 +54,7 @@ Row MemTable::processRowDefaults(const Row& row) const{
     return newRow;
 }
 
-int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+int MemTable::insertRowsFromJson(const json& jsonRows) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
@@ -224,10 +224,10 @@ std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
 }
 
 // 封装行的序列化逻辑
-nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
-    nlohmann::json jsonRows = nlohmann::json::array();
+json MemTable::rowsToJson(const std::vector<Row>& rows) {
+    json jsonRows = json::array();
     for (const auto& row : rows) {
-        nlohmann::json rowJson;
+        json rowJson;
         for (const auto& [key, value] : row) {
             rowJson[key] = fieldToJson(value);
         }
@@ -236,23 +236,23 @@ nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
     return jsonRows;
 }
 
-nlohmann::json MemTable::tableToJson() {
-    nlohmann::json jsonTable;
+json MemTable::tableToJson() {
+    json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
     jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
     return jsonTable;
 }
 
-nlohmann::json MemTable::showTable() {
-    nlohmann::json jsonTable;
+json MemTable::showTable() {
+    json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_);
     return jsonTable;
 }
 
-nlohmann::json MemTable::showRows() {
-    nlohmann::json jsonRows;
+json MemTable::showRows() {
+    json jsonRows;
     jsonRows["rows"] = rowsToJson(rows_);
     return jsonRows;
 }
@@ -265,7 +265,7 @@ void MemTable::exportToFile(const std::string& filePath) {
 
         for (size_t i = 0; i < rows_.size(); ++i) {
             const auto& row = rows_[i];
-            nlohmann::json rowJson;
+            json rowJson;
             for (const auto& [key, value] : row) {
                 rowJson[key] = fieldToJson(value);
             }
@@ -292,28 +292,28 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
     std::stringstream buffer;
     buffer << inputFile.rdbuf();
     //std::cout << "read file ok " << get_timestamp() << std::endl;
-    nlohmann::json jsonData = nlohmann::json::parse(buffer.str());
+    json jsonData = json::parse(buffer.str());
     //std::cout << "parse buffer ok " << get_timestamp() << std::endl;
     insertRowsFromJson(jsonData);
     //std::cout << "insert table ok " << get_timestamp() << std::endl;
-    /*[[maybe_unused]] auto result = nlohmann::json::parse(inputFile, [](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
+    /*[[maybe_unused]] auto result = json::parse(inputFile, [](int depth, json::parse_event_t event, json& parsed) {
         switch (event) {
-            case nlohmann::json::parse_event_t::key:
+            case json::parse_event_t::key:
                 std::cout << "Key: " << parsed << " (Depth: " << depth << ")\n";
                 break;
-            case nlohmann::json::parse_event_t::value:
+            case json::parse_event_t::value:
                 std::cout << "Value: " << parsed << " (Depth: " << depth << ")\n";
                 break;
-            case nlohmann::json::parse_event_t::array_start:
+            case json::parse_event_t::array_start:
                 std::cout << "Start of array (Depth: " << depth << ")\n";
                 break;
-            case nlohmann::json::parse_event_t::array_end:
+            case json::parse_event_t::array_end:
                 std::cout << "End of array (Depth: " << depth << ")\n";
                 break;
-            case nlohmann::json::parse_event_t::object_start:
+            case json::parse_event_t::object_start:
                 std::cout << "Start of object (Depth: " << depth << ")\n";
                 break;
-            case nlohmann::json::parse_event_t::object_end:
+            case json::parse_event_t::object_end:
                 std::cout << "End of object (Depth: " << depth << ")\n";
                 break;
             default:
@@ -322,8 +322,8 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         // Continue parsing
         return true;
     });
-    nlohmann::json::parser_callback_t callback = [this](int depth, nlohmann::json::parse_event_t event, nlohmann::json& parsed) {
-        if (depth == 2 && event == nlohmann::json::parse_event_t::object_end) {
+    json::parser_callback_t callback = [this](int depth, json::parse_event_t event, json& parsed) {
+        if (depth == 2 && event == json::parse_event_t::object_end) {
             Row row;
             for (const auto& [key, value] : parsed.items()) {
                 std::cout << "Key: " << key << " Value: " << value << "\n";
@@ -340,7 +340,7 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         return true; // Continue parsing
     };
 
-    [[maybe_unused]] auto result = nlohmann::json::parse(inputFile, callback);*/
+    [[maybe_unused]] auto result = json::parse(inputFile, callback);*/
     inputFile.close();
 }
 

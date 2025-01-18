@@ -27,10 +27,10 @@ public:
     MemTable& operator=(MemTable&&) = default;
 
     // Methods related to rows and columns
-    int insertRowsFromJson(const nlohmann::json& jsonRows);
+    int insertRowsFromJson(const json& jsonRows);
     bool insertRow(const Row& row);
     bool insertRows(const std::vector<Row>& rows);
-    nlohmann::json showRows();
+    json showRows();
     std::vector<Row> getRows() const;
     size_t getTotalRows() const;
         
@@ -42,9 +42,9 @@ public:
     //std::set<std::any> selectDistinct(const std::string& columnName) ;
     //std::map<std::any, int> groupBy(const std::string& columnName) ;
 
-    nlohmann::json showTable();
-    nlohmann::json rowsToJson(const std::vector<Row>& rows);
-    nlohmann::json tableToJson();
+    json showTable();
+    json rowsToJson(const std::vector<Row>& rows);
+    json tableToJson();
     void exportToFile(const std::string& filePath) ;
     void importRowsFromFile(const std::string& filePath);
     

@@ -97,7 +97,7 @@ Row MemTable::processRowDefaults(const Row& row) const {
     return newRow;
 }
 
-int MemTable::insertRowsFromJson(const nlohmann::json& jsonRows) {
+int MemTable::insertRowsFromJson(const json& jsonRows) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
@@ -579,10 +579,10 @@ bool MemTable::update(
     return updated;
 }
 
-nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
-    nlohmann::json jsonRows = nlohmann::json::array();
+json MemTable::rowsToJson(const std::vector<Row>& rows) {
+    json jsonRows = json::array();
     for (const auto& row : rows) {
-        nlohmann::json rowJson;
+        json rowJson;
         
         // Iterate through each column in the row based on the column definitions
         for (size_t i = 0; i < row.size(); ++i) {
@@ -598,27 +598,27 @@ nlohmann::json MemTable::rowsToJson(const std::vector<Row>& rows) {
     return jsonRows;
 }
 
-nlohmann::json MemTable::tableToJson() {
+json MemTable::tableToJson() {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
-    nlohmann::json jsonTable;
+    json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
     jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
     return jsonTable;
 }
 
-nlohmann::json MemTable::showTable() {
-    nlohmann::json jsonTable;
+json MemTable::showTable() {
+    json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_);
     return jsonTable;
 }
 
-nlohmann::json MemTable::showRows() {
+json MemTable::showRows() {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
-    nlohmann::json jsonRows;
+    json jsonRows;
     jsonRows["rows"] = rowsToJson(rows_);
     return jsonRows;
 }
@@ -631,7 +631,7 @@ void MemTable::exportToFile(const std::string& filePath) {
 
         for (size_t i = 0; i < rows_.size(); ++i) {
             const auto& row = rows_[i];
-            nlohmann::json rowJson;
+            json rowJson;
 
             // Iterate through each field in the row using column definitions
             for (size_t j = 0; j < row.size(); ++j) {
@@ -644,7 +644,7 @@ void MemTable::exportToFile(const std::string& filePath) {
 
             outFile << rowJson.dump(); // Write each row without formatting
             if (i < rows_.size() - 1) { // Avoid trailing comma
-                outFile << ",";
+                outFile << ",\n";
             }
         }
 
@@ -662,42 +662,45 @@ void MemTable::importRowsFromFile(const std::string& filePath) {
         throw std::runtime_error("Unable to open file: " + filePath);
     }
 
-    // 将文件内容读取到std::string中
-    std::stringstream buffer;
-    buffer << inputFile.rdbuf();
+    // 创建一个 JSON 解析器，逐行解析
+    json jsonData = json::parse(inputFile, nullptr, false);
 
-    // Parse the JSON content
-    nlohmann::json jsonData = nlohmann::json::parse(buffer.str());
+    if (jsonData.is_discarded()) {
+        throw std::runtime_error("Invalid JSON format in file: " + filePath);
+    }
 
+    // 预估行数以优化内存分配 (假设文件中的行数可以预估)
     if (jsonData.contains("rows") && jsonData["rows"].is_array()) {
-        // Iterate over the rows in the JSON file
-        for (const auto& rowJson : jsonData["rows"]) {
-            Row row;
-
-            // Iterate through each column in the row
-            for (size_t i = 0; i < columns_.size(); ++i) {
-                const auto& column = columns_[i];
-                if (rowJson.contains(column.name)) {
-                    // Deserialize the field value
-                    row.push_back(jsonToField(column.type, rowJson[column.name]));
-                } else {
-                    // If the column is missing, you can handle it as needed (e.g., add a default value)
-                    if (column.type == "date") {
-                        row.push_back(getDefault(column.type));
-                    } else {
-                        row.push_back(column.defaultValue);
-                    }
-                }
-            }
-            validatePrimaryKey(row);
-            // Add the row to rows_
-            rows_.push_back(row);
-        }
+        rows_.reserve(jsonData["rows"].size());
     } else {
         throw std::runtime_error("Invalid file format: missing 'rows' array.");
     }
 
+    // 解析每一行 JSON 数据
+    for (auto& rowJson : jsonData["rows"]) {
+        Row row;
+
+        // 逐列处理
+        for (size_t i = 0; i < columns_.size(); ++i) {
+            const auto& column = columns_[i];
+
+            if (rowJson.contains(column.name)) {
+                // 反序列化列值并移动到行中
+                row.push_back(jsonToField(column.type, std::move(rowJson[column.name])));
+            } else {
+                // 填充默认值
+                if (column.type == "date") {
+                    row.push_back(getDefault(column.type));
+                } else {
+                    row.push_back(column.defaultValue);
+                }
+            }
+        }
+
+        // 验证主键并插入
+        validatePrimaryKey(row);
+        rows_.push_back(std::move(row));
+    }
+
     inputFile.close();
 }
-
-

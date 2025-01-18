@@ -2,8 +2,8 @@
 #include "util/util.hpp"
 
 // Field 转 JSON 的函数
-nlohmann::json fieldToJson(const Field& field) {
-    return std::visit([](auto&& value) -> nlohmann::json {
+json fieldToJson(const Field& field) {
+    return std::visit([](auto&& value) -> json {
         using T = std::decay_t<decltype(value)>;
         // 处理 std::monostate
         if constexpr (std::is_same_v<T, std::monostate>) {
@@ -14,7 +14,7 @@ nlohmann::json fieldToJson(const Field& field) {
 			return timeStr;
             //return std::ctime(&value);// 转换为时间戳表示 
         } else if constexpr (std::is_same_v<T, std::vector<uint8_t>>) {
-            nlohmann::json jsonArray;
+            json jsonArray;
             for (const auto& byte : value) {
                 jsonArray.push_back(byte); // 转换为 JSON 数组
             }
@@ -53,7 +53,7 @@ Field getDefault(const std::string& type) {
 }
 
 
-Field jsonToField(const std::string& type,const nlohmann::json& value) {
+Field jsonToField(const std::string& type,const json& value) {
     if (type == "int") {
 		return value.get<int>();
 	} else if (type == "double") {
@@ -95,7 +95,7 @@ bool isValidType(const Field& value, const std::string& type) {
     return false; // 默认返回 false
 }
 
-std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns) {
+std::vector<Column> jsonToColumns(const json& jsonColumns) {
     //std::cout << jsonColumns.dump(4) << std::endl;
     std::vector<Column> columns = {};
     for (const auto& col : jsonColumns["columns"]) {
@@ -134,10 +134,10 @@ std::vector<Column> jsonToColumns(const nlohmann::json& jsonColumns) {
     return columns;
 }
 
-nlohmann::json columnsToJson(const std::vector<Column>& columns) {
-    nlohmann::json jsonColumns = nlohmann::json::array();
+json columnsToJson(const std::vector<Column>& columns) {
+    json jsonColumns = json::array();
     for (const auto& column : columns) {
-        nlohmann::json colJson;
+        json colJson;
         colJson["name"] = column.name;
         colJson["type"] = column.type;
         colJson["nullable"] = column.nullable;
