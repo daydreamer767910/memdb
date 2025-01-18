@@ -118,7 +118,9 @@ void MemDatabase::save(const std::string& filePath) {
         }
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+            std::cout << get_timestamp() << " start saving table[" << table.first << "]:\n";
             table.second->exportToFile(tablePath.string());
+            std::cout << get_timestamp() << "done sucessfully! "  << std::endl;
         }
 
     } catch (const std::filesystem::filesystem_error& e) {

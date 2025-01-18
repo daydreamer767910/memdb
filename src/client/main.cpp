@@ -74,9 +74,8 @@ void create_tbl(std::string& name) {
     jsonCols.push_back({ 
         {"name", "id"}, 
         {"type", "int"}, 
-        {"nullable", true},
-        {"defaultValue", 0}
-       // {"primaryKey", true} 
+        {"nullable", false},
+        {"primaryKey", true} 
     });
 
     jsonCols.push_back({ 

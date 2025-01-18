@@ -674,6 +674,7 @@ json MemTable::showRows() {
 void MemTable::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
+    size_t rowsWrite = 0;
     if (outFile.is_open()) {
         outFile << "{\"rows\":[\n"; // Start the JSON array
 
@@ -697,8 +698,14 @@ void MemTable::exportToFile(const std::string& filePath) {
             if (i < rows_.size() - 1) { // Avoid trailing comma
                 allRowsJson += ",\n";
             }
-        }
 
+            rowsWrite++;
+            if (rowsWrite % 1000 == 0) {
+                std::cout << ".";
+                std::cout.flush();
+            }
+        }
+        std::cout << std::endl;
         // Write the accumulated JSON to file all at once
         outFile << allRowsJson;
         
