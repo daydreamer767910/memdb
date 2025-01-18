@@ -36,6 +36,7 @@ bool MemTable::validateRow(const Row& row) {
 
 
 bool MemTable::validatePrimaryKey(const Row& row) {
+    size_t currentRowIdx = rows_.size();  // 获取当前行号
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
         if (column.primaryKey) {
@@ -49,12 +50,13 @@ bool MemTable::validatePrimaryKey(const Row& row) {
                     throw std::invalid_argument("Primary key value already exists: " + column.name);
                 }
                 // 如果主键值没有重复，插入主键值到主键索引中
-                primaryKeyIndex_[value] = rows_.size() - 1;  // 或者插入行号、唯一标识符等
+                primaryKeyIndex_[value] = currentRowIdx;  // 使用当前行号
             }, field);
         }
     }
     return true;
 }
+
 
 
 Row MemTable::processRowDefaults(const Row& row) const {
