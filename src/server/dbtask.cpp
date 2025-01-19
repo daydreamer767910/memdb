@@ -56,6 +56,18 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
+			} else if(action == "select") {
+				std::string tableName = jsonTask["name"];
+				std::string column = jsonTask["column"];
+				std::string op = jsonTask["operator"];
+				auto value = jsonTask["value"];
+				auto tb = db->getTable(tableName);
+				if (tb) {
+					//auto predicate = createPredicate<?>(value,op);
+					jsonResp[tableName] = tb->rowsToJson(tb->query(column,op,jsonToField(tb->getColumnType(column),value)));
+				} else {
+					jsonResp["error"] = "table[" + tableName + "] not exist";
+				}
 			} else if(action == "count") {
 				std::string tableName = jsonTask["name"];
 				auto tb = db->getTable(tableName);

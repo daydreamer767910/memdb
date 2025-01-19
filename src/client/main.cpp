@@ -157,6 +157,18 @@ void get(std::string& name) {
     test(jsonConfig);
 }
 
+void select(std::string& name) {
+    json jsonData;
+    jsonData["action"] = "select";
+    jsonData["name"] = name;
+    jsonData["column"] = "addr";
+    jsonData["operator"] = "<";
+    jsonData["value"] = "street 33";
+
+    std::string jsonConfig = jsonData.dump(1);
+    test(jsonConfig);
+}
+
 void count(std::string& name) {
     json jsonData;
     jsonData["action"] = "count";
@@ -204,6 +216,8 @@ int main(int argc, char* argv[]) {
         show_tbl();
     } else if (command == "count") {
         count(param);
+    } else if (command == "select") {
+        select(param);
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);

@@ -341,6 +341,15 @@ size_t MemTable::getColumnIndex(const std::string& columnName) const {
     throw std::invalid_argument("Column not found: " + columnName);
 }
 
+std::string MemTable::getColumnType(const std::string& columnName) const {
+    for (size_t i = 0; i < columns_.size(); ++i) {
+        if (columns_[i].name == columnName) {
+            return columns_[i].type;
+        }
+    }
+    throw std::invalid_argument("Column not found: " + columnName);
+}
+
 std::vector<Row> MemTable::query(
     const std::string& columnName,
     const std::function<bool(const Field&)>& predicate) const
@@ -394,7 +403,7 @@ std::vector<Row> MemTable::query(
 {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     std::vector<Row> results;
-
+//std::cout << columnName << ":" << op << ":" << queryValue << std::endl;
     // 获取列索引
     size_t colIdx = getColumnIndex(columnName);
 
@@ -404,12 +413,14 @@ std::vector<Row> MemTable::query(
             // 主键查询，使用主键索引
             auto& index = primaryKeyIndex_;
             for (const auto& [key, idx] : index) {
+                //std::cout << "pri key:" << key << " idx: " << idx << std::endl;
                 // 使用 std::visit 解包 variant
                 bool match = std::visit([&](const auto& value) {
                     return compare(value, queryValue, op);
                 }, key);
 
                 if (match) {
+                    //std::cout << "match: " << rows_[idx][i] << std::endl;
                     // 主键是唯一的，直接返回对应的行
                     results.push_back(rows_[idx]);
                 }
@@ -444,6 +455,7 @@ std::vector<Row> MemTable::query(
         // 使用 std::visit 来根据 Field 类型检查条件
         std::visit([&](const auto& value) {
             if (compare(value, queryValue, op)) {
+                //std::cout << "match: " << value << std::endl;
                 results.push_back(row);
             }
         }, field);
@@ -671,6 +683,111 @@ json MemTable::showRows() {
     return jsonRows;
 }
 
+void MemTable::exportToBinaryFile(const std::string& filePath) {
+    std::ofstream outFile(filePath, std::ios::binary);
+    if (!outFile.is_open()) {
+        throw std::runtime_error("Failed to open file for writing: " + filePath);
+    }
+
+    size_t rowsWrite = 0;
+    size_t numRows = rows_.size();
+    size_t numColumns = columns_.size();
+    const size_t bufferSize = 32 * 1024; // 固定缓冲区大小为 128KB
+    char* buffer = new char[bufferSize];
+    size_t bufferUsed = 0;
+
+    auto flushBuffer = [&]() {
+        if (bufferUsed > 0) {
+            outFile.write(buffer, bufferUsed);
+            bufferUsed = 0;
+        }
+    };
+
+    // 写入行数和列数
+    if (bufferUsed + sizeof(numRows) + sizeof(numColumns) > bufferSize) {
+        flushBuffer();
+    }
+    memcpy(buffer + bufferUsed, &numRows, sizeof(numRows));
+    bufferUsed += sizeof(numRows);
+    memcpy(buffer + bufferUsed, &numColumns, sizeof(numColumns));
+    bufferUsed += sizeof(numColumns);
+
+    // 写入数据
+    for (const auto& row : rows_) {
+        for (const auto& field : row) {
+            // 假设 Field 有一个 toBinary 方法，可以将自身序列化为二进制格式
+            std::string binaryData = FieldToBinary(field);
+            size_t dataSize = binaryData.size();
+
+            // 检查缓冲区是否有足够空间容纳新数据
+            if (bufferUsed + sizeof(dataSize) + dataSize > bufferSize) {
+                flushBuffer();
+            }
+
+            memcpy(buffer + bufferUsed, &dataSize, sizeof(dataSize));
+            bufferUsed += sizeof(dataSize);
+            memcpy(buffer + bufferUsed, binaryData.data(), dataSize);
+            bufferUsed += dataSize;
+        }
+        rowsWrite++;
+        if (rowsWrite % 10000 == 0) {
+            std::cout << ".";
+            std::cout.flush();
+        }
+    }
+
+    // 刷新剩余缓冲区内容
+    flushBuffer();
+
+    std::cout << std::endl;
+    delete[] buffer;
+    outFile.close();
+}
+
+
+void MemTable::importFromBinaryFile(const std::string& filePath) {
+    std::ifstream inFile(filePath, std::ios::binary);
+    if (!inFile.is_open()) {
+        throw std::runtime_error("Failed to open file for reading: " + filePath);
+    }
+    size_t numRows, numColumns;
+
+    // 读取行数和列数
+    inFile.read(reinterpret_cast<char*>(&numRows), sizeof(numRows));
+    inFile.read(reinterpret_cast<char*>(&numColumns), sizeof(numColumns));
+
+    // 检查文件格式是否匹配
+    if (numColumns != columns_.size()) {
+        throw std::runtime_error("Column count mismatch in binary file.");
+    }
+
+    rows_.clear();
+    rows_.reserve(numRows);
+
+    // 读取数据
+    for (size_t i = 0; i < numRows; ++i) {
+        Row row(numColumns);
+        for (size_t j = 0; j < numColumns; ++j) {
+            size_t dataSize;
+            inFile.read(reinterpret_cast<char*>(&dataSize), sizeof(dataSize));
+
+            std::vector<char> buffer(dataSize);
+            inFile.read(buffer.data(), dataSize);
+
+            // 这里假设 Field 有一个 fromBinary 方法，可以从二进制数据中解析自己
+            row[j] = FieldFromBinary(buffer.data(), dataSize);
+        }
+        //rows_.push_back(row);
+        this->insertRow(row);
+        if (i % 10000 == 0) {
+            std::cout << ".";
+            std::cout.flush();
+        }
+    }
+    std::cout << std::endl;
+    inFile.close();
+}
+
 void MemTable::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
@@ -717,40 +834,13 @@ void MemTable::exportToFile(const std::string& filePath) {
 }
 
 
-void MemTable::importRowsFromFile(const std::string& filePath) {
-    std::ifstream inputFile(filePath);
-
-    if (!inputFile.is_open()) {
-        throw std::runtime_error("Unable to open file: " + filePath);
-    }
-
-    // 创建一个 JSON 解析器，逐行解析
-    json jsonData = json::parse(inputFile, nullptr, false);
-
-    if (jsonData.is_discarded()) {
-        throw std::runtime_error("Invalid JSON format in file: " + filePath);
-    }
-
-    // 预估行数以优化内存分配 (假设文件中的行数可以预估)
-    if (jsonData.contains("rows") && jsonData["rows"].is_array()) {
-        rows_.reserve(jsonData["rows"].size());
-    } else {
-        throw std::runtime_error("Invalid file format: missing 'rows' array.");
-    }
-
-    insertRowsFromJson(jsonData);
-    // 显式尝试释放 jsonData 中未使用的内存
-    jsonData.clear();
-    inputFile.close();
-}
-
-void MemTable::importRowsFromFile(const std::string& filePath, size_t batchSize ) {
+void MemTable::importFromFile(const std::string& filePath ) {
     std::ifstream inputFile(filePath, std::ios::in | std::ios::binary);
 
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
     }
-
+    size_t batchSize = 1024*10;
     // 读取整个文件到内存
     std::stringstream buffer;
     buffer << inputFile.rdbuf();

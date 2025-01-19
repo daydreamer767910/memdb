@@ -119,8 +119,9 @@ void MemDatabase::save(const std::string& filePath) {
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             std::cout << get_timestamp() << " start saving table[" << table.first << "]:\n";
-            table.second->exportToFile(tablePath.string());
-            std::cout << get_timestamp() << "done sucessfully! "  << std::endl;
+            //table.second->exportToFile(tablePath.string());
+            table.second->exportToBinaryFile(tablePath.string());
+            std::cout << get_timestamp() << " done sucessfully! "  << std::endl;
         }
 
     } catch (const std::filesystem::filesystem_error& e) {
@@ -145,8 +146,9 @@ void MemDatabase::upload(const std::string& filePath) {
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             std::cout << get_timestamp() << " start loading table[" << table.first << "]:\n";
-            table.second->importRowsFromFile(tablePath.string(),10000);
-            std::cout << get_timestamp() << "done sucessfully! "  << std::endl;
+            //table.second->importRowsFromFile(tablePath.string(),10000);
+            table.second->importFromBinaryFile(tablePath.string());
+            std::cout << get_timestamp() << " done sucessfully! "  << std::endl;
         }
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Error: " << e.what() << '\n';

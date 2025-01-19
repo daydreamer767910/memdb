@@ -41,6 +41,7 @@ public:
     std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
     std::optional<Row> findRowByPrimaryKey(const Field& primaryKey) const;
     size_t getColumnIndex(const std::string& columnName) const;
+    std::string getColumnType(const std::string& columnName) const;
     std::vector<Row> query(const std::string& columnName,const std::function<bool(const Field&)>& predicate) const;
     std::vector<Row> query(const std::string& columnName,const std::string& op,const Field& queryValue) const;
     //std::set<std::any> selectDistinct(const std::string& columnName) ;
@@ -53,8 +54,9 @@ public:
     Row jsonToRow(const json& jsonRow);
     json tableToJson();
     void exportToFile(const std::string& filePath) ;
-    void importRowsFromFile(const std::string& filePath);
-    void importRowsFromFile(const std::string& filePath, size_t batchSize );
+    void importFromFile(const std::string& filePath);
+    void exportToBinaryFile(const std::string& filePath);
+    void importFromBinaryFile(const std::string& filePath);
 private:
     bool validateRow(const Row& row) ;
     bool validatePrimaryKey(const Row& row) ;
