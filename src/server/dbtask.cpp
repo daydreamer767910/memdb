@@ -56,6 +56,25 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
+			} else if(action == "set") {
+				std::string tableName = jsonTask["name"];
+				std::string column = jsonTask["column"];
+				std::string op = jsonTask["operator"];
+				auto value = jsonTask["value"];
+				auto qry_value = jsonTask["qvalue"];
+				auto tb = db->getTable(tableName);
+				std::string type = tb->getColumnType(column);
+				if (tb) {
+					if (tb->update(column,jsonToField(type,value),op,jsonToField(type,qry_value))) {
+						jsonResp["response"] = "update table sucess";
+						jsonResp["status"] = "200";
+					} else {
+						jsonResp["response"] = "update table fail";
+						jsonResp["status"] = "300";
+					}
+				} else {
+					jsonResp["error"] = "table[" + tableName + "] not exist";
+				}
 			} else if(action == "select") {
 				std::string tableName = jsonTask["name"];
 				std::string column = jsonTask["column"];
