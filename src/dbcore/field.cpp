@@ -100,6 +100,15 @@ json fieldToJson(const Field& field) {
     }, field);
 }
 
+// 将 std::vector<std::variant<...>> 转换为 JSON 格式
+json vectorToJson(const std::vector<Field>& values) {
+    json jsonArray = json::array();
+    for (const auto& value : values) {
+        jsonArray.push_back(fieldToJson(value));
+    }
+    return jsonArray;
+}
+
 std::ostream& operator<<(std::ostream& os, const Field& field) {
     os << fieldToJson(field).dump(); // 使用 JSON 的 dump 方法输出为字符串
     return os;
@@ -144,6 +153,23 @@ Field jsonToField(const std::string& type,const json& value) {
 	}
     throw std::invalid_argument("Unknown type for default value");
 };
+
+std::vector<Field> jsonToFields(const std::vector<std::string>& types, const json& values) {
+    // 检查类型和值的数量是否匹配
+    if (types.size() != values.size()) {
+        throw std::invalid_argument("Mismatch between types and values count");
+    }
+
+    std::vector<Field> fields;
+    fields.reserve(types.size());
+
+    for (size_t i = 0; i < types.size(); ++i) {
+        fields.push_back(jsonToField(types[i], values[i]));
+    }
+
+    return fields;
+}
+
 
 
 

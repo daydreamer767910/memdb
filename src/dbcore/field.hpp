@@ -96,7 +96,9 @@ std::function<bool(const Field&)> createPredicate(const T& queryValue, const std
 
 // Field 转 JSON 的函数
 json fieldToJson(const Field& field);
+json vectorToJson(const std::vector<Field>& values);
 Field jsonToField(const std::string& type,const json& value);
+std::vector<Field> jsonToFields(const std::vector<std::string>& types, const json& values);
 Field FieldFromBinary(const char* data, size_t size);
 std::string FieldToBinary(const Field& field);
 std::ostream& operator<<(std::ostream& os, const Field& field);

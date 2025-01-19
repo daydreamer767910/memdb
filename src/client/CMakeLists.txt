@@ -14,7 +14,7 @@ add_library(mdb SHARED ${MDB_SOURCES})
 add_executable(client main.cpp)
 
 # 链接需要的库（例如 core、net、util）
-target_link_libraries(mdb PUBLIC net util pthread ${Boost_LIBRARIES})
+target_link_libraries(mdb PUBLIC net util dbcore pthread ${Boost_LIBRARIES})
 target_link_libraries(client PRIVATE mdb)
 
 

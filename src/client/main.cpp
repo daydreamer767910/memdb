@@ -7,7 +7,7 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-
+#include "dbcore/field.hpp"
 #include "mdbclient.hpp"
 
 extern "C" {
@@ -129,7 +129,7 @@ void insert_tbl(std::string& name) {
     jsonData["name"] = name;
     json jsonRows = json::array();
 
-    for (int i=0;i<30;i++) {
+    for (int i=0;i<50;i++) {
         json row;
         row["id"] = id;
         //row["name"] = "test name" + std::to_string(id);
@@ -159,12 +159,18 @@ void get(std::string& name) {
 
 void set(std::string& name) {
     json jsonData;
+    std::vector<std::string> columnNames = {"name", "age"};
+    std::vector<Field> newValues = {std::string("wh"), 25};  // 新值
+    std::vector<std::string> conditions = {"age", "name"};
+    std::vector<Field> queryValues = {20, std::string("sb")};
+    std::vector<std::string> operators = {">", "=="};
     jsonData["action"] = "set";
     jsonData["name"] = name;
-    jsonData["column"] = "age";
-    jsonData["value"] = 30;
-    jsonData["operator"] = "<";
-    jsonData["qvalue"] = 50;
+    jsonData["columns"] = columnNames;
+    jsonData["conditions"] = conditions;
+    jsonData["values"] = vectorToJson(newValues);
+    jsonData["ops"] = operators;
+    jsonData["qvalues"] = vectorToJson(queryValues);
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
@@ -236,6 +242,7 @@ int main(int argc, char* argv[]) {
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);
+            break;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     } else if (command == "get") {

@@ -41,13 +41,17 @@ public:
     std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
     std::optional<Row> findRowByPrimaryKey(const Field& primaryKey) const;
     size_t getColumnIndex(const std::string& columnName) const;
+    std::vector<std::string> getColumnTypes(const std::vector<std::string>& columnNames) const;
     std::string getColumnType(const std::string& columnName) const;
     std::vector<Row> query(const std::string& columnName,const std::function<bool(const Field&)>& predicate) const;
     std::vector<Row> query(const std::string& columnName,const std::string& op,const Field& queryValue) const;
-    //std::set<std::any> selectDistinct(const std::string& columnName) ;
-    //std::map<std::any, int> groupBy(const std::string& columnName) ;
-    bool update(const std::string& columnName,const Field& newValue,const std::string& op,const Field& queryValue);
-    bool update(const std::string& columnName,const Field& newValue,const std::function<bool(const Field&)>& predicate);
+    bool update(
+        const std::vector<std::string>& columnNames,  // 待更新的列名
+        const std::vector<Field>& newValues,          // 新值
+        const std::vector<std::string>& conditions,   // 查询条件列
+        const std::vector<Field>& queryValues,        // 查询条件值
+        const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
+    );
     json showTable();
     json rowsToJson(const std::vector<Row>& rows);
     std::vector<Row> jsonToRows(const json& jsonRows);

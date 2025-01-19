@@ -58,14 +58,23 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				}
 			} else if(action == "set") {
 				std::string tableName = jsonTask["name"];
-				std::string column = jsonTask["column"];
-				std::string op = jsonTask["operator"];
-				auto value = jsonTask["value"];
-				auto qry_value = jsonTask["qvalue"];
+				std::vector<std::string> columnNames = jsonTask["columns"].get<std::vector<std::string>>();
+
+				std::vector<std::string> conditions = jsonTask["conditions"].get<std::vector<std::string>>();
+
+				std::vector<std::string> operators = jsonTask["ops"].get<std::vector<std::string>>();
+
 				auto tb = db->getTable(tableName);
-				std::string type = tb->getColumnType(column);
+				std::vector<std::string> vtypes = tb->getColumnTypes(columnNames);
+
+				std::vector<std::string> qtypes = tb->getColumnTypes(conditions);
+
+				std::vector<Field> newValues = jsonToFields(vtypes,jsonTask["values"]); // 新值
+
+				std::vector<Field> queryValues = jsonToFields(qtypes,jsonTask["qvalues"]);
+
 				if (tb) {
-					if (tb->update(column,jsonToField(type,value),op,jsonToField(type,qry_value))) {
+					if (tb->update(columnNames, newValues, conditions, queryValues, operators)) {
 						jsonResp["response"] = "update table sucess";
 						jsonResp["status"] = "200";
 					} else {
