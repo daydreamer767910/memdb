@@ -51,7 +51,8 @@ public:
         const std::vector<std::string>& columnNames,
         const std::vector<std::string>& conditions,   // 查询条件列
         const std::vector<Field>& queryValues,        // 查询条件值
-        const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
+        const std::vector<std::string>& operators,     // 比较操作符（对应每个条件）
+        int limit = 100
     ) const;
     size_t update(
         const std::vector<std::string>& columnNames,  // 待更新的列名

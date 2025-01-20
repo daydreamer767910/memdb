@@ -242,11 +242,11 @@ void MemTable::updateIndexes(const Row& row, int rowIndex) {
             index[columnValue].insert(rowIndex);
 
             // 打印索引更新信息
-            std::cout << "Updated index for column: " << column.name << "\n";
-            std::cout << "  Value: ";
-            std::visit([](auto&& val) { std::cout << val; }, columnValue);
-            std::cout << "  json Value: " << fieldToJson(columnValue);
-            std::cout << ", Row Index: " << rowIndex << "\n";
+            //std::cout << "Updated index for column: " << column.name << "\n";
+            //std::cout << "  Value: ";
+            //std::visit([](auto&& val) { std::cout << val; }, columnValue);
+            //std::cout << "  json Value: " << fieldToJson(columnValue);
+            //std::cout << ", Row Index: " << rowIndex << "\n";
         }
     }
 }
@@ -509,6 +509,7 @@ std::vector<size_t> MemTable::search(
 
             // 使用模板比较函数，判断查询值与索引值是否匹配
             bool conditionMatch = std::visit([&](const auto& value) {
+                //std::cout << "v: " << value << " qv: " << queryValue << std::endl;
                 return compare(value, queryValue, op);
             }, field);
 
@@ -531,7 +532,8 @@ std::vector<std::vector<Field>> MemTable::query(
     const std::vector<std::string>& columnNames,
     const std::vector<std::string>& conditions,   // 查询条件列
     const std::vector<Field>& queryValues,        // 查询条件值
-    const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
+    const std::vector<std::string>& operators,     // 比较操作符（对应每个条件）
+    int limit
 ) const
 {
     std::shared_lock<std::shared_mutex> lock(mutex_);  // 使用读锁，确保线程安全
@@ -540,9 +542,14 @@ std::vector<std::vector<Field>> MemTable::query(
     // 验证输入参数的合法性
     getColumnTypes(columnNames);
     getColumnTypes(conditions);
+
+    std::cout << std::endl;
     std::vector<size_t> rowSet = search(conditions, queryValues, operators);
-    // 遍历 rowSet 中的所有行，检查每行是否满足所有查询条件
+
+    // 遍历 rowSet 中的所有行
     for (size_t rowIdx : rowSet) {
+        limit--;
+        if (limit<0) break;
         std::vector<Field> fields;
         // 检查该行是否满足所有条件
         for (auto columnName :columnNames) {
@@ -626,14 +633,16 @@ size_t MemTable::remove(
 )
 {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 使用写锁，确保线程安全
+    
     std::vector<size_t> rowSet = search(conditions, queryValues, operators);
-    // 使用反向迭代器遍历 rows_ 以支持安全删除
+    // 按降序排列 rowSet
+    std::sort(rowSet.rbegin(), rowSet.rend());
     for (size_t rowIdx : rowSet) {
         // 更新主键索引
         for (size_t colIdx = 0; colIdx < columns_.size(); ++colIdx) {
             if (columns_[colIdx].primaryKey) {
                 const auto& primaryKeyValue = rows_[rowIdx][colIdx];
-                primaryKeyIndex_.erase(std::get<std::string>(primaryKeyValue));
+                primaryKeyIndex_.erase(primaryKeyValue);
             }
         }
 

@@ -160,11 +160,11 @@ void get(std::string& name) {
 
 void set(std::string& name) {
     json jsonData;
-    std::vector<std::string> columnNames = {"name", "age"};
-    std::vector<Field> newValues = {std::string("wh"), 25};  // 新值
-    std::vector<std::string> conditions = {"age", "name"};
-    std::vector<Field> queryValues = {20, std::string("sb")};
-    std::vector<std::string> operators = {">", "=="};
+    std::vector<std::string> columnNames = {"name", "age","created_at"};
+    std::vector<Field> newValues = {std::string("wh"), 25,std::string("2025-01-18 19:16:30")};  // 新值
+    std::vector<std::string> conditions = {"age", "name", "created_at"};
+    std::vector<Field> queryValues = {25, std::string("wh"),std::string("2025-01-19 19:16:30")};
+    std::vector<std::string> operators = {">=", "==",">"};
     jsonData["action"] = "set";
     jsonData["name"] = name;
     jsonData["columns"] = columnNames;
@@ -179,13 +179,28 @@ void set(std::string& name) {
 
 void select(std::string& name) {
     json jsonData;
-    std::vector<std::string> columnNames = {"name", "age"};
-    std::vector<std::string> conditions = {"age", "name"};
-    std::vector<Field> queryValues = {20, std::string("wh")};
-    std::vector<std::string> operators = {">", "=="};
+    std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};
+    std::vector<std::string> conditions = {"age", "created_at"};
+    std::vector<Field> queryValues = {20, std::string("2025-01-19 00:16:30")};
+    std::vector<std::string> operators = {">", "<"};
     jsonData["action"] = "select";
     jsonData["name"] = name;
+    jsonData["limit"] = 5000;
     jsonData["columns"] = columnNames;
+    jsonData["conditions"] = conditions;
+    jsonData["ops"] = operators;
+    jsonData["qvalues"] = vectorToJson(queryValues);
+    std::string jsonConfig = jsonData.dump(1);
+    test(jsonConfig);
+}
+
+void remove(std::string& name) {
+    json jsonData;
+    std::vector<std::string> conditions = {"age", "created_at"};
+    std::vector<Field> queryValues = {20, std::string("2025-01-19 00:16:30")};
+    std::vector<std::string> operators = {">", "<"};
+    jsonData["action"] = "delete";
+    jsonData["name"] = name;
     jsonData["conditions"] = conditions;
     jsonData["ops"] = operators;
     jsonData["qvalues"] = vectorToJson(queryValues);
@@ -240,6 +255,8 @@ int main(int argc, char* argv[]) {
         show_tbl();
     } else if (command == "count") {
         count(param);
+    } else if (command == "delete") {
+        remove(param);
     } else if (command == "select") {
         select(param);
     } else if (command == "set") {

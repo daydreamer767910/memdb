@@ -74,9 +74,11 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				std::vector<Field> queryValues = jsonToFields(qtypes,jsonTask["qvalues"]);
 
 				if (tb) {
-					if (tb->update(columnNames, newValues, conditions, queryValues, operators)) {
+					size_t updated = tb->update(columnNames, newValues, conditions, queryValues, operators);
+					if (updated>0) {
 						jsonResp["response"] = "update table sucess";
 						jsonResp["status"] = "200";
+						jsonResp["updated"] = updated;
 					} else {
 						jsonResp["response"] = "update table fail";
 						jsonResp["status"] = "300";
@@ -84,8 +86,32 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
+			} else if(action == "delete") {
+				std::string tableName = jsonTask["name"];
+
+				std::vector<std::string> conditions = jsonTask["conditions"].get<std::vector<std::string>>();
+
+				std::vector<std::string> operators = jsonTask["ops"].get<std::vector<std::string>>();
+				auto tb = db->getTable(tableName);
+				std::vector<std::string> qtypes = tb->getColumnTypes(conditions);
+
+				std::vector<Field> queryValues = jsonToFields(qtypes,jsonTask["qvalues"]);
+				if (tb) {
+					size_t removed = tb->remove(conditions,queryValues,operators);
+					if (removed>0) {
+						jsonResp["response"] = "delete table sucess";
+						jsonResp["status"] = "200";
+						jsonResp["deleted"] = removed;
+					} else {
+						jsonResp["response"] = "delete table fail";
+						jsonResp["status"] = "300";
+					}
+				} else {
+					jsonResp["error"] = "table[" + tableName + "] not exist";
+				}
 			} else if(action == "select") {
 				std::string tableName = jsonTask["name"];
+				uint32_t limit = jsonTask["limit"];
 				std::vector<std::string> columnNames = jsonTask["columns"].get<std::vector<std::string>>();
 
 				std::vector<std::string> conditions = jsonTask["conditions"].get<std::vector<std::string>>();
@@ -96,7 +122,7 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 
 				std::vector<Field> queryValues = jsonToFields(qtypes,jsonTask["qvalues"]);
 				if (tb) {
-					auto ret = tb->query(columnNames,conditions,queryValues,operators);
+					auto ret = tb->query(columnNames,conditions,queryValues,operators,limit);
 					jsonResp[tableName] = tb->rowsToJson(ret);
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
