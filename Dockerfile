@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 创建必要的目录结构
 RUN mkdir -pv \
         /mdb/bin \
-        /mdb/etc \
+        #/mdb/etc \
         /mdb/lib \
         /mdb/log \
         /mdb/data \
@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
 # 复制项目源代码
 COPY src /mdb/src
 COPY CMakeLists.txt /mdb/CMakeLists.txt
-COPY etc /mdb/etc
+#COPY etc /mdb/etc
 
 # 设置工作目录
 WORKDIR /mdb/build
@@ -57,12 +57,9 @@ ARG USER_ID=1000
 ARG GROUP_ID=1000
 ARG DOCKER_USER=mdb
 
-# 复制 build 阶段的 libuv 和其他库文件
-COPY --from=build /usr/lib/x86_64-linux-gnu/libuv* /usr/lib/x86_64-linux-gnu
-COPY --from=build /mdb/etc/ /mdb/etc
-COPY --from=build /mdb/data/ /mdb/data
 
-VOLUME /mdb/etc
+#VOLUME /mdb/etc
+#VOLUME /mdb/data
 
 ENV PATH="/mdb/bin:$PATH" \
     LD_LIBRARY_PATH="/mdb/lib"
@@ -91,7 +88,8 @@ LABEL description="Mdb Server"
 
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
-     /mdb/build/bin/mdbsrv /mdb/bin/mdbsrv
+     /mdb/build/bin/ /mdb/bin
+
 
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \

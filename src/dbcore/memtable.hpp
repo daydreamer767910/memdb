@@ -2,6 +2,7 @@
 #define MEMTABLE_HPP
 #include <unordered_map>
 #include <shared_mutex>
+#include <mutex>
 #include "memcolumn.hpp"
 
 class MemTable {

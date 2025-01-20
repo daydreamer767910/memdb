@@ -97,11 +97,7 @@ void MemDatabase::save(const std::string& filePath) {
         std::string subDir = "config";   // tables config
         std::filesystem::path fullPath = std::filesystem::path(baseDir) / subDir;
         // 创建目录及其所有父目录
-        if (std::filesystem::create_directories(fullPath)) {
-            //std::cout << "Successfully created directories: " << fullPath << '\n';
-        } else {
-            //std::cout << "Directories already exist: " << fullPath << '\n';
-        }
+        std::filesystem::create_directories(fullPath);
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             saveTableToFile(table.second, tablePath.string());
@@ -111,11 +107,7 @@ void MemDatabase::save(const std::string& filePath) {
         subDir = "data"; //data
         fullPath = std::filesystem::path(baseDir) / subDir;
         // 创建目录及其所有父目录
-        if (std::filesystem::create_directories(fullPath)) {
-            //std::cout << "Successfully created directories: " << fullPath << '\n';
-        } else {
-            //std::cout << "Directories already exist: " << fullPath << '\n';
-        }
+        std::filesystem::create_directories(fullPath);
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             std::cout << get_timestamp() << " start saving table[" << table.first << "]:\n";
@@ -133,6 +125,7 @@ void MemDatabase::upload(const std::string& filePath) {
     try {
         std::string subDir = "config";   // 子目录
         std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(fullPath);
         for (const auto& entry : std::filesystem::directory_iterator(fullPath)) {
             if (entry.is_regular_file()) { // 只打印文件（排除目录等其他类型）
                 std::filesystem::path tblFile = std::filesystem::path(fullPath) / entry.path().filename();
@@ -143,6 +136,7 @@ void MemDatabase::upload(const std::string& filePath) {
                 
         subDir = "data";
         fullPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(fullPath);
         for (const auto table : tables) {
             std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
             std::cout << get_timestamp() << " start loading table[" << table.first << "]:\n";

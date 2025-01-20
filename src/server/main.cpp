@@ -33,6 +33,7 @@ void signal_handler(int signal) {
 int main() {
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
     std::string logFile = std::string(std::getenv("HOME")) + "/log/mdbsrv.log";
     // 输出到文件
     logger.set_log_file(logFile);

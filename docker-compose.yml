@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     image: memdb:latest
     container_name: memdb
+    volumes:
+      - mdb-data:/mdb/data
     env_file:
       - .env
     environment:
@@ -14,4 +16,5 @@ services:
       - "7900:7900"
       - "7901:7901"
       - "7902:7902"
-
+volumes:
+  mdb-data:
