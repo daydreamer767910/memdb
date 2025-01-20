@@ -11,6 +11,7 @@ struct Column {
     bool nullable = false;
     Field defaultValue = std::monostate{};;
     bool primaryKey = false;
+    bool indexed = false;
 };
 
 using Document = std::unordered_map<std::string, Field>;

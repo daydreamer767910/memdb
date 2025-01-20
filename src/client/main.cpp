@@ -100,7 +100,8 @@ void create_tbl(std::string& name) {
 
     jsonCols.push_back({ 
         {"name", "created_at"}, 
-        {"type", "date"} 
+        {"type", "date"},
+        {"indexed", true}
     });
 
     // Attach columns to the main data
@@ -178,12 +179,16 @@ void set(std::string& name) {
 
 void select(std::string& name) {
     json jsonData;
+    std::vector<std::string> columnNames = {"name", "age"};
+    std::vector<std::string> conditions = {"age", "name"};
+    std::vector<Field> queryValues = {20, std::string("wh")};
+    std::vector<std::string> operators = {">", "=="};
     jsonData["action"] = "select";
     jsonData["name"] = name;
-    jsonData["column"] = "addr";
-    jsonData["operator"] = "<";
-    jsonData["value"] = "street 33";
-
+    jsonData["columns"] = columnNames;
+    jsonData["conditions"] = conditions;
+    jsonData["ops"] = operators;
+    jsonData["qvalues"] = vectorToJson(queryValues);
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
@@ -242,7 +247,6 @@ int main(int argc, char* argv[]) {
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);
-            break;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     } else if (command == "get") {
