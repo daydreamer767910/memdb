@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <boost/asio.hpp>
 #include <boost/asio/strand.hpp>
-#include "dbcore/memdatabase.hpp"
+#include "dbcore/database.hpp"
 #include "net/transport.hpp"
 
 

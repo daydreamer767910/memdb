@@ -13,7 +13,7 @@
 #include <iomanip>
 #include <ctime>
 #include <variant>
-#include "dbcore/memdatabase.hpp"
+#include "dbcore/database.hpp"
 #include "util/threadbase.hpp"
 #include "net/transport.hpp"
 #include "net/transportsrv.hpp"
@@ -38,7 +38,7 @@ public:
         return instance;
     }
 	
-	static std::shared_ptr<MemDatabase> getDb() {
+	static std::shared_ptr<database> getDb() {
 		return DBService::getInstance()->db;
 	}
 
@@ -68,7 +68,7 @@ private:
 private:
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;
-	MemDatabase::ptr& db;
+	database::ptr& db;
 	Timer timer;
 	//std::thread timer_thread_;    // 独立线程用于处理事件循环
 	std::mutex mutex_;

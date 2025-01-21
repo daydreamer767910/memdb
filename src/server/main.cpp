@@ -9,8 +9,8 @@
 #include <csignal>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
-#include "dbcore/memtable.hpp"
-#include "dbcore/memdatabase.hpp"
+#include "dbcore/table.hpp"
+#include "dbcore/database.hpp"
 #include "net/tcpserver.hpp"
 #include "log/logger.hpp"
 #include "server/dbservice.hpp"

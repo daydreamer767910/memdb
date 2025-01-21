@@ -1,4 +1,4 @@
-#include "memcolumn.hpp"
+#include "column.hpp"
 #include "util/util.hpp"
 
 std::vector<Column> jsonToColumns(const json& jsonColumns) {

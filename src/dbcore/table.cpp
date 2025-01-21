@@ -1,7 +1,7 @@
-#include "memtable.hpp"
+#include "table.hpp"
 #include "util/util.hpp"
 
-MemTable::MemTable(const std::string& tableName, const std::vector<Column>& columns)
+Table::Table(const std::string& tableName, const std::vector<Column>& columns)
     : name_(tableName), columns_(columns) {
     if (name_.empty() || columns_.empty()) {
         throw std::invalid_argument("Invalid table structure.");
@@ -18,7 +18,7 @@ MemTable::MemTable(const std::string& tableName, const std::vector<Column>& colu
     }
 }
 
-bool MemTable::validateRow(const Row& row) {
+bool Table::validateRow(const Row& row) {
     if (row.size() != columns_.size()) {
         throw std::invalid_argument("Row size does not match column count.");
     }
@@ -35,7 +35,7 @@ bool MemTable::validateRow(const Row& row) {
 }
 
 
-bool MemTable::validatePrimaryKey(const Row& row) {
+bool Table::validatePrimaryKey(const Row& row) {
     size_t currentRowIdx = rows_.size();  // 获取当前行号
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
@@ -59,7 +59,7 @@ bool MemTable::validatePrimaryKey(const Row& row) {
 
 
 
-Row MemTable::processRowDefaults(const Row& row) const {
+Row Table::processRowDefaults(const Row& row) const {
     Row newRow;
     size_t rowIndex = 0;  // 用来追踪当前 row 中的列位置
 
@@ -97,7 +97,7 @@ Row MemTable::processRowDefaults(const Row& row) const {
     return newRow;
 }
 
-Row MemTable::jsonToRow(const json& jsonRow) {
+Row Table::jsonToRow(const json& jsonRow) {
     Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
 
     // 遍历 JSON 对象的所有字段
@@ -116,7 +116,7 @@ Row MemTable::jsonToRow(const json& jsonRow) {
     return row;
 }
 
-std::vector<Row> MemTable::jsonToRows(const json& jsonRows) {
+std::vector<Row> Table::jsonToRows(const json& jsonRows) {
     std::vector<Row> rows;
 
     // 创建一个列名到列索引的映射
@@ -145,7 +145,7 @@ std::vector<Row> MemTable::jsonToRows(const json& jsonRows) {
 
 
 
-int MemTable::insertRowsFromJson(const json& jsonRows) {
+int Table::insertRowsFromJson(const json& jsonRows) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
@@ -175,7 +175,7 @@ int MemTable::insertRowsFromJson(const json& jsonRows) {
     return i;
 }
 
-bool MemTable::insertRow(const Row& row) {
+bool Table::insertRow(const Row& row) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     Row newRow = processRowDefaults(row);
     if (validateRow(newRow) && validatePrimaryKey(newRow)) {
@@ -188,7 +188,7 @@ bool MemTable::insertRow(const Row& row) {
 }
 
 
-bool MemTable::insertRows(const std::vector<Row>& newRows) {
+bool Table::insertRows(const std::vector<Row>& newRows) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     for (const auto& row : newRows) {
@@ -206,17 +206,17 @@ bool MemTable::insertRows(const std::vector<Row>& newRows) {
     return true;
 }
 
-std::vector<Row> MemTable::getRows() const{
+std::vector<Row> Table::getRows() const{
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     return rows_;
 }
 
-size_t MemTable::getTotalRows() const{
+size_t Table::getTotalRows() const{
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     return rows_.size();
 }
 
-void MemTable::showIndexs() {
+void Table::showIndexs() {
     for (const auto& [colName, index] : indexes_) {
         // 打印索引更新信息
         std::cout << "index for column: " << colName << "\n";
@@ -230,7 +230,7 @@ void MemTable::showIndexs() {
     }
 }
 
-void MemTable::updateIndexes(const Row& row, int rowIndex) {
+void Table::updateIndexes(const Row& row, int rowIndex) {
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
         if (column.indexed) {
@@ -251,13 +251,13 @@ void MemTable::updateIndexes(const Row& row, int rowIndex) {
     }
 }
 
-void MemTable::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
+void Table::updateIndexesBatch(const std::vector<size_t>& rowIdxes) {
     for (auto index : rowIdxes) {
         updateIndexes(rows_[index], index);
     }
 }
 
-void MemTable::buildIndex() {
+void Table::buildIndex() {
     // 遍历所有列，检查哪些列需要索引
     for (size_t colIdx = 0; colIdx < columns_.size(); ++colIdx) {
         const auto& column = columns_[colIdx];
@@ -275,7 +275,7 @@ void MemTable::buildIndex() {
 }
 
 
-std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Field& value) const {
+std::vector<Row> Table::queryByIndex(const std::string& columnName, const Field& value) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     std::vector<Row> result;
@@ -294,7 +294,7 @@ std::vector<Row> MemTable::queryByIndex(const std::string& columnName, const Fie
     return result;
 }
 
-std::optional<Row> MemTable::findRowByPrimaryKey(const Field& primaryKey) const {
+std::optional<Row> Table::findRowByPrimaryKey(const Field& primaryKey) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     // 查找主键值是否存在于索引中
@@ -309,7 +309,7 @@ std::optional<Row> MemTable::findRowByPrimaryKey(const Field& primaryKey) const 
 }
 
 // 获取从第 n 行开始的 limit 个数据
-std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
+std::vector<Row> Table::getWithLimitAndOffset(int limit, int offset) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     std::vector<Row> result;
@@ -327,7 +327,7 @@ std::vector<Row> MemTable::getWithLimitAndOffset(int limit, int offset) const {
     return result;
 }
 
-size_t MemTable::getColumnIndex(const std::string& columnName) const {
+size_t Table::getColumnIndex(const std::string& columnName) const {
     for (size_t i = 0; i < columns_.size(); ++i) {
         if (columns_[i].name == columnName) {
             return i;
@@ -336,7 +336,7 @@ size_t MemTable::getColumnIndex(const std::string& columnName) const {
     throw std::invalid_argument("Column not found: " + columnName);
 }
 
-std::string MemTable::getColumnType(const std::string& columnName) const {
+std::string Table::getColumnType(const std::string& columnName) const {
     for (size_t i = 0; i < columns_.size(); ++i) {
         if (columns_[i].name == columnName) {
             return columns_[i].type;
@@ -345,7 +345,7 @@ std::string MemTable::getColumnType(const std::string& columnName) const {
     throw std::invalid_argument("Column not found: " + columnName);
 }
 
-std::vector<std::string> MemTable::getColumnTypes(const std::vector<std::string>& columnNames) const {
+std::vector<std::string> Table::getColumnTypes(const std::vector<std::string>& columnNames) const {
     std::vector<std::string> types;
     types.reserve(columnNames.size());
 
@@ -368,7 +368,7 @@ std::vector<std::string> MemTable::getColumnTypes(const std::vector<std::string>
     return types;
 }
 
-bool MemTable::isPrimaryKey(const std::string& columnName) const {
+bool Table::isPrimaryKey(const std::string& columnName) const {
     // 遍历 columns_ 查找该列名是否为主键
     for (const auto& column : columns_) {
         if (column.name == columnName) {
@@ -378,7 +378,7 @@ bool MemTable::isPrimaryKey(const std::string& columnName) const {
     throw std::invalid_argument("Column not found: " + columnName);  // 如果列名不存在，抛出异常
 }
 
-std::vector<size_t> MemTable::matchPrimaryKey(
+std::vector<size_t> Table::matchPrimaryKey(
     const std::vector<size_t>& rowSet,
     const Field& queryValue,
     const std::string& op,
@@ -414,7 +414,7 @@ std::vector<size_t> MemTable::matchPrimaryKey(
     return matchedRows;
 }
 
-std::vector<size_t> MemTable::matchIndex(
+std::vector<size_t> Table::matchIndex(
     const std::vector<size_t>& rowSet,
     const Field& queryValue,
     const std::string& op,
@@ -444,7 +444,7 @@ std::vector<size_t> MemTable::matchIndex(
     return matchedRows;
 }
 
-std::vector<size_t> MemTable::search(
+std::vector<size_t> Table::search(
     const std::vector<std::string>& conditions,   // 查询条件列
     const std::vector<Field>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
@@ -528,7 +528,7 @@ std::vector<size_t> MemTable::search(
     return result;
 }
 
-std::vector<std::vector<Field>> MemTable::query(
+std::vector<std::vector<Field>> Table::query(
     const std::vector<std::string>& columnNames,
     const std::vector<std::string>& conditions,   // 查询条件列
     const std::vector<Field>& queryValues,        // 查询条件值
@@ -562,7 +562,7 @@ std::vector<std::vector<Field>> MemTable::query(
     return result;
 }
 
-size_t MemTable::update(
+size_t Table::update(
     const std::vector<std::string>& columnNames,
     const std::vector<Field>& newValues,
     const std::vector<std::string>& conditions,
@@ -626,14 +626,15 @@ size_t MemTable::update(
     return rowSet.size();
 }
 
-size_t MemTable::remove(
+size_t Table::remove(
     const std::vector<std::string>& conditions,   // 查询条件列
     const std::vector<Field>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
 )
 {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 使用写锁，确保线程安全
-    
+    // 验证输入参数的合法性
+    getColumnTypes(conditions);
     std::vector<size_t> rowSet = search(conditions, queryValues, operators);
     // 按降序排列 rowSet
     std::sort(rowSet.rbegin(), rowSet.rend());
@@ -664,7 +665,7 @@ size_t MemTable::remove(
     return rowSet.size();
 }
 
-json MemTable::rowsToJson(const std::vector<Row>& rows) {
+json Table::rowsToJson(const std::vector<Row>& rows) {
     json jsonRows = json::array();
     for (const auto& row : rows) {
         json rowJson;
@@ -683,7 +684,7 @@ json MemTable::rowsToJson(const std::vector<Row>& rows) {
     return jsonRows;
 }
 
-json MemTable::tableToJson() {
+json Table::tableToJson() {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     json jsonTable;
@@ -693,14 +694,14 @@ json MemTable::tableToJson() {
     return jsonTable;
 }
 
-json MemTable::showTable() {
+json Table::showTable() {
     json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_);
     return jsonTable;
 }
 
-json MemTable::showRows() {
+json Table::showRows() {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     json jsonRows;
@@ -708,7 +709,7 @@ json MemTable::showRows() {
     return jsonRows;
 }
 
-void MemTable::exportToBinaryFile(const std::string& filePath) {
+void Table::exportToBinaryFile(const std::string& filePath) {
     std::ofstream outFile(filePath, std::ios::binary);
     if (!outFile.is_open()) {
         throw std::runtime_error("Failed to open file for writing: " + filePath);
@@ -770,7 +771,7 @@ void MemTable::exportToBinaryFile(const std::string& filePath) {
 }
 
 
-void MemTable::importFromBinaryFile(const std::string& filePath) {
+void Table::importFromBinaryFile(const std::string& filePath) {
     std::ifstream inFile(filePath, std::ios::binary);
     if (!inFile.is_open()) {
         throw std::runtime_error("Failed to open file for reading: " + filePath);
@@ -814,7 +815,7 @@ void MemTable::importFromBinaryFile(const std::string& filePath) {
     buildIndex();
 }
 
-void MemTable::exportToFile(const std::string& filePath) {
+void Table::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
     size_t rowsWrite = 0;
@@ -860,7 +861,7 @@ void MemTable::exportToFile(const std::string& filePath) {
 }
 
 
-void MemTable::importFromFile(const std::string& filePath ) {
+void Table::importFromFile(const std::string& filePath ) {
     std::ifstream inputFile(filePath, std::ios::in | std::ios::binary);
 
     if (!inputFile.is_open()) {

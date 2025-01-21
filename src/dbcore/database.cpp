@@ -1,16 +1,16 @@
 #include <iostream>
 #include <filesystem>
-#include "memdatabase.hpp"
+#include "database.hpp"
 
 // Add a new table to the database
-void MemDatabase::addTable(const std::string& tableName, const std::vector<Column>& columns) {
+void database::addTable(const std::string& tableName, const std::vector<Column>& columns) {
     if (tables.find(tableName) != tables.end()) {
         throw std::invalid_argument("Table " + tableName + " already exists.");
     }
-    tables.emplace(tableName, std::make_shared<MemTable>(tableName, columns));
+    tables.emplace(tableName, std::make_shared<Table>(tableName, columns));
 }
 
-void MemDatabase::addTableFromJson(const std::string& jsonConfig) {
+void database::addTableFromJson(const std::string& jsonConfig) {
     auto root = json::parse(jsonConfig);
     //std::cout << root.dump(4) << std::endl;
     std::string tableName = root["name"];
@@ -18,7 +18,7 @@ void MemDatabase::addTableFromJson(const std::string& jsonConfig) {
     addTable(tableName, columns);
 }
 
-void MemDatabase::addTableFromFile(const std::string& filePath) {
+void database::addTableFromFile(const std::string& filePath) {
     std::ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
@@ -32,22 +32,22 @@ void MemDatabase::addTableFromFile(const std::string& filePath) {
 }
 
 // Retrieve a table by its name
-MemTable::ptr MemDatabase::getTable(const std::string& tableName) {
+Table::ptr database::getTable(const std::string& tableName) {
     auto it = tables.find(tableName);
     return it != tables.end() ? it->second : nullptr;
 }
 
 // Update an existing table
-/*void MemDatabase::updateTable(MemTable&& updatedTable) {
+/*void database::updateTable(Table&& updatedTable) {
     auto it = tables.find(updatedTable.name);
     if (it == tables.end()) {
         throw std::invalid_argument("Table " + updatedTable.name + " does not exist.");
     }
-    it->second = std::make_shared<MemTable>(std::move(updatedTable));  // Use move semantics here
+    it->second = std::make_shared<Table>(std::move(updatedTable));  // Use move semantics here
 }*/
 
 // Remove a table by its name
-void MemDatabase::removeTable(const std::string& tableName) {
+void database::removeTable(const std::string& tableName) {
     auto it = tables.find(tableName);
     if (it == tables.end()) {
         throw std::invalid_argument("Table " + tableName + " does not exist.");
@@ -56,7 +56,7 @@ void MemDatabase::removeTable(const std::string& tableName) {
 }
 
 // List all table names in the database
-std::vector<std::string> MemDatabase::listTableNames() const {
+std::vector<std::string> database::listTableNames() const {
     std::vector<std::string> tableNames;
     for (const auto& table : tables) {
         tableNames.push_back(table.first);
@@ -65,15 +65,15 @@ std::vector<std::string> MemDatabase::listTableNames() const {
 }
 
 // Get all table instances in the database
-std::vector<MemTable::ptr> MemDatabase::listTables() const {
-    std::vector<MemTable::ptr> tableInstances;
+std::vector<Table::ptr> database::listTables() const {
+    std::vector<Table::ptr> tableInstances;
     for (const auto& table : tables) {
         tableInstances.push_back(table.second);
     }
     return tableInstances;
 }
 
-void MemDatabase::saveTableToFile(MemTable::ptr table, const std::string& filePath) {
+void database::saveTableToFile(Table::ptr table, const std::string& filePath) {
     const std::string& tableName = table->name_;
 
     // 将表信息序列化为 JSON
@@ -91,7 +91,7 @@ void MemDatabase::saveTableToFile(MemTable::ptr table, const std::string& filePa
 }
 
 
-void MemDatabase::save(const std::string& filePath) {
+void database::save(const std::string& filePath) {
     try {
         std::string baseDir = filePath;  // 基目录
         std::string subDir = "config";   // tables config
@@ -121,7 +121,7 @@ void MemDatabase::save(const std::string& filePath) {
     }
 }
 
-void MemDatabase::upload(const std::string& filePath) {
+void database::upload(const std::string& filePath) {
     try {
         std::string subDir = "config";   // 子目录
         std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir;

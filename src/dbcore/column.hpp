@@ -1,5 +1,5 @@
-#ifndef MEMCOLUMN_HPP
-#define MEMCOLUMN_HPP
+#ifndef column_HPP
+#define column_HPP
 
 #include <iostream>
 #include "field.hpp"

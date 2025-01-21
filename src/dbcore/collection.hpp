@@ -2,11 +2,11 @@
 #define COLLECTION_HPP
 #include <unordered_map>
 #include <mutex>
-#include "memcolumn.hpp"
+#include "column.hpp"
 
-class MemTable {
+class Table {
 public:
-    using ptr = std::shared_ptr<MemTable>;
+    using ptr = std::shared_ptr<Table>;
     
     std::string name_;
     std::vector<Column> columns_;
@@ -14,17 +14,17 @@ public:
     std::map<std::string, Index> indexes_;  // Indexes on the columns (if any)
     PrimaryKeyIndex primaryKeyIndex_; 
 
-    MemTable(const std::string& tableName, const std::vector<Column>& columns);
+    Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
-    MemTable(const MemTable&) = delete;
-    MemTable& operator=(const MemTable&) = delete;
+    Table(const Table&) = delete;
+    Table& operator=(const Table&) = delete;
 
     // Default constructor (move semantics can be allowed)
-    MemTable() = default;
+    Table() = default;
 
     // Move constructor and move assignment operator (optional, if needed)
-    MemTable(MemTable&&) = default;
-    MemTable& operator=(MemTable&&) = default;
+    Table(Table&&) = default;
+    Table& operator=(Table&&) = default;
 
     // Methods related to rows and columns
     int insertRowsFromJson(const json& jsonRows);
@@ -59,4 +59,4 @@ private:
     std::mutex mutex_;
 };
 
-#endif // MEMTABLE_H
+#endif // Table_H

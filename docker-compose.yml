@@ -12,9 +12,9 @@ services:
     environment:
       - TZ=America/Los_Angeles
     ports:
-      - "7899:7899"
-      - "7900:7900"
-      - "7901:7901"
-      - "7902:7902"
+      - "8899:7899"
+      - "8900:7900"
+      - "8901:7901"
+      - "8902:7902"
 volumes:
   mdb-data:
