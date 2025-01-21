@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <mutex>
 #include "column.hpp"
-
+using Document = std::unordered_map<std::string, Field>;
 class Table {
 public:
     using ptr = std::shared_ptr<Table>;

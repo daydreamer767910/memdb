@@ -38,7 +38,7 @@ public:
         return instance;
     }
 	
-	static std::shared_ptr<database> getDb() {
+	static std::shared_ptr<Database> getDb() {
 		return DBService::getInstance()->db;
 	}
 
@@ -68,7 +68,7 @@ private:
 private:
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;
-	database::ptr& db;
+	Database::ptr& db;
 	Timer timer;
 	//std::thread timer_thread_;    // 独立线程用于处理事件循环
 	std::mutex mutex_;

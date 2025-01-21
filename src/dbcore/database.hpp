@@ -1,26 +1,26 @@
-#ifndef database_HPP
-#define database_HPP
+#ifndef DATABASE_HPP
+#define DATABASE_HPP
 
 #include "table.hpp"
 
-class database {
+class Database {
 private:
     std::map<std::string, Table::ptr> tables;
 
 private:
-    database() {
+    Database() {
         std::cout << "database created!" << std::endl;
     }
 
     // 禁止拷贝构造和赋值操作
-    database(const database&) = delete;
-    database& operator=(const database&) = delete;
+    Database(const Database&) = delete;
+    Database& operator=(const Database&) = delete;
 public:
-    using ptr = std::shared_ptr<database>;
+    using ptr = std::shared_ptr<Database>;
 
     // 获取单例实例
     static ptr& getInstance() {
-        static ptr instance(new database());
+        static ptr instance(new Database());
         return instance;
     }
 

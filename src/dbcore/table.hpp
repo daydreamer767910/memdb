@@ -5,6 +5,13 @@
 #include <mutex>
 #include "column.hpp"
 
+using Row = std::vector<Field>;
+// Define an index type
+using Index = std::map<Field, std::set<size_t>>;
+
+// 定义主键索引
+using PrimaryKeyIndex = std::unordered_map<Field, size_t, FieldHash, FieldEqual>;
+
 class Table {
 public:
     using ptr = std::shared_ptr<Table>;

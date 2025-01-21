@@ -3,14 +3,14 @@
 #include "database.hpp"
 
 // Add a new table to the database
-void database::addTable(const std::string& tableName, const std::vector<Column>& columns) {
+void Database::addTable(const std::string& tableName, const std::vector<Column>& columns) {
     if (tables.find(tableName) != tables.end()) {
         throw std::invalid_argument("Table " + tableName + " already exists.");
     }
     tables.emplace(tableName, std::make_shared<Table>(tableName, columns));
 }
 
-void database::addTableFromJson(const std::string& jsonConfig) {
+void Database::addTableFromJson(const std::string& jsonConfig) {
     auto root = json::parse(jsonConfig);
     //std::cout << root.dump(4) << std::endl;
     std::string tableName = root["name"];
@@ -18,7 +18,7 @@ void database::addTableFromJson(const std::string& jsonConfig) {
     addTable(tableName, columns);
 }
 
-void database::addTableFromFile(const std::string& filePath) {
+void Database::addTableFromFile(const std::string& filePath) {
     std::ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
@@ -32,13 +32,13 @@ void database::addTableFromFile(const std::string& filePath) {
 }
 
 // Retrieve a table by its name
-Table::ptr database::getTable(const std::string& tableName) {
+Table::ptr Database::getTable(const std::string& tableName) {
     auto it = tables.find(tableName);
     return it != tables.end() ? it->second : nullptr;
 }
 
 // Update an existing table
-/*void database::updateTable(Table&& updatedTable) {
+/*void Database::updateTable(Table&& updatedTable) {
     auto it = tables.find(updatedTable.name);
     if (it == tables.end()) {
         throw std::invalid_argument("Table " + updatedTable.name + " does not exist.");
@@ -47,7 +47,7 @@ Table::ptr database::getTable(const std::string& tableName) {
 }*/
 
 // Remove a table by its name
-void database::removeTable(const std::string& tableName) {
+void Database::removeTable(const std::string& tableName) {
     auto it = tables.find(tableName);
     if (it == tables.end()) {
         throw std::invalid_argument("Table " + tableName + " does not exist.");
@@ -55,8 +55,8 @@ void database::removeTable(const std::string& tableName) {
     tables.erase(it);
 }
 
-// List all table names in the database
-std::vector<std::string> database::listTableNames() const {
+// List all table names in the Database
+std::vector<std::string> Database::listTableNames() const {
     std::vector<std::string> tableNames;
     for (const auto& table : tables) {
         tableNames.push_back(table.first);
@@ -64,8 +64,8 @@ std::vector<std::string> database::listTableNames() const {
     return tableNames;
 }
 
-// Get all table instances in the database
-std::vector<Table::ptr> database::listTables() const {
+// Get all table instances in the Database
+std::vector<Table::ptr> Database::listTables() const {
     std::vector<Table::ptr> tableInstances;
     for (const auto& table : tables) {
         tableInstances.push_back(table.second);
@@ -73,7 +73,7 @@ std::vector<Table::ptr> database::listTables() const {
     return tableInstances;
 }
 
-void database::saveTableToFile(Table::ptr table, const std::string& filePath) {
+void Database::saveTableToFile(Table::ptr table, const std::string& filePath) {
     const std::string& tableName = table->name_;
 
     // 将表信息序列化为 JSON
@@ -91,7 +91,7 @@ void database::saveTableToFile(Table::ptr table, const std::string& filePath) {
 }
 
 
-void database::save(const std::string& filePath) {
+void Database::save(const std::string& filePath) {
     try {
         std::string baseDir = filePath;  // 基目录
         std::string subDir = "config";   // tables config
@@ -121,7 +121,7 @@ void database::save(const std::string& filePath) {
     }
 }
 
-void database::upload(const std::string& filePath) {
+void Database::upload(const std::string& filePath) {
     try {
         std::string subDir = "config";   // 子目录
         std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir;

@@ -5,7 +5,7 @@
 
 DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	io_(),
-	db(database::getInstance()),
+	db(Database::getInstance()),
 	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
         this->on_timer(tick,time,id);
 	}),
