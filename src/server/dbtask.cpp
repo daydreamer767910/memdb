@@ -27,7 +27,16 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				std::string tableName = jsonTask["name"];
 				auto columns = jsonToColumns(jsonTask);
 				db->addTable(tableName, columns);
-				jsonResp["response"] = "create table sucess";
+				jsonResp["response"] = "create " + tableName + " sucess";
+				jsonResp["status"] = "200";
+				//std::cout << jsonResp.dump(4) << std::endl;
+			} else if (action == "drop") {	
+				std::string tableName = jsonTask["name"];
+				db->removeTable(tableName);
+				std::string baseDir = std::string(std::getenv("HOME"));
+				std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
+				db->remove(fullPath,tableName);
+				jsonResp["response"] = "drop " + tableName + " sucess";
 				jsonResp["status"] = "200";
 				//std::cout << jsonResp.dump(4) << std::endl;
 			} else if(action == "insert") {

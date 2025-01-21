@@ -41,6 +41,7 @@ public:
 
     void save(const std::string& filePath);
     void upload(const std::string& filePath);
+    void remove(const std::string& filePath, const std::string& tableName);
 };
 
 

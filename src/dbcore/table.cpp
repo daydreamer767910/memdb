@@ -57,8 +57,6 @@ bool Table::validatePrimaryKey(const Row& row) {
     return true;
 }
 
-
-
 Row Table::processRowDefaults(const Row& row) const {
     Row newRow;
     size_t rowIndex = 0;  // 用来追踪当前 row 中的列位置

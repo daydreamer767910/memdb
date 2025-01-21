@@ -114,6 +114,14 @@ void create_tbl(std::string& name) {
     test(jsonConfig);
 }
 
+void drop_tbl(std::string& name) {
+    json jsonData;
+    jsonData["action"] = "drop";
+    jsonData["name"] = name;
+    std::string jsonConfig = jsonData.dump(1);
+    test(jsonConfig);
+}
+
 void show_tbl() {
 //2.show tables
     std::string jsonConfig = R"({
@@ -251,6 +259,8 @@ int main(int argc, char* argv[]) {
     
     if (command == "create") {
         create_tbl(param);
+    } else if (command == "drop") {
+        drop_tbl(param);
     } else if (command == "show") {
         show_tbl();
     } else if (command == "count") {

@@ -92,59 +92,117 @@ void Database::saveTableToFile(Table::ptr table, const std::string& filePath) {
 
 
 void Database::save(const std::string& filePath) {
+    if (tables.empty()) {
+        std::cerr << "Warning: No tables to save.\n";
+        return;
+    }
+
     try {
-        std::string baseDir = filePath;  // 基目录
-        std::string subDir = "config";   // tables config
-        std::filesystem::path fullPath = std::filesystem::path(baseDir) / subDir;
-        // 创建目录及其所有父目录
-        std::filesystem::create_directories(fullPath);
-        for (const auto table : tables) {
-            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
-            saveTableToFile(table.second, tablePath.string());
+        // 保存配置文件
+        std::string subDir = "config";
+        std::filesystem::path configPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(configPath);
+        for (const auto& table : tables) {
+            std::filesystem::path tableConfigPath = configPath / table.first;
+            try {
+                saveTableToFile(table.second, tableConfigPath.string());
+                std::cout << get_timestamp() << " Saved config for table: " << table.first << '\n';
+            } catch (const std::exception& e) {
+                std::cerr << get_timestamp() << " Failed to save config for table " << table.first 
+                          << ": " << e.what() << '\n';
+            }
         }
-
-
-        subDir = "data"; //data
-        fullPath = std::filesystem::path(baseDir) / subDir;
-        // 创建目录及其所有父目录
-        std::filesystem::create_directories(fullPath);
-        for (const auto table : tables) {
-            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
-            std::cout << get_timestamp() << " start saving table[" << table.first << "]:\n";
-            //table.second->exportToFile(tablePath.string());
-            table.second->exportToBinaryFile(tablePath.string());
-            std::cout << get_timestamp() << " done sucessfully! "  << std::endl;
-        }
-
     } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error: " << e.what() << '\n';
+        std::cerr << "Error creating config directory: " << e.what() << '\n';
+    }
+
+    try {
+        // 保存数据文件
+        std::string subDir = "data";
+        std::filesystem::path dataPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(dataPath);
+        for (const auto& table : tables) {
+            std::filesystem::path tableDataPath = dataPath / table.first;
+            try {
+                std::cout << get_timestamp() << " Start saving table data: " << table.first << '\n';
+                table.second->exportToBinaryFile(tableDataPath.string());
+                std::cout << get_timestamp() << " Successfully saved table data: " << table.first << '\n';
+            } catch (const std::exception& e) {
+                std::cerr << get_timestamp() << " Failed to save data for table " << table.first 
+                          << ": " << e.what() << '\n';
+            }
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating data directory: " << e.what() << '\n';
     }
 }
 
+
 void Database::upload(const std::string& filePath) {
     try {
-        std::string subDir = "config";   // 子目录
+        // 处理 config 目录
+        std::string subDir = "config";
         std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir;
-        std::filesystem::create_directories(fullPath);
-        for (const auto& entry : std::filesystem::directory_iterator(fullPath)) {
-            if (entry.is_regular_file()) { // 只打印文件（排除目录等其他类型）
-                std::filesystem::path tblFile = std::filesystem::path(fullPath) / entry.path().filename();
-                this->addTableFromFile(tblFile.string());
-                //std::cout << "load table[" << entry.path().filename() << "] sucessfully!" << std::endl;
+        if (!std::filesystem::exists(fullPath)) {
+            std::cerr << "Warning: Config directory " << fullPath << " does not exist.\n";
+        } else if (!std::filesystem::is_empty(fullPath)) {
+            for (const auto& entry : std::filesystem::directory_iterator(fullPath)) {
+                if (entry.is_regular_file()) {
+                    this->addTableFromFile(entry.path().string());
+                }
             }
         }
-                
+
+        // 处理 data 目录
         subDir = "data";
         fullPath = std::filesystem::path(filePath) / subDir;
-        std::filesystem::create_directories(fullPath);
-        for (const auto table : tables) {
-            std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
-            std::cout << get_timestamp() << " start loading table[" << table.first << "]:\n";
-            //table.second->importRowsFromFile(tablePath.string(),10000);
-            table.second->importFromBinaryFile(tablePath.string());
-            std::cout << get_timestamp() << " done sucessfully! "  << std::endl;
+        if (!std::filesystem::exists(fullPath)) {
+            std::cerr << "Warning: Data directory " << fullPath << " does not exist.\n";
+        } else if (!tables.empty()) {
+            for (const auto& table : tables) {
+                std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+                try {
+                    std::cout << get_timestamp() << " Loading table: " << table.first << '\n';
+                    table.second->importFromBinaryFile(tablePath.string());
+                    std::cout << get_timestamp() << " Table loaded successfully.\n";
+                } catch (const std::exception& e) {
+                    std::cerr << get_timestamp() << " Failed to load table " << table.first 
+                              << " from " << tablePath << ": " << e.what() << '\n';
+                }
+            }
+        } else {
+            std::cerr << "Warning: No tables available for data import.\n";
         }
     } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Error: " << e.what() << '\n';
+        std::cerr << "Filesystem error: " << e.what() << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << "Standard exception: " << e.what() << '\n';
+    } catch (...) {
+        std::cerr << "Unknown error occurred while uploading files.\n";
+    }
+}
+
+void Database::remove(const std::string& filePath, const std::string& tableName) {
+    try {
+        std::vector<std::string> subDirs = {"config", "data"};
+        for (const auto& subDir : subDirs) {
+            std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir / tableName;
+            if (std::filesystem::exists(fullPath)) {
+                if (std::filesystem::is_regular_file(fullPath)) {
+                    std::filesystem::remove(fullPath);
+                    std::cout << "Removed file: " << fullPath << '\n';
+                } else {
+                    std::cerr << "Error: Path " << fullPath << " is not a regular file.\n";
+                }
+            } else {
+                std::cerr << "Warning: File " << fullPath << " does not exist.\n";
+            }
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Filesystem error: " << e.what() << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << "Standard exception: " << e.what() << '\n';
+    } catch (...) {
+        std::cerr << "Unknown error occurred while removing files.\n";
     }
 }
