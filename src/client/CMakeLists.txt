@@ -1,7 +1,4 @@
 # client CMakeLists.txt
-# 查找 Boost 库
-FIND_PACKAGE( Boost 1.67 REQUIRED system )
-
 # 定义源文件
 set(MDB_SOURCES
     client.cpp
@@ -14,8 +11,8 @@ add_library(mdb SHARED ${MDB_SOURCES})
 add_executable(client main.cpp)
 
 # 链接需要的库（例如 core、net、util）
-target_link_libraries(mdb PUBLIC net util dbcore pthread ${Boost_LIBRARIES})
-target_link_libraries(client PRIVATE mdb)
+target_link_libraries(mdb PUBLIC net util pthread)
+target_link_libraries(client PRIVATE mdb dbcore)
 
 
 set_target_properties(client PROPERTIES

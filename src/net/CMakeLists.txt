@@ -8,7 +8,7 @@ set(NET_SOURCES
     tcpserver.cpp
 )
 # 定义网络功能的库
-add_library(net SHARED ${NET_SOURCES})
+add_library(net STATIC ${NET_SOURCES})
 
 # 如果有依赖其他模块，进行链接
 target_link_libraries(net PUBLIC util log pthread ${Boost_LIBRARIES})

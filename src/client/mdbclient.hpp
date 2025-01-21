@@ -9,7 +9,6 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include "net/transportsrv.hpp"
-#include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
 #include "net/tcpclient.hpp"

@@ -4,7 +4,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "net/transportsrv.hpp"
-#include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
 
