@@ -15,24 +15,24 @@ void print_packet(const std::vector<uint8_t>& packet) {
         // 打印十六进制表示
         std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte << " ";
 
-        // 每32字节换行
-        if ((i + 1) % 32 == 0) {
+        // 每16字节换行
+        if ((i + 1) % 16 == 0) {
             std::cout << "  ";
-            for (size_t j = i - 31; j <= i; ++j) {
+            for (size_t j = i - 15; j <= i; ++j) {
                 std::cout << (std::isprint(packet[j]) ? (char)packet[j] : '.');
             }
             std::cout << std::endl;
         }
     }
 
-    // 如果没有刚好32字节一行的部分，处理最后的字符显示
-    if (packet.size() % 32 != 0) {
-        size_t pad = 32 - (packet.size() % 32);
+    // 如果没有刚好16字节一行的部分，处理最后的字符显示
+    if (packet.size() % 16 != 0) {
+        size_t pad = 16 - (packet.size() % 16);
         for (size_t i = 0; i < pad; ++i) {
             std::cout << "   ";
         }
         std::cout << "  ";
-        for (size_t i = packet.size() - packet.size() % 32; i < packet.size(); ++i) {
+        for (size_t i = packet.size() - packet.size() % 16; i < packet.size(); ++i) {
             std::cout << (std::isprint(packet[i]) ? (char)packet[i] : '.');
         }
         std::cout << std::endl;

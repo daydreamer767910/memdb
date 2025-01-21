@@ -28,7 +28,7 @@ add_subdirectory(src/net ${CMAKE_BINARY_DIR}/net)
 add_subdirectory(src/util ${CMAKE_BINARY_DIR}/util)
 
 # 安装目标
-install(TARGETS client mdbsrv net util mdb
+install(TARGETS client mdbsrv net util mdb dbcore log
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
