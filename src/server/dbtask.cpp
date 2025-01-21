@@ -145,8 +145,8 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
-			} else if(action == "update") {
-
+			} else {
+				jsonResp["error"] = "unsupport action" + action;
 			}
 		} catch (const std::runtime_error& e) {
 			jsonResp["error"] = e.what();
