@@ -1,6 +1,6 @@
 #include "dbtask.hpp"
 #include "dbservice.hpp"
-
+#include "registry.hpp"
 
 void DbTask::on_data_received(int result) {
     static std::atomic<uint32_t> msg_id(0);
@@ -14,7 +14,7 @@ void DbTask::on_data_received(int result) {
     }
 }
 
-
+/*
 void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datas) {
 	json jsonResp;
 	//std::cout << "DbTask[" << port_id_ << "]:Pid[" << std::this_thread::get_id() << "]:handle_task" << std::endl;
@@ -65,7 +65,7 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 				} else {
 					jsonResp["error"] = "table[" + tableName + "] not exist";
 				}
-			} else if(action == "set") {
+			} else if(action == "update") {
 				std::string tableName = jsonTask["name"];
 				std::vector<std::string> columnNames = jsonTask["columns"].get<std::vector<std::string>>();
 
@@ -166,4 +166,32 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 		
 	}
 	
+}*/
+
+void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datas) {
+    json jsonResp;
+
+    auto sendResponse = [&](const json& response) {
+        auto port = TransportSrv::get_instance()->get_port(port_id_);
+        if (port) {
+            int ret = port->send(response.dump(), msg_id, std::chrono::milliseconds(100));
+            if (ret < 0) {
+                std::cerr << "APP SEND err: " << ret << std::endl;
+            }
+        }
+    };
+
+    for (const auto& jsonTask : *json_datas) {
+        try {
+			auto db = DBService::getInstance()->getDb();
+			auto handler = ActionRegistry::getInstance().getHandler(jsonTask["action"]);
+			handler->handle(jsonTask, db, jsonResp);
+        } catch (const std::exception& e) {
+            jsonResp["error"] = e.what();
+        } catch (...) {
+            jsonResp["error"] = "Unknown exception occurred!";
+        }
+
+        sendResponse(jsonResp);
+    }
 }

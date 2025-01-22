@@ -122,12 +122,11 @@ void drop_tbl(std::string& name) {
     test(jsonConfig);
 }
 
-void show_tbl() {
-//2.show tables
-    std::string jsonConfig = R"({
-        "action": "show"
-    })";
-    
+void show_tbl(std::string& name) {
+    json jsonData;
+    jsonData["action"] = "show";
+    jsonData["name"] = name;
+    std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
 
@@ -166,14 +165,14 @@ void get(std::string& name) {
     test(jsonConfig);
 }
 
-void set(std::string& name) {
+void update(std::string& name) {
     json jsonData;
     std::vector<std::string> columnNames = {"name", "age","created_at"};
     std::vector<Field> newValues = {std::string("wh"), 25,std::string("2025-01-18 19:16:30")};  // 新值
     std::vector<std::string> conditions = {"age", "name", "created_at"};
     std::vector<Field> queryValues = {25, std::string("wh"),std::string("2025-01-19 19:16:30")};
     std::vector<std::string> operators = {">=", "==",">"};
-    jsonData["action"] = "set";
+    jsonData["action"] = "update";
     jsonData["name"] = name;
     jsonData["columns"] = columnNames;
     jsonData["conditions"] = conditions;
@@ -190,7 +189,7 @@ void select(std::string& name) {
     std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};
     std::vector<std::string> conditions = {"age", "created_at"};
     std::vector<Field> queryValues = {20, std::string("2025-01-19 00:16:30")};
-    std::vector<std::string> operators = {">", "<"};
+    std::vector<std::string> operators = {">", ">"};
     jsonData["action"] = "select";
     jsonData["name"] = name;
     jsonData["limit"] = 5000;
@@ -205,8 +204,8 @@ void select(std::string& name) {
 void remove(std::string& name) {
     json jsonData;
     std::vector<std::string> conditions = {"age", "created_at"};
-    std::vector<Field> queryValues = {20, std::string("2025-01-19 00:16:30")};
-    std::vector<std::string> operators = {">", "<"};
+    std::vector<Field> queryValues = {40, std::string("2025-01-19 00:16:30")};
+    std::vector<std::string> operators = {">", ">"};
     jsonData["action"] = "delete";
     jsonData["name"] = name;
     jsonData["conditions"] = conditions;
@@ -262,15 +261,15 @@ int main(int argc, char* argv[]) {
     } else if (command == "drop") {
         drop_tbl(param);
     } else if (command == "show") {
-        show_tbl();
+        show_tbl(param);
     } else if (command == "count") {
         count(param);
     } else if (command == "delete") {
         remove(param);
     } else if (command == "select") {
         select(param);
-    } else if (command == "set") {
-        set(param);
+    } else if (command == "update") {
+        update(param);
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);

@@ -1,7 +1,7 @@
 # server CMakeLists.txt
-
+file(GLOB_RECURSE SOURCE_FILES "handler/*.cpp")
 # 定义可执行文件 server
-add_executable(mdbsrv dbtask.cpp dbservice.cpp main.cpp)
+add_executable(mdbsrv dbtask.cpp dbservice.cpp main.cpp ${SOURCE_FILES})
 
 
 # 添加调试宏和编译选项
