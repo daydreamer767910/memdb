@@ -28,6 +28,12 @@ int MdbClient::reconnect(const std::string& host, const std::string& port) {
 }
 
 int MdbClient::start(const std::string& host, const std::string& port) {
+	static bool started = false;
+	if(started) {
+		stop();
+		return reconnect(host,port);
+	}
+	started = true;
 	// 连接到服务器
 	host_ = host;
 	port_ = port;
@@ -59,11 +65,6 @@ int MdbClient::start(const std::string& host, const std::string& port) {
 
 void MdbClient::stop() {
 	close();
-	io_context_.stop();
-	transport_srv->close_port(this->transport_id_);
-	transport_srv->stop();
-	if (asio_eventLoopThread.joinable())
-		asio_eventLoopThread.join();
 }
 
 void MdbClient::on_data_received(int result) {
@@ -108,10 +109,15 @@ void MdbClient::handle_read(const boost::system::error_code& error, std::size_t 
 		std::cerr << "Error on receive: " << error.message() << std::endl;
 		if (error == boost::asio::error::eof || error == boost::asio::error::connection_reset
 			|| error == boost::asio::error::not_connected || error ==boost::asio::error::bad_descriptor){
-				//close();
+				close();
 				if (reconnect()<0)
 					return;
 		}
 	}
-	set_async_read(this->read_buf,sizeof(this->read_buf));
+	// 仅在连接成功后设置异步读取
+    if (is_connected()) {
+        set_async_read(this->read_buf, sizeof(this->read_buf));
+    } else {
+        std::cerr << "Socket is closed, cannot set async read." << std::endl;
+    }
 }

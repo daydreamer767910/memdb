@@ -31,6 +31,11 @@ public:
 	}
 
 	~MdbClient() {
+		io_context_.stop();
+		transport_srv->close_port(this->transport_id_);
+		transport_srv->stop();
+		if (asio_eventLoopThread.joinable())
+			asio_eventLoopThread.join();
 		work_guard_.reset();
 	}
 

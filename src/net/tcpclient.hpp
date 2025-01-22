@@ -140,6 +140,8 @@ public:
     // 关闭接口
     void close() {
         try {
+			socket_.cancel();
+        	timer_.cancel();
 			socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 			socket_.close();
 			std::cout << "Connection closed." << std::endl;
