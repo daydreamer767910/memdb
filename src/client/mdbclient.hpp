@@ -31,6 +31,10 @@ public:
 	}
 
 	~MdbClient() {
+		
+	}
+
+	void quit() {
 		io_context_.stop();
 		transport_srv->close_port(this->transport_id_);
 		transport_srv->stop();

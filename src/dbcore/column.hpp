@@ -2,14 +2,14 @@
 #define column_HPP
 
 #include <iostream>
-#include "field.hpp"
+#include "fieldvalue.hpp"
 
 
 struct Column {
     std::string name = "";
     std::string type = "";
     bool nullable = false;
-    Field defaultValue = std::monostate{};;
+    FieldValue defaultValue = std::monostate{};;
     bool primaryKey = false;
     bool indexed = false;
 };

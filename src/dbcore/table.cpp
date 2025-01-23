@@ -24,11 +24,12 @@ bool Table::validateRow(const Row& row) {
     }
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
-        if (row[i].index() == 0 && !column.nullable) {
-            throw std::invalid_argument("Missing required field: " + column.name);
+        const auto& value = row[i].getValue();
+        if (value.index() == 0 && !column.nullable) {
+            throw std::invalid_argument("Missing required FieldValue: " + column.name);
         }
-        if (!isValidType(row[i], column.type)) {
-            throw std::invalid_argument("Invalid type for field: " + column.name);
+        if (!isValidType(value, column.type)) {
+            throw std::invalid_argument("Invalid type for FieldValue: " + column.name);
         }
     }
     return true;
@@ -44,14 +45,14 @@ bool Table::validatePrimaryKey(const Row& row) {
             const auto& field = row[i];
 
             // 检查主键值是否存在于索引中
-            std::visit([&](const auto& value) {
+            //std::visit([&](const auto& value) {
                 // 如果主键值已经存在于索引中，抛出异常
-                if (primaryKeyIndex_.find(value) != primaryKeyIndex_.end()) {
+                if (primaryKeyIndex_.find(field) != primaryKeyIndex_.end()) {
                     throw std::invalid_argument("Primary key value already exists: " + column.name);
                 }
                 // 如果主键值没有重复，插入主键值到主键索引中
-                primaryKeyIndex_[value] = currentRowIdx;  // 使用当前行号
-            }, field);
+                primaryKeyIndex_[field] = currentRowIdx;  // 使用当前行号
+            //}, field);
         }
     }
     return true;
@@ -67,17 +68,17 @@ Row Table::processRowDefaults(const Row& row) const {
         
         // 检查 row 中是否有对应的字段，如果 row 中的列数不足，就插入默认值
         if (rowIndex < row.size()) {
-            const Field& field = row[rowIndex];
-            if (isValidType(field, column.type)) {
+            const auto& field = row[rowIndex];
+            if (isValidType(field.getValue(), column.type)) {
                 // 如果 row 中有值并且类型匹配，直接插入
                 newRow.push_back(field);
             } else {
                 // 如果类型不匹配，用默认值
                 //newRow.push_back(getDefault(column.type));
                 if (column.type == "date") {
-                    newRow.push_back(getDefault(column.type));
+                    newRow.push_back(Field(getDefault(column.type)));
                 } else {
-                    newRow.push_back(column.defaultValue);
+                    newRow.push_back(Field(column.defaultValue));
                 }
             }
             rowIndex++;
@@ -85,9 +86,9 @@ Row Table::processRowDefaults(const Row& row) const {
             // 如果 row 中没有更多的列，插入该列的默认值
             //newRow.push_back(getDefault(column.type));
             if (column.type == "date") {
-                newRow.push_back(getDefault(column.type));
+                newRow.push_back(Field(getDefault(column.type)));
             } else {
-                newRow.push_back(column.defaultValue);
+                newRow.push_back(Field(column.defaultValue));
             }
         }
     }
@@ -104,10 +105,12 @@ Row Table::jsonToRow(const json& jsonRow) {
         auto columnIt = std::find_if(columns_.begin(), columns_.end(), [&key](const Column& col) {
             return col.name == key;
         });
-
+        
         if (columnIt != columns_.end()) {
+            Field field;
+            field.fromJson(columnIt->type, value);
             size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
-            row[index] = jsonToField(columnIt->type, value);  // 使用列类型转换字段
+            row[index] = field;  // 使用列类型转换字段
         }
     }
 
@@ -131,7 +134,9 @@ std::vector<Row> Table::jsonToRows(const json& jsonRows) {
             auto columnIt = columnNameToIndex.find(key);
             if (columnIt != columnNameToIndex.end()) {
                 size_t index = columnIt->second;  // 获取列的索引
-                row[index] = jsonToField(columns_[index].type, value);  // 使用索引填充行
+                Field field;
+                field.fromJson(columns_[index].type, value);// 使用索引填充行
+                row[index] = field;  
             }
         }
 
@@ -155,8 +160,10 @@ int Table::insertRowsFromJson(const json& jsonRows) {
             });
 
             if (columnIt != columns_.end()) {
+                Field field;
+                field.fromJson(columnIt->type, value);
                 size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
-                row[index] = jsonToField(columnIt->type, value);  // 使用索引填充行
+                row[index] = field;
             }
         }
         Row newRow = processRowDefaults(row);
@@ -214,20 +221,6 @@ size_t Table::getTotalRows() const{
     return rows_.size();
 }
 
-void Table::showIndexs() {
-    for (const auto& [colName, index] : indexes_) {
-        // 打印索引更新信息
-        std::cout << "index for column: " << colName << "\n";
-        for (const auto& pair : index) {
-            std::cout << "value: " << fieldToJson(pair.first) << ", index: ";
-            for (const auto& idx : pair.second) {
-                std::cout << idx << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
-}
-
 void Table::updateIndexes(const Row& row, int rowIndex) {
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
@@ -242,8 +235,8 @@ void Table::updateIndexes(const Row& row, int rowIndex) {
             // 打印索引更新信息
             //std::cout << "Updated index for column: " << column.name << "\n";
             //std::cout << "  Value: ";
-            //std::visit([](auto&& val) { std::cout << val; }, columnValue);
-            //std::cout << "  json Value: " << fieldToJson(columnValue);
+            //std::visit([](auto&& val) { std::cout << val; }, columnValue.getValue();
+            //std::cout << "  json Value: " << columnValue;
             //std::cout << ", Row Index: " << rowIndex << "\n";
         }
     }
@@ -272,39 +265,6 @@ void Table::buildIndex() {
     }
 }
 
-
-std::vector<Row> Table::queryByIndex(const std::string& columnName, const Field& value) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
-
-    std::vector<Row> result;
-    
-    // 使用 find 查找，避免使用 operator[]，不会修改 indexes
-    auto it = indexes_.find(columnName);
-    if (it != indexes_.end()) {
-        const auto& index = it->second;
-        auto itValue = index.find(value);
-        if (itValue != index.end()) {
-            for (const auto& rowIndex : itValue->second) {
-                result.push_back(rows_[rowIndex]);
-            }
-        }
-    }
-    return result;
-}
-
-std::optional<Row> Table::findRowByPrimaryKey(const Field& primaryKey) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
-
-    // 查找主键值是否存在于索引中
-    auto it = primaryKeyIndex_.find(primaryKey);
-    if (it != primaryKeyIndex_.end()) {
-        // 如果找到，返回对应行
-        return rows_[it->second];
-    }
-
-    // 如果主键不存在，返回 std::nullopt
-    return std::nullopt;
-}
 
 // 获取从第 n 行开始的 limit 个数据
 std::vector<Row> Table::getWithLimitAndOffset(int limit, int offset) const {
@@ -378,7 +338,7 @@ bool Table::isPrimaryKey(const std::string& columnName) const {
 
 std::vector<size_t> Table::matchPrimaryKey(
     const std::vector<size_t>& rowSet,
-    const Field& queryValue,
+    const FieldValue& queryValue,
     const std::string& op,
     const std::string& columnName
 ) const {
@@ -387,12 +347,12 @@ std::vector<size_t> Table::matchPrimaryKey(
     if (!rowSet.empty()) {
         //只遍历rowSet
         for (size_t rowIndex : rowSet) {
-            auto it = primaryKeyIndex_.find(std::get<std::string>(rows_[rowIndex][getColumnIndex(columnName)]));
+            auto it = primaryKeyIndex_.find(rows_[rowIndex][getColumnIndex(columnName)]);
             if (it != primaryKeyIndex_.end()) {
                 // 检查主键值是否符合条件
                 if (std::visit([&](const auto& value) {
                     return compare(value, queryValue, op);
-                }, it->first)) {
+                }, it->first.getValue())) {
                     matchedRows.push_back(rowIndex);
                 }
             }
@@ -403,7 +363,7 @@ std::vector<size_t> Table::matchPrimaryKey(
             // 使用 compare 来判断主键值是否符合条件
             if (std::visit([&](const auto& value) {
                 return compare(value, queryValue, op);
-            }, key)) {
+            }, key.getValue())) {
                 matchedRows.push_back(rowIndex);  // 将符合条件的行索引添加到结果
             }
         }
@@ -414,7 +374,7 @@ std::vector<size_t> Table::matchPrimaryKey(
 
 std::vector<size_t> Table::matchIndex(
     const std::vector<size_t>& rowSet,
-    const Field& queryValue,
+    const FieldValue& queryValue,
     const std::string& op,
     const std::string& columnName
 ) const {
@@ -426,12 +386,12 @@ std::vector<size_t> Table::matchIndex(
     // 遍历 rowSet 中的每一行
     for (size_t rowIndex : rowSet) {
         // 获取该行的索引列值
-        const auto& field = rows_[rowIndex][getColumnIndex(columnName)];
+        const auto& fieldValue = rows_[rowIndex][getColumnIndex(columnName)].getValue();
 
         // 使用模板比较函数，判断查询值与索引值是否匹配
         bool conditionMatch = std::visit([&](const auto& value) {
             return compare(value, queryValue, op);
-        }, field);
+        }, fieldValue);
 
         // 如果匹配，将行索引加入结果
         if (conditionMatch) {
@@ -444,7 +404,7 @@ std::vector<size_t> Table::matchIndex(
 
 std::vector<size_t> Table::search(
     const std::vector<std::string>& conditions,   // 查询条件列
-    const std::vector<Field>& queryValues,        // 查询条件值
+    const std::vector<FieldValue>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
 ) const
 {
@@ -501,7 +461,7 @@ std::vector<size_t> Table::search(
             //主键和索引已经在上面检查过了
                 continue;
             size_t colIdx = getColumnIndex(conditions[condIdx]);
-            const auto& field = row[colIdx];
+            const auto& fieldValue = row[colIdx].getValue();
             const auto& queryValue = queryValues[condIdx];
             const auto& op = operators[condIdx];
 
@@ -509,7 +469,7 @@ std::vector<size_t> Table::search(
             bool conditionMatch = std::visit([&](const auto& value) {
                 //std::cout << "v: " << value << " qv: " << queryValue << std::endl;
                 return compare(value, queryValue, op);
-            }, field);
+            }, fieldValue);
 
             // 使用 std::visit 比较字段值
             if (!conditionMatch) {
@@ -526,16 +486,16 @@ std::vector<size_t> Table::search(
     return result;
 }
 
-std::vector<std::vector<Field>> Table::query(
+std::vector<std::vector<FieldValue>> Table::query(
     const std::vector<std::string>& columnNames,
     const std::vector<std::string>& conditions,   // 查询条件列
-    const std::vector<Field>& queryValues,        // 查询条件值
+    const std::vector<FieldValue>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators,     // 比较操作符（对应每个条件）
     int limit
 ) const
 {
     std::shared_lock<std::shared_mutex> lock(mutex_);  // 使用读锁，确保线程安全
-    std::vector<std::vector<Field>> result;           // 存储查询结果
+    std::vector<std::vector<FieldValue>> result;           // 存储查询结果
 
     // 验证输入参数的合法性
     getColumnTypes(columnNames);
@@ -548,13 +508,13 @@ std::vector<std::vector<Field>> Table::query(
     for (size_t rowIdx : rowSet) {
         limit--;
         if (limit<0) break;
-        std::vector<Field> fields;
+        std::vector<FieldValue> fieldValues;
         // 检查该行是否满足所有条件
         for (auto columnName :columnNames) {
             size_t colIdx = getColumnIndex(columnName);
-            fields.push_back(rows_[rowIdx][colIdx]);
+            fieldValues.push_back(rows_[rowIdx][colIdx].getValue());
         }
-        result.push_back(fields);
+        result.push_back(fieldValues);
     }
 
     return result;
@@ -562,9 +522,9 @@ std::vector<std::vector<Field>> Table::query(
 
 size_t Table::update(
     const std::vector<std::string>& columnNames,
-    const std::vector<Field>& newValues,
+    const std::vector<FieldValue>& newValues,
     const std::vector<std::string>& conditions,
-    const std::vector<Field>& queryValues,
+    const std::vector<FieldValue>& queryValues,
     const std::vector<std::string>& operators)
 {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
@@ -590,20 +550,20 @@ size_t Table::update(
     for (size_t rowIdx : rowSet) {
         for (size_t i = 0; i < columnNames.size(); ++i) {
             size_t colIdx = getColumnIndex(columnNames[i]);
-            const auto& newValue = newValues[i];
+            const auto& newValue = Field(newValues[i]);
             const auto& oldValue = rows_[rowIdx][colIdx];
 
             // 如果更新的是主键列
             if (columns_[colIdx].primaryKey) {
                 // 检查主键唯一性（排除当前行）
-                if (primaryKeyIndex_.find(std::get<std::string>(newValue)) != primaryKeyIndex_.end()) {
-                    if (primaryKeyIndex_[std::get<std::string>(newValue)] != rowIdx) {
+                if (primaryKeyIndex_.find(newValue) != primaryKeyIndex_.end()) {
+                    if (primaryKeyIndex_[newValue] != rowIdx) {
                         throw std::invalid_argument("Primary key uniqueness violated.");
                     }
                 }
                 auto& index = primaryKeyIndex_;
-                index.erase(std::get<std::string>(oldValue));  // 移除旧的主键值
-                index[std::get<std::string>(newValue)] = rowIdx;  // 添加新的主键值
+                index.erase(oldValue);  // 移除旧的主键值
+                index[newValue] = rowIdx;  // 添加新的主键值
             }
 
             // 如果更新的是索引列
@@ -626,7 +586,7 @@ size_t Table::update(
 
 size_t Table::remove(
     const std::vector<std::string>& conditions,   // 查询条件列
-    const std::vector<Field>& queryValues,        // 查询条件值
+    const std::vector<FieldValue>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
 )
 {
@@ -673,8 +633,8 @@ json Table::rowsToJson(const std::vector<Row>& rows) {
             const auto& column = columns_[i];  // Get the column definition
             const auto& field = row[i];        // Get the value from the row
             
-            // Add the field to the rowJson with the column's name as the key
-            rowJson[column.name] = fieldToJson(field);
+            // Add the FieldValue to the rowJson with the column's name as the key
+            rowJson[column.name] = field.toJson();
         }
 
         jsonRows.push_back(rowJson);
@@ -739,8 +699,8 @@ void Table::exportToBinaryFile(const std::string& filePath) {
     // 写入数据
     for (const auto& row : rows_) {
         for (const auto& field : row) {
-            // 假设 Field 有一个 toBinary 方法，可以将自身序列化为二进制格式
-            std::string binaryData = FieldToBinary(field);
+            // 假设 FieldValue 有一个 toBinary 方法，可以将自身序列化为二进制格式
+            std::string binaryData = field.toBinary();
             size_t dataSize = binaryData.size();
 
             // 检查缓冲区是否有足够空间容纳新数据
@@ -784,7 +744,6 @@ void Table::importFromBinaryFile(const std::string& filePath) {
     if (numColumns != columns_.size()) {
         throw std::runtime_error("Column count mismatch in binary file.");
     }
-
     rows_.clear();
     rows_.reserve(numRows);
 
@@ -797,9 +756,10 @@ void Table::importFromBinaryFile(const std::string& filePath) {
 
             std::vector<char> buffer(dataSize);
             inFile.read(buffer.data(), dataSize);
-
-            // 这里假设 Field 有一个 fromBinary 方法，可以从二进制数据中解析自己
-            row[j] = FieldFromBinary(buffer.data(), dataSize);
+            // 这里假设 FieldValue 有一个 fromBinary 方法，可以从二进制数据中解析自己
+            Field field;
+            field.fromBinary(buffer.data(), dataSize);
+            row[j] = field;
         }
         //rows_.push_back(row);
         this->insertRow(row);
@@ -826,13 +786,13 @@ void Table::exportToFile(const std::string& filePath) {
             const auto& row = rows_[i];
             json rowJson;
 
-            // Iterate through each field in the row using column definitions
+            // Iterate through each FieldValue in the row using column definitions
             for (size_t j = 0; j < row.size(); ++j) {
                 const auto& column = columns_[j]; // Get the column definition
-                const auto& field = row[j];       // Get the field value from the row
+                const auto& field = row[j];       // Get the FieldValue value from the row
                 
-                // Add the field to the rowJson with the column's name as the key
-                rowJson[column.name] = fieldToJson(field);
+                // Add the FieldValue to the rowJson with the column's name as the key
+                rowJson[column.name] = field.toJson();
             }
 
             // Accumulate the row's JSON in the allRowsJson string

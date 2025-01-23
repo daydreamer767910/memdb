@@ -1,7 +1,7 @@
 # core CMakeLists.txt
 
 # 定义核心功能的库
-add_library(dbcore STATIC field.cpp column.cpp table.cpp database.cpp)
+add_library(dbcore STATIC fieldvalue.cpp field.cpp column.cpp table.cpp database.cpp)
 
 # 如果有依赖其他模块，进行链接
 target_link_libraries(dbcore PUBLIC util -lstdc++fs)

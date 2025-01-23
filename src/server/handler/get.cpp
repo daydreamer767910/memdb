@@ -7,11 +7,7 @@ public:
 		uint32_t limit = task["limit"];
 		uint32_t offset = task["offset"];
 		auto tb = db->getTable(tableName);
-		if (tb) {
-			response[tableName] = tb->rowsToJson(tb->getWithLimitAndOffset(limit,offset));
-		} else {
-			response["error"] = "table[" + tableName + "] not exist";
-		}
+		response[tableName] = tb->rowsToJson(tb->getWithLimitAndOffset(limit,offset));
     }
 };
 

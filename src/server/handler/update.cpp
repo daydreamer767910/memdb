@@ -11,22 +11,13 @@ public:
 		auto tb = db->getTable(tableName);
 		std::vector<std::string> vtypes = tb->getColumnTypes(columnNames);
 		std::vector<std::string> qtypes = tb->getColumnTypes(conditions);
-		std::vector<Field> newValues = jsonToFields(vtypes,task["values"]); // 新值
-		std::vector<Field> queryValues = jsonToFields(qtypes,task["qvalues"]);
+		std::vector<FieldValue> newValues = jsonToFieldValues(vtypes,task["values"]); // 新值
+		std::vector<FieldValue> queryValues = jsonToFieldValues(qtypes,task["qvalues"]);
 
-		if (tb) {
-			size_t updated = tb->update(columnNames, newValues, conditions, queryValues, operators);
-			if (updated>0) {
-				response["response"] = "update table sucess";
-				response["status"] = "200";
-				response["updated"] = updated;
-			} else {
-				response["response"] = "update table fail";
-				response["status"] = "300";
-			}
-		} else {
-			response["error"] = "table[" + tableName + "] not exist";
-		}
+		size_t updated = tb->update(columnNames, newValues, conditions, queryValues, operators);
+		response["response"] = "update table sucess";
+		response["status"] = "200";
+		response["updated"] = updated;
     }
 };
 

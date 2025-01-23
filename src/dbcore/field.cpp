@@ -1,8 +1,8 @@
 #include "field.hpp"
 
-std::string FieldToBinary(const Field& field) {
+std::string Field::toBinary() const{
     std::ostringstream outStream(std::ios::binary);
-    uint8_t typeIndex = field.index(); // 获取当前类型的索引
+    uint8_t typeIndex = value_.index(); // 获取当前类型的索引
     outStream.write(reinterpret_cast<const char*>(&typeIndex), sizeof(typeIndex));
 
     std::visit([&outStream](const auto& value) {
@@ -23,61 +23,66 @@ std::string FieldToBinary(const Field& field) {
             outStream.write(reinterpret_cast<const char*>(&length), sizeof(length));
             outStream.write(reinterpret_cast<const char*>(value.data()), length);
         }
-    }, field);
+    }, value_);
 
     return outStream.str();
 }
 
-Field FieldFromBinary(const char* data, size_t size) {
+Field& Field::fromBinary(const char* data, size_t size) {
     std::istringstream inStream(std::string(data, size), std::ios::binary);
-
     uint8_t typeIndex;
     inStream.read(reinterpret_cast<char*>(&typeIndex), sizeof(typeIndex));
-
     switch (typeIndex) {
         case 0: // std::monostate
-            return std::monostate{};
+            value_ = std::monostate{};
+			break;
         case 1: { // int
             int value;
             inStream.read(reinterpret_cast<char*>(&value), sizeof(value));
-            return value;
+            value_ = value;
+			break;
         }
         case 2: { // double
             double value;
             inStream.read(reinterpret_cast<char*>(&value), sizeof(value));
-            return value;
+            value_ = value;
+			break;
         }
         case 3: { // bool
             uint8_t boolValue;
             inStream.read(reinterpret_cast<char*>(&boolValue), sizeof(boolValue));
-            return boolValue != 0;
+            value_ = boolValue != 0;
+			break;
         }
         case 4: { // std::string
             size_t length;
             inStream.read(reinterpret_cast<char*>(&length), sizeof(length));
             std::string value(length, '\0');
             inStream.read(value.data(), length);
-            return value;
+            value_ = value;
+			break;
         }
         case 5: { // std::time_t
             std::time_t value;
             inStream.read(reinterpret_cast<char*>(&value), sizeof(value));
-            return value;
+            value_ = value;
+			break;
         }
         case 6: { // std::vector<uint8_t>
             size_t length;
             inStream.read(reinterpret_cast<char*>(&length), sizeof(length));
             std::vector<uint8_t> value(length);
             inStream.read(reinterpret_cast<char*>(value.data()), length);
-            return value;
+            value_ = value;
+			break;
         }
         default:
             throw std::runtime_error("Unknown type index in binary data");
     }
+	return *this;
 }
 
-// Field 转 JSON 的函数
-json fieldToJson(const Field& field) {
+json Field::toJson() const {
     return std::visit([](auto&& value) -> json {
         using T = std::decay_t<decltype(value)>;
         // 处理 std::monostate
@@ -94,104 +99,31 @@ json fieldToJson(const Field& field) {
                 jsonArray.push_back(byte); // 转换为 JSON 数组
             }
             return jsonArray;
+        //} else if constexpr (std::is_same_v<std::decay_t<decltype(val)>, std::shared_ptr<Document>>) {
+                //return value->toJson();  // 递归调用 Document 的 to_json
         } else {
             return value; // 其他类型直接转换
         }
-    }, field);
+    }, value_);
 }
 
-// 将 std::vector<std::variant<...>> 转换为 JSON 格式
-json vectorToJson(const std::vector<Field>& values) {
-    json jsonArray = json::array();
-    for (const auto& value : values) {
-        jsonArray.push_back(fieldToJson(value));
-    }
-    return jsonArray;
-}
-
-std::ostream& operator<<(std::ostream& os, const Field& field) {
-    os << fieldToJson(field).dump(); // 使用 JSON 的 dump 方法输出为字符串
-    return os;
-};
-
-
-Field getDefault(const std::string& type) {
-    /*
+Field& Field::fromJson(const std::string& type,const json& value) {
     if (type == "int") {
-        return 0;
-    } else if (type == "double") {
-        return 0.0;
-    } else if (type == "string") {
-        return std::string{};
-    } else if (type == "bool") {
-        return false;
-    } else if (type == "date") {
-        return std::time(nullptr);
-    } else if (type == "array") {
-        return std::vector<uint8_t>{};
-    }*/
-    if (type == "date") {
-        return std::time(nullptr);
-    }
-    return std::monostate{};
-}
-
-
-Field jsonToField(const std::string& type,const json& value) {
-    if (type == "int") {
-		return value.get<int>();
+		value_ = value.get<int>();
 	} else if (type == "double") {
-		return value.get<double>();
+		value_ = value.get<double>();
 	} else if (type == "string") {
-		return value.get<std::string>();
+		value_ = value.get<std::string>();
 	} else if (type == "bool") {
-		return value.get<bool>();
+		value_ = value.get<bool>();
 	} else if (type == "date") {
-		return stringToTimeT(value.get<std::string>());
+		value_ = stringToTimeT(value.get<std::string>());
 	} else if (type == "array") {
-		return std::vector<uint8_t>(value.begin(), value.end());
+		value_ = std::vector<uint8_t>(value.begin(), value.end());
+	} else {
+		throw std::invalid_argument("Unknown type for default value");
 	}
-    throw std::invalid_argument("Unknown type for default value");
+    return *this;
 };
 
-std::vector<Field> jsonToFields(const std::vector<std::string>& types, const json& values) {
-    // 检查类型和值的数量是否匹配
-    if (types.size() != values.size()) {
-        throw std::invalid_argument("Mismatch between types and values count");
-    }
 
-    std::vector<Field> fields;
-    fields.reserve(types.size());
-
-    for (size_t i = 0; i < types.size(); ++i) {
-        fields.push_back(jsonToField(types[i], values[i]));
-    }
-
-    return fields;
-}
-
-
-
-
-bool isValidType(const Field& value, const std::string& type) {
-    if (type == "array") {
-        return std::holds_alternative<std::vector<uint8_t>>(value);
-    }
-    if (type == "date") {
-        return std::holds_alternative<std::time_t>(value);
-    }
-    if (type == "int") {
-        return std::holds_alternative<int>(value);
-    }
-    if (type == "bool") {
-        return std::holds_alternative<bool>(value);
-    }
-    if (type == "double") {
-        return std::holds_alternative<double>(value);
-    }
-    if (type == "string") {
-        return std::holds_alternative<std::string>(value);
-    }
-
-    return false; // 默认返回 false
-}

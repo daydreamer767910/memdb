@@ -31,6 +31,10 @@ void mdb_stop() {
 	client_ptr->stop();
 }
 
+void mdb_quit() {
+	client_ptr->quit();
+}
+
 int mdb_recv(char* buffer, int size, int timeout) {
 	std::vector<json> json_datas;
 	int ret = client_ptr->recv(json_datas, 1, timeout);

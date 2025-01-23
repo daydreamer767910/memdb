@@ -34,7 +34,10 @@ void Database::addTableFromFile(const std::string& filePath) {
 // Retrieve a table by its name
 Table::ptr Database::getTable(const std::string& tableName) {
     auto it = tables.find(tableName);
-    return it != tables.end() ? it->second : nullptr;
+    if (it == tables.end()) {
+        throw std::invalid_argument("Table " + tableName + " does not exist.");
+    }
+    return it->second;
 }
 
 // Update an existing table

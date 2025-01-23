@@ -17,10 +17,10 @@ bool Table::validateRow(const Row& row) {
     for (const auto& column : columns_) {
         auto it = row.find(column.name);
         if (it == row.end() && !column.nullable) {
-            throw std::invalid_argument("Missing required field: " + column.name);
+            throw std::invalid_argument("Missing required FieldValue: " + column.name);
         }
         if (it != row.end() && !isValidType(it->second, column.type)) {
-            throw std::invalid_argument("Invalid type for field: " + column.name);
+            throw std::invalid_argument("Invalid type for FieldValue: " + column.name);
         }
     }
     return true;
@@ -66,7 +66,7 @@ int Table::insertRowsFromJson(const json& jsonRows) {
             });
 
             if (columnIt != columns_.end()) {
-                row[key] = jsonToField(columnIt->type,value);
+                row[key] = jsonToFieldValue(columnIt->type,value);
             }
         }
         Row newRow = processRowDefaults(row);
@@ -148,7 +148,7 @@ void Table::showIndexs() {
         // 打印索引更新信息
         std::cout << "index for column: " << colName << "\n";
         for (const auto& pair : index) {
-            std::cout << "value: " << fieldToJson(pair.first) << ", index: ";
+            std::cout << "value: " << FieldValueToJson(pair.first) << ", index: ";
             for (const auto& idx : pair.second) {
                 std::cout << idx << " ";
             }
@@ -188,7 +188,7 @@ void Table::addIndex(const std::string& columnName) {
     indexes_[columnName] = index;
 }
 
-std::vector<Row> Table::queryByIndex(const std::string& columnName, const Field& value) const {
+std::vector<Row> Table::queryByIndex(const std::string& columnName, const FieldValue& value) const {
     std::vector<Row> result;
     
     // 使用 find 查找，避免使用 operator[]，不会修改 indexes
@@ -229,7 +229,7 @@ json Table::rowsToJson(const std::vector<Row>& rows) {
     for (const auto& row : rows) {
         json rowJson;
         for (const auto& [key, value] : row) {
-            rowJson[key] = fieldToJson(value);
+            rowJson[key] = FieldValueToJson(value);
         }
         jsonRows.push_back(rowJson);
     }
@@ -267,7 +267,7 @@ void Table::exportToFile(const std::string& filePath) {
             const auto& row = rows_[i];
             json rowJson;
             for (const auto& [key, value] : row) {
-                rowJson[key] = fieldToJson(value);
+                rowJson[key] = FieldValueToJson(value);
             }
             outFile << rowJson.dump(); // Write each row without formatting
             if (i < rows_.size() - 1) { // Avoid trailing comma
@@ -332,7 +332,7 @@ void Table::importRowsFromFile(const std::string& filePath) {
                 });
 
                 if (columnIt != columns.end()) {
-                    row[key] = jsonToField(columnIt->type,value);
+                    row[key] = jsonToFieldValue(columnIt->type,value);
                 }
             }
             insertRow(row);

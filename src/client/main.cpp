@@ -7,12 +7,13 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-#include "dbcore/field.hpp"
+#include "dbcore/fieldvalue.hpp"
 #include "mdbclient.hpp"
 
 extern "C" {
     void mdb_init();
     void mdb_stop();
+    void mdb_quit();
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
     int mdb_recv(char* buffer, int size, int timeout);
@@ -168,9 +169,9 @@ void get(std::string& name) {
 void update(std::string& name) {
     json jsonData;
     std::vector<std::string> columnNames = {"name", "age","created_at"};
-    std::vector<Field> newValues = {std::string("wh"), 25,std::string("2025-01-18 19:16:30")};  // 新值
+    std::vector<FieldValue> newValues = {std::string("wh"), 25,std::string("2025-01-18 19:16:30")};  // 新值
     std::vector<std::string> conditions = {"age", "name", "created_at"};
-    std::vector<Field> queryValues = {25, std::string("wh"),std::string("2025-01-19 19:16:30")};
+    std::vector<FieldValue> queryValues = {25, std::string("wh"),std::string("2025-01-19 19:16:30")};
     std::vector<std::string> operators = {">=", "==",">"};
     jsonData["action"] = "update";
     jsonData["name"] = name;
@@ -188,7 +189,7 @@ void select(std::string& name) {
     json jsonData;
     std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};
     std::vector<std::string> conditions = {"age", "created_at"};
-    std::vector<Field> queryValues = {20, std::string("2025-01-19 00:16:30")};
+    std::vector<FieldValue> queryValues = {40, std::string("2025-01-19 00:16:30")};
     std::vector<std::string> operators = {">", ">"};
     jsonData["action"] = "select";
     jsonData["name"] = name;
@@ -204,7 +205,7 @@ void select(std::string& name) {
 void remove(std::string& name) {
     json jsonData;
     std::vector<std::string> conditions = {"age", "created_at"};
-    std::vector<Field> queryValues = {40, std::string("2025-01-19 00:16:30")};
+    std::vector<FieldValue> queryValues = {40, std::string("2025-01-19 00:16:30")};
     std::vector<std::string> operators = {">", ">"};
     jsonData["action"] = "delete";
     jsonData["name"] = name;
@@ -286,6 +287,6 @@ int main(int argc, char* argv[]) {
     
     // 关闭连接
     mdb_stop();
-
+    mdb_quit();
     return 0;
 }

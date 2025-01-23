@@ -5,7 +5,7 @@ std::vector<Column> jsonToColumns(const json& jsonColumns) {
     //std::cout << jsonColumns.dump(4) << std::endl;
     std::vector<Column> columns = {};
     for (const auto& col : jsonColumns["columns"]) {
-        Field defaultValue;
+        FieldValue defaultValue;
         if (col.contains("defaultValue") && !col["defaultValue"].is_null()) {
             const auto& defaultVal = col["defaultValue"];
             if (col["type"] == "int") {
@@ -50,9 +50,9 @@ json columnsToJson(const std::vector<Column>& columns) {
         colJson["nullable"] = column.nullable;
         colJson["primaryKey"] = column.primaryKey;
         colJson["indexed"] = column.indexed;
-        // 使用 fieldToJson 转换 defaultValue 为 JSON
+        // 使用 FieldValueToJson 转换 defaultValue 为 JSON
         if (column.defaultValue.index() != std::variant_npos) {
-            colJson["defaultValue"] = fieldToJson(column.defaultValue);
+            colJson["defaultValue"] = FieldValueToJson(column.defaultValue);
         }
 
         jsonColumns.push_back(colJson);
