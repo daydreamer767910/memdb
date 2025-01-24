@@ -1,6 +1,25 @@
 #include "collection.hpp"
 #include "util/util.hpp"
 
+size_t Collection::insertDocumentsFromJson(const json& j) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
+    size_t inserted = 0;
+    for (const auto& jDoc : j["docs"]) {
+        for (const auto& [id, value] : jDoc.items()) {
+            auto it = documents_.find(id);
+            if (it != documents_.end()) {
+                std::cout << "Document " + id + " already exist, insert fail!" << std::endl;
+                continue;
+            }
+            auto doc = std::make_shared<Document>();
+            doc->fromJson(value);
+            documents_[id] = doc;
+            inserted++;
+        }
+    }
+    return inserted;
+}
+
 // 插入文档
 void Collection::insertDocument(const DocumentId& id, const Document& doc) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
@@ -59,14 +78,17 @@ json Collection::toJson() const {
 // 从 JSON 加载
 void Collection::fromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
-    for (const auto& [id, value] : j.items()) {
-        auto doc = std::make_shared<Document>();
-        doc->fromJson(value);
-        documents_[id] = doc;
+    for (const auto& jDoc : j["docs"]) {
+        for (const auto& [id, value] : jDoc.items()) {
+            auto doc = std::make_shared<Document>();
+            doc->fromJson(value);
+            documents_[id] = doc;
+        }
     }
 }
 
 void Collection::saveSchema(const std::string& filePath) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     // 将表信息序列化为 JSON
     json root;
     root["name"] = name_;

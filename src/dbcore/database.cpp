@@ -15,11 +15,11 @@ void Database::addContainer(const json& j) {
     }
 
     if (type == "table") {
-        auto table = std::make_shared<Table>(name);
+        auto table = std::make_shared<Table>(name,type);
         table->fromJson(j);
         containers_[name] = table;
     } else if (type == "collection") {
-        auto collection = std::make_shared<Collection>(name);
+        auto collection = std::make_shared<Collection>(name,type);
         collection->fromJson(j);
         containers_[name] = collection;
     } else {

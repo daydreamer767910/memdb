@@ -16,6 +16,9 @@ public:
     std::string getName() const{
 		return name_;
 	};
+	std::string getType() const{
+		return type_;
+	};
     virtual json toJson() const = 0;
     virtual void fromJson(const json& j) = 0;
 
@@ -25,8 +28,9 @@ public:
 	virtual void exportToBinaryFile(const std::string& filePath) = 0;
     virtual void importFromBinaryFile(const std::string& filePath) = 0;
 protected:
-	explicit DataContainer(const std::string& name) : name_(name) {}
+	explicit DataContainer(const std::string& name, const std::string& type) : name_(name),type_(type) {}
     std::string name_;
+	std::string type_;
     mutable std::shared_mutex mutex_;
 };
 

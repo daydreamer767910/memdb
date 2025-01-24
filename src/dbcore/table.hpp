@@ -15,7 +15,7 @@ class Table: public DataContainer {
 public:
     using ptr = std::shared_ptr<Table>;
 
-    explicit Table(const std::string& name) : DataContainer(name) {}
+    explicit Table(const std::string& name, const std::string& type) : DataContainer(name,type) {}
     //Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
     Table(const Table&) = delete;

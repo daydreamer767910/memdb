@@ -62,6 +62,90 @@ int test(const std::string jsonConfig) {
     
 }
 
+void insert_collection(std::string& name) {
+    std::string rawJson = R"([
+    {"Emily Doe":
+        {
+            "title": "insert Document",
+            "version": 1,
+            "nested": {
+                "name": "Nested Document",
+                "value": 43,
+                "details": {
+                    "created_at": "2025-01-24",
+                    "author": "Emily Doe",
+                    "stats": {
+                        "views": 1500,
+                        "likes": 3005,
+                        "shares": 750
+                    }
+                }
+            }
+        }
+    },
+    {"Bill Doe":
+        {
+            "title": "ou mass",
+            "nested": {
+                "name": "Nested Document",
+                "details": {
+                    "stats": {
+                        "views": 15000,
+                        "shares": 750
+                    }
+                }
+            }
+        }
+    }
+    ])";
+    // 将字符串解析为 JSON 对象
+    json j = json::parse(rawJson);
+    json jsonData;
+    jsonData["action"] = "insert";
+    jsonData["name"] = name;
+    jsonData["docs"] = j;
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
+void create_collection(std::string& name) {
+    // 原始 JSON 数据
+    std::string rawJson = R"([{"John Doe":
+    {
+        "title": "Main Document",
+        "version": 1,
+        "nested": {
+            "name": "Nested Document",
+            "value": 42,
+            "details": {
+                "created_at": "2025-01-24",
+                "author": "John Doe",
+                "stats": {
+                    "views": 1200,
+                    "likes": 300,
+                    "shares": 75
+                }
+            }
+        }
+    }}])";
+
+    // 将字符串解析为 JSON 对象
+    json j = json::parse(rawJson);
+    json jsonData;
+    jsonData["action"] = "create";
+    jsonData["name"] = name;
+    jsonData["type"] = "collection";
+    jsonData["docs"] = j;
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
 void create_tbl(std::string& name) {
     // Create table action
     json jsonData;
@@ -142,7 +226,7 @@ void insert_tbl(std::string& name) {
     for (int i=0;i<50;i++) {
         json row;
         row["id"] = id;
-        //row["name"] = "test name" + std::to_string(id);
+        row["name"] = "test name" + std::to_string(id);
         row["age"] = 20+i%50;
         row["addr"] = "street " + std::to_string(id);
         jsonRows.push_back(row);
@@ -275,7 +359,8 @@ int main(int argc, char* argv[]) {
     std::string param = argv[2];
     
     if (command == "create") {
-        create_tbl(param);
+        //create_tbl(param);
+        create_collection(param);
     } else if (command == "drop") {
         drop_tbl(param);
     } else if (command == "show") {
@@ -289,10 +374,11 @@ int main(int argc, char* argv[]) {
     } else if (command == "update") {
         update(param);
     } else if (command == "insert") {
-        while (!exiting) {
+        /*while (!exiting) {
             insert_tbl(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
+        }*/
+       insert_collection(param);
     } else if (command == "get") {
         while (!exiting) {
             get(param);

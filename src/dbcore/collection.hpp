@@ -13,7 +13,7 @@
 class Collection: public DataContainer {
 public:
     using DocumentId = std::string;
-    explicit Collection(const std::string& name) : DataContainer(name) {}
+    explicit Collection(const std::string& name, const std::string& type) : DataContainer(name,type) {}
     //Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
     Collection(const Collection&) = delete;
@@ -26,6 +26,7 @@ public:
     Collection(Collection&&) = default;
     Collection& operator=(Collection&&) = default;
 
+    size_t insertDocumentsFromJson(const json& j);
     // 添加一个文档
     void insertDocument(const DocumentId& id, const Document& doc);
 
