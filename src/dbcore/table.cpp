@@ -678,6 +678,7 @@ json Table::toJson() const{
 
     json jsonTable;
     jsonTable["name"] = name_;
+    jsonTable["type"] = type_;
     jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
     //jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
     return jsonTable;

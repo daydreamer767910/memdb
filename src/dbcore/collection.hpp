@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include "datacontainer.hpp"
 #include "document.hpp"
+#include "collection_schema.hpp"
 
 class Collection: public DataContainer {
 public:
@@ -45,7 +46,7 @@ public:
     // 序列化和反序列化
     virtual json toJson() const override;
     virtual void fromJson(const json& j) override;
-
+    json showDocs() const;
     virtual void saveSchema(const std::string& filePath) override;
     virtual void exportToBinaryFile(const std::string& filePath) override;
     virtual void importFromBinaryFile(const std::string& filePath) override;
@@ -55,6 +56,7 @@ public:
 
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
+    CollectionSchema schema_;
 };
 
 

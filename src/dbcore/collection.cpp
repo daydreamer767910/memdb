@@ -77,13 +77,25 @@ std::vector<std::shared_ptr<Document>> Collection::queryDocuments(const std::fun
     return result;
 }
 
+json Collection::showDocs() const {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
+    json jsonDocs = json::array();
+    for (const auto& [id, doc] : documents_) {
+        json j;
+        j[id] = doc->toJson();
+        jsonDocs.push_back(j);
+    }
+
+    return jsonDocs;
+}
+
 // 转换为 JSON
 json Collection::toJson() const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     json j;
-    for (const auto& [id, doc] : documents_) {
-        j[id] = doc->toJson();
-    }
+    j["name"] = name_;
+    j["type"] = type_;
+    j["schema"] = schema_.toJson();
     return j;
 }
 
@@ -92,8 +104,23 @@ void Collection::fromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 写锁
 
     // 验证 JSON 格式
-    if (!j.contains("schema") ) {
-        return;
+    if (!j.contains("schema")) {
+        throw std::invalid_argument("Invalid JSON format: 'schema' is missing.");
+    }
+    try {
+        schema_.fromJson(j["schema"]);
+        /*std::cout << "Collection Name: " << schema_.collectionName << std::endl;
+        std::cout << "Fields: ";
+        for (const auto& field : schema_.fields) {
+            std::cout << field << " ";
+        }
+        std::cout << std::endl;
+
+        // 获取默认配置
+        json defaultSchema = schema_.getDefault();
+        std::cout << "Default Schema: " << defaultSchema.dump(4) << std::endl;*/
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
     }
 }
 
@@ -103,7 +130,7 @@ void Collection::saveSchema(const std::string& filePath) {
     json root;
     root["name"] = name_;
     root["type"] = "collection";
-    //other info ....
+    root["schema"] = schema_.toJson();
 
     // 将 JSON 写入文件
     std::ofstream outputFile(filePath);

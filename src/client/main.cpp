@@ -113,24 +113,15 @@ void insert_collection(std::string& name) {
 
 void create_collection(std::string& name) {
     // 原始 JSON 数据
-    std::string rawJson = R"([{"John Doe":
+    std::string rawJson = R"(
     {
-        "title": "Main Document",
-        "version": 1,
-        "nested": {
-            "name": "Nested Document",
-            "value": 42,
-            "details": {
-                "created_at": "2025-01-24",
-                "author": "John Doe",
-                "stats": {
-                    "views": 1200,
-                    "likes": 300,
-                    "shares": 75
-                }
-            }
+        "name": "users",
+        "fields": ["name", "email", "age"],
+        "additionalSettings": {
+            "index": "email",
+            "partitioned": "true"
         }
-    }}])";
+    })";
 
     // 将字符串解析为 JSON 对象
     json j = json::parse(rawJson);
@@ -138,7 +129,7 @@ void create_collection(std::string& name) {
     jsonData["action"] = "create";
     jsonData["name"] = name;
     jsonData["type"] = "collection";
-    jsonData["docs"] = j;
+    jsonData["schema"] = j;
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
     
