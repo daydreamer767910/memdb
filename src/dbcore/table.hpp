@@ -1,8 +1,6 @@
 #ifndef Table_HPP
 #define Table_HPP
-#include <unordered_map>
-#include <shared_mutex>
-#include <mutex>
+#include "datacontainer.hpp"
 #include "column.hpp"
 #include "field.hpp"
 
@@ -13,17 +11,12 @@ using Index = std::map<Field, std::set<size_t>>;
 // 定义主键索引
 using PrimaryKeyIndex = std::unordered_map<Field, size_t, Field::Hash>;
 
-class Table {
+class Table: public DataContainer {
 public:
     using ptr = std::shared_ptr<Table>;
-    
-    std::string name_;
-    std::vector<Column> columns_;
-    std::vector<Row> rows_;
-    std::map<std::string, Index> indexes_;  // Indexes on the columns (if any)
-    PrimaryKeyIndex primaryKeyIndex_; 
 
-    Table(const std::string& tableName, const std::vector<Column>& columns);
+    explicit Table(const std::string& name) : DataContainer(name) {}
+    //Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
     Table(const Table&) = delete;
     Table& operator=(const Table&) = delete;
@@ -72,16 +65,19 @@ public:
         const std::vector<FieldValue>& queryValues,        // 查询条件值
         const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
     );
-    json showTable();
+
     json rowsToJson(const std::vector<Row>& rows);
     std::vector<Row> jsonToRows(const json& jsonRows);
     Row jsonToRow(const json& jsonRow);
-    json tableToJson();
-    void exportToFile(const std::string& filePath) ;
-    void importFromFile(const std::string& filePath);
-    void exportToBinaryFile(const std::string& filePath);
-    void importFromBinaryFile(const std::string& filePath);
+    virtual json toJson() const override;
+    virtual void fromJson(const json& j) override;
+    //void exportToFile(const std::string& filePath) ;
+    //void importFromFile(const std::string& filePath);
+    virtual void saveSchema(const std::string& filePath) override;
+    virtual void exportToBinaryFile(const std::string& filePath) override;
+    virtual void importFromBinaryFile(const std::string& filePath) override;
 private:
+    bool isValidType(const FieldValue& value, const std::string& type) const;
     bool validateRow(const Row& row) ;
     bool validatePrimaryKey(const Row& row) ;
     void updateIndexes(const Row& row, int rowIndex);
@@ -105,7 +101,10 @@ private:
         const std::vector<std::string>& operators     // 比较操作符（对应每个条件）
     ) const;
 private:
-    mutable std::shared_mutex mutex_;
+    std::vector<Column> columns_;
+    std::vector<Row> rows_;
+    std::map<std::string, Index> indexes_;  // Indexes on the columns (if any)
+    PrimaryKeyIndex primaryKeyIndex_; 
 };
 
 #endif // Table_H

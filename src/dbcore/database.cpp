@@ -2,23 +2,29 @@
 #include <filesystem>
 #include "database.hpp"
 
-// Add a new table to the database
-void Database::addTable(const std::string& tableName, const std::vector<Column>& columns) {
-    if (tables.find(tableName) != tables.end()) {
-        throw std::invalid_argument("Table " + tableName + " already exists.");
+void Database::addContainer(const json& j) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    std::string type = j.at("type").get<std::string>();
+    std::string name = j.at("name").get<std::string>();
+    if (containers_.find(name) != containers_.end()) {
+        throw std::invalid_argument("container " + name + " already exists.");
     }
-    tables.emplace(tableName, std::make_shared<Table>(tableName, columns));
+
+    if (type == "table") {
+        auto table = std::make_shared<Table>(name);
+        table->fromJson(j);
+        containers_[name] = table;
+    } else if (type == "collection") {
+        auto collection = std::make_shared<Collection>(name);
+        collection->fromJson(j);
+        containers_[name] = collection;
+    } else {
+        throw std::invalid_argument("Unknown container type");
+    }
 }
 
-void Database::addTableFromJson(const std::string& jsonConfig) {
-    auto root = json::parse(jsonConfig);
-    //std::cout << root.dump(4) << std::endl;
-    std::string tableName = root["name"];
-    auto columns = jsonToColumns(root);
-    addTable(tableName, columns);
-}
-
-void Database::addTableFromFile(const std::string& filePath) {
+void Database::addContainerFromSchema(const std::string& filePath) {
     std::ifstream inputFile(filePath);
     if (!inputFile.is_open()) {
         throw std::runtime_error("Unable to open file: " + filePath);
@@ -27,76 +33,30 @@ void Database::addTableFromFile(const std::string& filePath) {
     std::stringstream buffer;
     buffer << inputFile.rdbuf();
     std::string fileContent = buffer.str();
-    addTableFromJson(fileContent);
+    auto j = json::parse(fileContent);
+    addContainer(j);
     inputFile.close();
 }
 
 // Retrieve a table by its name
 Table::ptr Database::getTable(const std::string& tableName) {
-    auto it = tables.find(tableName);
-    if (it == tables.end()) {
-        throw std::invalid_argument("Table " + tableName + " does not exist.");
-    }
-    return it->second;
+    return std::dynamic_pointer_cast<Table>(getContainer(tableName));
 }
 
-// Update an existing table
-/*void Database::updateTable(Table&& updatedTable) {
-    auto it = tables.find(updatedTable.name);
-    if (it == tables.end()) {
-        throw std::invalid_argument("Table " + updatedTable.name + " does not exist.");
-    }
-    it->second = std::make_shared<Table>(std::move(updatedTable));  // Use move semantics here
-}*/
 
-// Remove a table by its name
-void Database::removeTable(const std::string& tableName) {
-    auto it = tables.find(tableName);
-    if (it == tables.end()) {
-        throw std::invalid_argument("Table " + tableName + " does not exist.");
-    }
-    tables.erase(it);
-}
-
-// List all table names in the Database
-std::vector<std::string> Database::listTableNames() const {
-    std::vector<std::string> tableNames;
-    for (const auto& table : tables) {
-        tableNames.push_back(table.first);
-    }
-    return tableNames;
-}
-
-// Get all table instances in the Database
-std::vector<Table::ptr> Database::listTables() const {
-    std::vector<Table::ptr> tableInstances;
-    for (const auto& table : tables) {
-        tableInstances.push_back(table.second);
+// Get all container instances in the Database
+std::vector<DataContainer::ptr> Database::listContainers() const {
+    std::vector<DataContainer::ptr> tableInstances;
+    for (const auto& container : containers_) {
+        tableInstances.push_back(container.second);
     }
     return tableInstances;
 }
 
-void Database::saveTableToFile(Table::ptr table, const std::string& filePath) {
-    const std::string& tableName = table->name_;
-
-    // 将表信息序列化为 JSON
-    json root;
-    root["name"] = tableName;
-    root["columns"] = columnsToJson(table->columns_);
-
-    // 将 JSON 写入文件
-    std::ofstream outputFile(filePath);
-    if (!outputFile.is_open()) {
-        throw std::runtime_error("Unable to open file for writing: " + filePath);
-    }
-    outputFile << root.dump(4); // 格式化为缩进 4 的 JSON
-    outputFile.close();
-}
-
 
 void Database::save(const std::string& filePath) {
-    if (tables.empty()) {
-        std::cerr << "Warning: No tables to save.\n";
+    if (containers_.empty()) {
+        std::cerr << "Warning: No container to save.\n";
         return;
     }
 
@@ -105,13 +65,13 @@ void Database::save(const std::string& filePath) {
         std::string subDir = "config";
         std::filesystem::path configPath = std::filesystem::path(filePath) / subDir;
         std::filesystem::create_directories(configPath);
-        for (const auto& table : tables) {
-            std::filesystem::path tableConfigPath = configPath / table.first;
+        for (const auto& container : containers_) {
+            std::filesystem::path tableConfigPath = configPath / container.first;
             try {
-                saveTableToFile(table.second, tableConfigPath.string());
-                std::cout << get_timestamp() << " Saved config for table: " << table.first << '\n';
+                container.second->saveSchema(tableConfigPath.string());
+                std::cout << get_timestamp() << " Saved config for container: " << container.first << '\n';
             } catch (const std::exception& e) {
-                std::cerr << get_timestamp() << " Failed to save config for table " << table.first 
+                std::cerr << get_timestamp() << " Failed to save config for container: " << container.first 
                           << ": " << e.what() << '\n';
             }
         }
@@ -124,14 +84,14 @@ void Database::save(const std::string& filePath) {
         std::string subDir = "data";
         std::filesystem::path dataPath = std::filesystem::path(filePath) / subDir;
         std::filesystem::create_directories(dataPath);
-        for (const auto& table : tables) {
-            std::filesystem::path tableDataPath = dataPath / table.first;
+        for (const auto& container : containers_) {
+            std::filesystem::path tableDataPath = dataPath / container.first;
             try {
-                std::cout << get_timestamp() << " Start saving table data: " << table.first << '\n';
-                table.second->exportToBinaryFile(tableDataPath.string());
-                std::cout << get_timestamp() << " Successfully saved table data: " << table.first << '\n';
+                std::cout << get_timestamp() << " Start saving table data: " << container.first << '\n';
+                container.second->exportToBinaryFile(tableDataPath.string());
+                std::cout << get_timestamp() << " Successfully saved table data: " << container.first << '\n';
             } catch (const std::exception& e) {
-                std::cerr << get_timestamp() << " Failed to save data for table " << table.first 
+                std::cerr << get_timestamp() << " Failed to save data for table " << container.first 
                           << ": " << e.what() << '\n';
             }
         }
@@ -151,7 +111,7 @@ void Database::upload(const std::string& filePath) {
         } else if (!std::filesystem::is_empty(fullPath)) {
             for (const auto& entry : std::filesystem::directory_iterator(fullPath)) {
                 if (entry.is_regular_file()) {
-                    this->addTableFromFile(entry.path().string());
+                    this->addContainerFromSchema(entry.path().string());
                 }
             }
         }
@@ -161,20 +121,20 @@ void Database::upload(const std::string& filePath) {
         fullPath = std::filesystem::path(filePath) / subDir;
         if (!std::filesystem::exists(fullPath)) {
             std::cerr << "Warning: Data directory " << fullPath << " does not exist.\n";
-        } else if (!tables.empty()) {
-            for (const auto& table : tables) {
-                std::filesystem::path tablePath = std::filesystem::path(fullPath) / table.first;
+        } else if (!containers_.empty()) {
+            for (const auto& container : containers_) {
+                std::filesystem::path dataPath = std::filesystem::path(fullPath) / container.first;
                 try {
-                    std::cout << get_timestamp() << " Loading table: " << table.first << '\n';
-                    table.second->importFromBinaryFile(tablePath.string());
-                    std::cout << get_timestamp() << " Table loaded successfully.\n";
+                    std::cout << get_timestamp() << " Loading container: " << container.first << '\n';
+                    container.second->importFromBinaryFile(dataPath.string());
+                    std::cout << get_timestamp() << " container loaded successfully.\n";
                 } catch (const std::exception& e) {
-                    std::cerr << get_timestamp() << " Failed to load table " << table.first 
-                              << " from " << tablePath << ": " << e.what() << '\n';
+                    std::cerr << get_timestamp() << " Failed to load container " << container.first 
+                              << " from " << dataPath << ": " << e.what() << '\n';
                 }
             }
         } else {
-            std::cerr << "Warning: No tables available for data import.\n";
+            std::cerr << "Warning: No containers available for data import.\n";
         }
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Filesystem error: " << e.what() << '\n';
@@ -185,11 +145,11 @@ void Database::upload(const std::string& filePath) {
     }
 }
 
-void Database::remove(const std::string& filePath, const std::string& tableName) {
+void Database::remove(const std::string& filePath, const std::string& name) {
     try {
         std::vector<std::string> subDirs = {"config", "data"};
         for (const auto& subDir : subDirs) {
-            std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir / tableName;
+            std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir / name;
             if (std::filesystem::exists(fullPath)) {
                 if (std::filesystem::is_regular_file(fullPath)) {
                     std::filesystem::remove(fullPath);

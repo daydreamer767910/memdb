@@ -4,10 +4,10 @@ class ShowTableHandler : public ActionHandler {
 public:
     void handle(const json& task, Database::ptr db , json& response) override {
         std::string tableName = task["name"];
-        auto tables = db->listTables();
+        auto tables = db->listContainers();
 		for ( auto table: tables) {
-			if (tableName == "*" || tableName == table->name_) {
-				response[table->name_] = table->showTable();
+			if (tableName == "*" || tableName == table->getName()) {
+				response[table->getName()] = table->toJson();
 			}
 		}
     }

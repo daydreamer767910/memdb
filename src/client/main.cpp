@@ -7,7 +7,7 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-#include "dbcore/fieldvalue.hpp"
+#include "dbcore/field.hpp"
 #include "mdbclient.hpp"
 
 extern "C" {
@@ -67,6 +67,7 @@ void create_tbl(std::string& name) {
     json jsonData;
     jsonData["action"] = "create";
     jsonData["name"] = name;
+    jsonData["type"] = "table";
     
     // Create columns array
     json jsonCols = json::array();
@@ -177,9 +178,17 @@ void update(std::string& name) {
     jsonData["name"] = name;
     jsonData["columns"] = columnNames;
     jsonData["conditions"] = conditions;
-    jsonData["values"] = vectorToJson(newValues);
+    json jsonArray = json::array();
+    for (const auto& value : newValues) {
+        jsonArray.push_back(Field(value).toJson());
+    }
+    jsonData["values"] = jsonArray;
     jsonData["ops"] = operators;
-    jsonData["qvalues"] = vectorToJson(queryValues);
+    jsonArray = json::array();
+    for (const auto& value : queryValues) {
+        jsonArray.push_back(Field(value).toJson());
+    }
+    jsonData["qvalues"] = jsonArray;
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
@@ -197,7 +206,11 @@ void select(std::string& name) {
     jsonData["columns"] = columnNames;
     jsonData["conditions"] = conditions;
     jsonData["ops"] = operators;
-    jsonData["qvalues"] = vectorToJson(queryValues);
+    json jsonArray = json::array();
+    for (const auto& value : queryValues) {
+        jsonArray.push_back(Field(value).toJson());
+    }
+    jsonData["qvalues"] = jsonArray;
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
@@ -211,7 +224,11 @@ void remove(std::string& name) {
     jsonData["name"] = name;
     jsonData["conditions"] = conditions;
     jsonData["ops"] = operators;
-    jsonData["qvalues"] = vectorToJson(queryValues);
+    json jsonArray = json::array();
+    for (const auto& value : queryValues) {
+        jsonArray.push_back(Field(value).toJson());
+    }
+    jsonData["qvalues"] = jsonArray;
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }

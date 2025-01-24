@@ -1,64 +1,61 @@
 #ifndef COLLECTION_HPP
 #define COLLECTION_HPP
 #include <unordered_map>
-#include <memory>
-#include <vector>
 #include <string>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <functional>
 #include <stdexcept>
+#include "datacontainer.hpp"
+#include "document.hpp"
 
-class Document; // 预声明
-
-class Collection {
+class Collection: public DataContainer {
 public:
-    // 用于存储Document的ID和对应的Document对象
-    std::unordered_map<std::string, std::shared_ptr<Document>> documents;
+    using DocumentId = std::string;
+    explicit Collection(const std::string& name) : DataContainer(name) {}
+    //Table(const std::string& tableName, const std::vector<Column>& columns);
+    // Delete copy constructor and copy assignment operator
+    Collection(const Collection&) = delete;
+    Collection& operator=(const Collection&) = delete;
 
-    // 插入文档
-    void insert(const std::shared_ptr<Document>& doc) {
-        // 假设文档有一个唯一的ID，检查是否已存在
-        if (documents.find(doc->getId()) != documents.end()) {
-            throw std::runtime_error("Document with this ID already exists.");
-        }
-        documents[doc->getId()] = doc;
-    }
+    // Default constructor (move semantics can be allowed)
+    Collection() = default;
 
-    // 删除文档
-    void remove(const std::string& docId) {
-        auto it = documents.find(docId);
-        if (it != documents.end()) {
-            documents.erase(it);
-        } else {
-            throw std::runtime_error("Document not found.");
-        }
-    }
+    // Move constructor and move assignment operator (optional, if needed)
+    Collection(Collection&&) = default;
+    Collection& operator=(Collection&&) = default;
 
-    // 查找文档
-    std::shared_ptr<Document> find(const std::string& docId) {
-        auto it = documents.find(docId);
-        if (it != documents.end()) {
-            return it->second;
-        }
-        throw std::runtime_error("Document not found.");
-    }
+    // 添加一个文档
+    void insertDocument(const DocumentId& id, const Document& doc);
 
-    // 更新文档
-    void update(const std::string& docId, const std::shared_ptr<Document>& newDoc) {
-        auto it = documents.find(docId);
-        if (it != documents.end()) {
-            documents[docId] = newDoc;
-        } else {
-            throw std::runtime_error("Document not found.");
-        }
-    }
+    // 更新一个文档（通过 ID）
+    bool updateDocument(const DocumentId& id, const Document& doc);
 
-    // 获取所有文档
-    std::vector<std::shared_ptr<Document>> getAllDocuments() const {
-        std::vector<std::shared_ptr<Document>> allDocs;
-        for (const auto& docPair : documents) {
-            allDocs.push_back(docPair.second);
-        }
-        return allDocs;
-    }
+    // 删除一个文档（通过 ID）
+    bool deleteDocument(const DocumentId& id);
+
+    // 根据 ID 获取文档
+    std::shared_ptr<Document> getDocument(const DocumentId& id) const;
+
+    // 查询文档集合，支持过滤
+    std::vector<std::shared_ptr<Document>> queryDocuments(const std::function<bool(const Document&)>& predicate) const;
+
+    // 序列化和反序列化
+    virtual json toJson() const override;
+    virtual void fromJson(const json& j) override;
+
+    virtual void saveSchema(const std::string& filePath) override;
+    virtual void exportToBinaryFile(const std::string& filePath) override;
+    virtual void importFromBinaryFile(const std::string& filePath) override;
+
+    std::string toBinary() const;
+    void fromBinary(const char* data, size_t size);
+
+private:
+    mutable std::mutex mutex_;
+    std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
 };
+
 
 #endif 

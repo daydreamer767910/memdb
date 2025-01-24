@@ -10,15 +10,26 @@ public:
 		std::vector<std::string> operators = task["ops"].get<std::vector<std::string>>();
 		auto tb = db->getTable(tableName);
 		std::vector<std::string> qtypes = tb->getColumnTypes(conditions);
-		std::vector<FieldValue> queryValues = jsonToFieldValues(qtypes,task["qvalues"]);
+
+		if (qtypes.size() != task["qvalues"].size()) {
+			throw std::invalid_argument("Mismatch between types and values count");
+		}
+		std::vector<FieldValue> queryValues;
+		queryValues.reserve(qtypes.size());
+		for (size_t i = 0; i < qtypes.size(); ++i) {
+			Field field;
+			field.fromJson(qtypes[i],task["qvalues"][i]);
+			queryValues.push_back(field.getValue());
+		}
+
 		auto ret = tb->query(columnNames,conditions,queryValues,operators,limit);
-		for (auto& fields : ret) { //每一行数据
+		for (auto& fieldValues : ret) { //每一行数据
 			json rowJson;
 			for (size_t i = 0; i < columnNames.size(); ++i) { //每一列
 				if (rowJson[columnNames[i]].is_null()) {
 					rowJson[columnNames[i]] = json::array();
 				}
-				rowJson[columnNames[i]] = FieldValueToJson(fields[i]);
+				rowJson[columnNames[i]] = Field(fieldValues[i]).toJson();
 			}
 			response["results"].push_back(rowJson);
 		}

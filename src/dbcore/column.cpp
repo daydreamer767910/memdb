@@ -1,5 +1,13 @@
 #include "column.hpp"
 #include "util/util.hpp"
+#include "field.hpp"
+
+FieldValue getDefault(const std::string& type) {
+    if (type == "date") {
+        return std::time(nullptr);
+    }
+    return std::monostate{};
+}
 
 std::vector<Column> jsonToColumns(const json& jsonColumns) {
     //std::cout << jsonColumns.dump(4) << std::endl;
@@ -52,7 +60,7 @@ json columnsToJson(const std::vector<Column>& columns) {
         colJson["indexed"] = column.indexed;
         // 使用 FieldValueToJson 转换 defaultValue 为 JSON
         if (column.defaultValue.index() != std::variant_npos) {
-            colJson["defaultValue"] = FieldValueToJson(column.defaultValue);
+            colJson["defaultValue"] = Field(column.defaultValue).toJson();
         }
 
         jsonColumns.push_back(colJson);

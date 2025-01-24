@@ -16,5 +16,6 @@ struct Column {
 
 std::vector<Column> jsonToColumns(const json& jsonColumns);
 json columnsToJson(const std::vector<Column>& columns);
+FieldValue getDefault(const std::string& type);
 
 #endif

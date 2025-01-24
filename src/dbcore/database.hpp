@@ -1,11 +1,13 @@
 #ifndef DATABASE_HPP
 #define DATABASE_HPP
 
+#include "datacontainer.hpp"
 #include "table.hpp"
-
+#include "collection.hpp"
 class Database {
 private:
-    std::map<std::string, Table::ptr> tables;
+    std::unordered_map<std::string, DataContainer::ptr> containers_;
+    mutable std::mutex mutex_;
 
 private:
     Database() {
@@ -24,24 +26,37 @@ public:
         return instance;
     }
 
+    void addContainer(const json& j);
 
-    void addTableFromFile(const std::string& filePath);
-    void saveTableToFile(Table::ptr table, const std::string& filePath);
+    DataContainer::ptr getContainer(const std::string& name) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = containers_.find(name);
+        if (it != containers_.end()) {
+            return it->second;
+        }
+        throw std::runtime_error("Container not found");
+    }
 
-    // Methods to manipulate tables
-    void addTableFromJson(const std::string& jsonConfig);
-    void addTable(const std::string& tableName, const std::vector<Column>& columns);
+    void addContainerFromSchema(const std::string& filePath);
+
     Table::ptr getTable(const std::string& tableName);
-    //void updateTable(Table&& updatedTable);
-    void removeTable(const std::string& tableName);
+    // 删除容器
+    void removeContainer(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = containers_.find(name);
+        if (it != containers_.end()) {
+            containers_.erase(it);
+        } else {
+            throw std::runtime_error("Container not found: " + name);
+        }
+    }
 
-    // Methods for listing tables
-    std::vector<std::string> listTableNames() const;
-    std::vector<Table::ptr> listTables() const;
+
+    std::vector<DataContainer::ptr> listContainers() const;
 
     void save(const std::string& filePath);
     void upload(const std::string& filePath);
-    void remove(const std::string& filePath, const std::string& tableName);
+    void remove(const std::string& filePath, const std::string& name);
 };
 
 

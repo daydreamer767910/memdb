@@ -1,8 +1,10 @@
 #include "table.hpp"
 #include "util/util.hpp"
 
-Table::Table(const std::string& tableName, const std::vector<Column>& columns)
-    : name_(tableName), columns_(columns) {
+void Table::fromJson(const json& j) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    name_ = j.at("name").get<std::string>();
+    columns_ = jsonToColumns(j);
     if (name_.empty() || columns_.empty()) {
         throw std::invalid_argument("Invalid table structure.");
     }
@@ -16,6 +18,29 @@ Table::Table(const std::string& tableName, const std::vector<Column>& columns)
             throw std::invalid_argument("Nullable column must have a default value: " + column.name);
         }
     }
+}
+
+bool Table::isValidType(const FieldValue& value, const std::string& type) const{
+    if (type == "array") {
+        return std::holds_alternative<std::vector<uint8_t>>(value);
+    }
+    if (type == "date") {
+        return std::holds_alternative<std::time_t>(value);
+    }
+    if (type == "int") {
+        return std::holds_alternative<int>(value);
+    }
+    if (type == "bool") {
+        return std::holds_alternative<bool>(value);
+    }
+    if (type == "double") {
+        return std::holds_alternative<double>(value);
+    }
+    if (type == "string") {
+        return std::holds_alternative<std::string>(value);
+    }
+
+    return false; // 默认返回 false
 }
 
 bool Table::validateRow(const Row& row) {
@@ -642,22 +667,16 @@ json Table::rowsToJson(const std::vector<Row>& rows) {
     return jsonRows;
 }
 
-json Table::tableToJson() {
+json Table::toJson() const{
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
-    jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
+    //jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
     return jsonTable;
 }
 
-json Table::showTable() {
-    json jsonTable;
-    jsonTable["name"] = name_;
-    jsonTable["columns"] = columnsToJson(columns_);
-    return jsonTable;
-}
 
 json Table::showRows() {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
@@ -665,6 +684,22 @@ json Table::showRows() {
     json jsonRows;
     jsonRows["rows"] = rowsToJson(rows_);
     return jsonRows;
+}
+
+void Table::saveSchema(const std::string& filePath) {
+    // 将表信息序列化为 JSON
+    json root;
+    root["name"] = name_;
+    root["type"] = "table";
+    root["columns"] = columnsToJson(columns_);
+
+    // 将 JSON 写入文件
+    std::ofstream outputFile(filePath);
+    if (!outputFile.is_open()) {
+        throw std::runtime_error("Unable to open file for writing: " + filePath);
+    }
+    outputFile << root.dump(4); // 格式化为缩进 4 的 JSON
+    outputFile.close();
 }
 
 void Table::exportToBinaryFile(const std::string& filePath) {
@@ -772,7 +807,7 @@ void Table::importFromBinaryFile(const std::string& filePath) {
     inFile.close();
     buildIndex();
 }
-
+/*
 void Table::exportToFile(const std::string& filePath) {
     // Write to file
     std::ofstream outFile(filePath);
@@ -884,4 +919,4 @@ void Table::importFromFile(const std::string& filePath ) {
     inputFile.close();
     buildIndex();
 }
-
+*/

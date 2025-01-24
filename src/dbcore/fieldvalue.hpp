@@ -11,14 +11,13 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "util/util.hpp"
-// 定义占位符模板
+
+class Document;  // 前向声明
 template <typename T>
 struct always_false : std::false_type {};
-//class Document;  // 前向声明
-
 // 定义FieldValue，可以支持不同的数据类型，包括 Document
-//using FieldValue = std::variant<std::monostate, int, double, bool, std::string, std::time_t, std::vector<uint8_t>, std::shared_ptr<Document>>;
-using FieldValue = std::variant<std::monostate,int, double, bool, std::string, std::time_t, std::vector<uint8_t>>;
+using FieldValue = std::variant<std::monostate, int, double, bool, std::string, std::time_t, std::vector<uint8_t>, std::shared_ptr<Document>>;
+//using FieldValue = std::variant<std::monostate,int, double, bool, std::string, std::time_t, std::vector<uint8_t>>;
 
 template <typename T>
 bool compare(const T& value, const FieldValue& queryValue, const std::string& op) {
@@ -56,15 +55,5 @@ std::function<bool(const FieldValue&)> createPredicate(const T& queryValue, cons
         return false;
     };
 }
-
-// FieldValue 转 JSON 的函数
-json FieldValueToJson(const FieldValue& fieldValue);
-json vectorToJson(const std::vector<FieldValue>& values);
-FieldValue jsonToFieldValue(const std::string& type,const json& value);
-std::vector<FieldValue> jsonToFieldValues(const std::vector<std::string>& types, const json& values);
-std::ostream& operator<<(std::ostream& os, const FieldValue& fieldValue);
-FieldValue getDefault(const std::string& type);
-
-bool isValidType(const FieldValue& value, const std::string& type);
 
 #endif
