@@ -4,6 +4,10 @@
 size_t Collection::insertDocumentsFromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     size_t inserted = 0;
+    // 验证 JSON 格式
+    if (!j.contains("docs") || !j["docs"].is_array()) {
+        throw std::invalid_argument("Invalid JSON format: 'docs' must be an array.");
+    }
     for (const auto& jDoc : j["docs"]) {
         for (const auto& [id, value] : jDoc.items()) {
             auto it = documents_.find(id);
@@ -11,9 +15,13 @@ size_t Collection::insertDocumentsFromJson(const json& j) {
                 std::cout << "Document " + id + " already exist, insert fail!" << std::endl;
                 continue;
             }
-            auto doc = std::make_shared<Document>();
-            doc->fromJson(value);
-            documents_[id] = doc;
+            try {
+                auto doc = std::make_shared<Document>();
+                doc->fromJson(value);  // 调用 Document 的解析方法
+                documents_[id] = doc; // 插入到集合中
+            } catch (const std::exception& e) {
+                std::cerr << "Error parsing document with id '" << id << "': " << e.what() << std::endl;
+            }
             inserted++;
         }
     }
@@ -77,13 +85,11 @@ json Collection::toJson() const {
 
 // 从 JSON 加载
 void Collection::fromJson(const json& j) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
-    for (const auto& jDoc : j["docs"]) {
-        for (const auto& [id, value] : jDoc.items()) {
-            auto doc = std::make_shared<Document>();
-            doc->fromJson(value);
-            documents_[id] = doc;
-        }
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 写锁
+
+    // 验证 JSON 格式
+    if (!j.contains("schema") ) {
+        return;
     }
 }
 
@@ -187,6 +193,5 @@ void Collection::importFromBinaryFile(const std::string& filePath) {
 
     // 从二进制数据加载集合
     fromBinary(binaryData.data(), binaryData.size());
-
     std::cout << "Collection successfully imported from binary file: " << filePath << std::endl;
 }
