@@ -5,9 +5,13 @@ size_t Collection::insertDocumentsFromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     size_t inserted = 0;
     // 验证 JSON 格式
-    if (!j.contains("docs") || !j["docs"].is_array()) {
+    if (!j.contains("docs")) {
+        throw std::invalid_argument("Invalid JSON format: 'docs' is missing.");
+    }
+    if (!j["docs"].is_array()) {
         throw std::invalid_argument("Invalid JSON format: 'docs' must be an array.");
     }
+
     for (const auto& jDoc : j["docs"]) {
         for (const auto& [id, value] : jDoc.items()) {
             auto it = documents_.find(id);

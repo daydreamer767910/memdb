@@ -10,9 +10,11 @@ public:
         if (container->getType() == "table") {
 			auto tb = std::dynamic_pointer_cast<Table>(container);
 			response[name] = tb->rowsToJson(tb->getWithLimitAndOffset(limit,offset));
+			response["type"] = "table";
         } else if (container->getType() == "collection") {
             auto collection = std::dynamic_pointer_cast<Collection>(container);
 			response[name] = collection->toJson();
+			response["type"] = "collection";
         }
     }
 };

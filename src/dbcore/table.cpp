@@ -171,12 +171,18 @@ std::vector<Row> Table::jsonToRows(const json& jsonRows) {
     return rows;
 }
 
-
-
 int Table::insertRowsFromJson(const json& jsonRows) {
     std::unique_lock<std::shared_mutex> lock(mutex_); // 独占锁
     std::vector<size_t> newIndexes; // 记录需要更新索引的行
     int i = 0;
+    // 验证 JSON 格式
+    if (!jsonRows.contains("rows")) {
+        throw std::invalid_argument("Invalid JSON format: 'rows' is missing.");
+    }
+    if (!jsonRows["rows"].is_array()) {
+        throw std::invalid_argument("Invalid JSON format: 'rows' must be an array.");
+    }
+
     for (const auto& jsonRow : jsonRows["rows"]) {
         Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
         for (const auto& [key, value] : jsonRow.items()) {
