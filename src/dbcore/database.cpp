@@ -4,9 +4,12 @@
 
 void Database::addContainer(const json& j) {
     std::lock_guard<std::mutex> lock(mutex_);
-    
-    std::string type = j.at("type").get<std::string>();
+    std::string type = "table";
     std::string name = j.at("name").get<std::string>();
+    if (j.contains("type")) {
+        type = j.at("type").get<std::string>();
+    }
+
     if (containers_.find(name) != containers_.end()) {
         throw std::invalid_argument("container " + name + " already exists.");
     }

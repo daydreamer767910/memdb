@@ -3,13 +3,13 @@
 
 // 插入文档
 void Collection::insertDocument(const DocumentId& id, const Document& doc) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     documents_[id] = std::make_shared<Document>(doc);
 }
 
 // 更新文档
 bool Collection::updateDocument(const DocumentId& id, const Document& doc) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     auto it = documents_.find(id);
     if (it != documents_.end()) {
         it->second = std::make_shared<Document>(doc);
@@ -20,13 +20,13 @@ bool Collection::updateDocument(const DocumentId& id, const Document& doc) {
 
 // 删除文档
 bool Collection::deleteDocument(const DocumentId& id) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     return documents_.erase(id) > 0;
 }
 
 // 获取文档
 std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     auto it = documents_.find(id);
     if (it != documents_.end()) {
         return it->second;
@@ -36,7 +36,7 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
 
 // 查询文档
 std::vector<std::shared_ptr<Document>> Collection::queryDocuments(const std::function<bool(const Document&)>& predicate) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     std::vector<std::shared_ptr<Document>> result;
     for (const auto& [id, doc] : documents_) {
         if (predicate(*doc)) {
@@ -48,7 +48,7 @@ std::vector<std::shared_ptr<Document>> Collection::queryDocuments(const std::fun
 
 // 转换为 JSON
 json Collection::toJson() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     json j;
     for (const auto& [id, doc] : documents_) {
         j[id] = doc->toJson();
@@ -58,7 +58,7 @@ json Collection::toJson() const {
 
 // 从 JSON 加载
 void Collection::fromJson(const json& j) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     for (const auto& [id, value] : j.items()) {
         auto doc = std::make_shared<Document>();
         doc->fromJson(value);
@@ -84,7 +84,7 @@ void Collection::saveSchema(const std::string& filePath) {
 
 // 转换为二进制
 std::string Collection::toBinary() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     std::string binary;
     for (const auto& [id, doc] : documents_) {
         // 文档 ID 的长度和内容
@@ -103,7 +103,7 @@ std::string Collection::toBinary() const {
 
 // 从二进制加载
 void Collection::fromBinary(const char* data, size_t size) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     size_t offset = 0;
     while (offset < size) {
         // 读取文档 ID 的长度

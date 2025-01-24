@@ -53,7 +53,6 @@ public:
     void fromBinary(const char* data, size_t size);
 
 private:
-    mutable std::mutex mutex_;
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
 };
 
