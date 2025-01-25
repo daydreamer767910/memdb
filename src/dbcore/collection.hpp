@@ -27,7 +27,7 @@ public:
     Collection(Collection&&) = default;
     Collection& operator=(Collection&&) = default;
 
-    size_t insertDocumentsFromJson(const json& j);
+    std::vector<std::string> insertDocumentsFromJson(const json& j);
     // 添加一个文档
     void insertDocument(const DocumentId& id, const Document& doc);
 

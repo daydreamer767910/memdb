@@ -63,47 +63,42 @@ int test(const std::string jsonConfig) {
 }
 
 void insert_collection(std::string& name) {
-    std::string rawJson = R"([
-    {"Emily Doe":
-        {
-            "title": "insert Document",
-            "version": 1,
-            "nested": {
-                "name": "Nested Document",
-                "value": 43,
-                "details": {
-                    "created_at": "2025-01-24",
-                    "author": "Emily Doe",
-                    "stats": {
-                        "views": 1500,
-                        "likes": 3005,
-                        "shares": 750
-                    }
+    std::string rawJson = R"([{
+        "id_": "1234",
+        "title": "insert Document",
+        "version": 1,
+        "nested": {
+            "name": "Nested Document",
+            "value": 43,
+            "details": {
+                "created_at": "2025-01-24",
+                "author": "Emily Doe",
+                "stats": {
+                    "views": 1500,
+                    "likes": 3005,
+                    "shares": 750
                 }
             }
         }
     },
-    {"Bill Doe":
-        {
-            "title": "ou mass",
-            "nested": {
-                "name": "Nested Document",
-                "details": {
-                    "stats": {
-                        "views": 15000,
-                        "shares": 750
-                    }
+    {
+        "title": "ou mass",
+        "nested": {
+            "name": "Nested Document",
+            "details": {
+                "stats": {
+                    "views": 15000,
+                    "shares": 750
                 }
             }
         }
-    }
-    ])";
+    }])";
     // 将字符串解析为 JSON 对象
     json j = json::parse(rawJson);
     json jsonData;
     jsonData["action"] = "insert";
     jsonData["name"] = name;
-    jsonData["docs"] = j;
+    jsonData["documents"] = j;
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
     

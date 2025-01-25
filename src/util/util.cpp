@@ -1,3 +1,9 @@
+#include <iostream>
+#include <chrono>
+#include <random>
+#include <sstream>
+#include <thread>
+#include <iomanip>
 #include "util.hpp"
 
 /*
@@ -85,4 +91,33 @@ std::time_t stringToTimeT(const std::string& dateTimeStr) {
     }
 
     throw std::runtime_error("Failed to parse date/time string: " + dateTimeStr);
+}
+
+std::string generateUniqueId() {
+    // 获取当前时间戳（毫秒级）
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    
+    // 获取当前线程的ID
+    std::thread::id threadId = std::this_thread::get_id();
+    
+    // 使用 std::hash 获取线程ID的哈希值
+    std::hash<std::thread::id> hasher;
+    size_t threadIdHash = hasher(threadId);
+    
+    // 生成随机数
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1000, 9999);  // 随机数范围
+    
+    int randomValue = dis(gen);
+    
+    // 组合时间戳、线程ID的哈希值和随机数生成唯一ID
+    std::stringstream idStream;
+    idStream << std::setw(8) << std::setfill('0') << (millis & 0xFFFFFFFFFFFFFFFF) << "-" 
+             << std::setw(4) << std::setfill('0') << (threadIdHash & 0xFFFFFFFF) << "-" 
+             << randomValue;
+    
+    return idStream.str();
 }

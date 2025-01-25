@@ -13,5 +13,6 @@ void print_packet(const std::vector<char>& packet);
 
 std::string get_timestamp();
 std::time_t stringToTimeT(const std::string& dateTimeStr);
+std::string generateUniqueId();
 
 #endif

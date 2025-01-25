@@ -1,35 +1,42 @@
 #include "collection.hpp"
 #include "util/util.hpp"
 
-size_t Collection::insertDocumentsFromJson(const json& j) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
-    size_t inserted = 0;
-    // 验证 JSON 格式
-    if (!j.contains("docs")) {
-        throw std::invalid_argument("Invalid JSON format: 'docs' is missing.");
+std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
+    std::vector<std::string> insertedIds;
+    if (!j.contains("documents")) {
+        throw std::invalid_argument("Invalid JSON format: 'documents' is missing.");
     }
-    if (!j["docs"].is_array()) {
-        throw std::invalid_argument("Invalid JSON format: 'docs' must be an array.");
-    }
+    // 获取写锁，确保线程安全
+    std::unique_lock<std::shared_mutex> lock(mutex_);
 
-    for (const auto& jDoc : j["docs"]) {
-        for (const auto& [id, value] : jDoc.items()) {
-            auto it = documents_.find(id);
-            if (it != documents_.end()) {
-                std::cout << "Document " + id + " already exist, insert fail!" << std::endl;
-                continue;
-            }
-            try {
-                auto doc = std::make_shared<Document>();
-                doc->fromJson(value);  // 调用 Document 的解析方法
-                documents_[id] = doc; // 插入到集合中
-            } catch (const std::exception& e) {
-                std::cerr << "Error parsing document with id '" << id << "': " << e.what() << std::endl;
-            }
-            inserted++;
+    // 遍历 JSON 的键值对，将每个键作为 ID，值作为文档内容
+    //for (const auto& [id, value] : j.items()) {
+        //std::cout << "id: " << id << std::endl;
+    for (const auto& value : j["documents"]) {
+        // 如果没有提供 ID，则生成唯一 ID
+        std::string docId = (value.contains("id_") && value["id_"].is_string()) ? 
+                            value["id_"].get<std::string>(): 
+                            generateUniqueId();
+
+        // 检查文档 ID 是否已存在
+        if (documents_.find(docId) != documents_.end()) {
+            std::cerr << "Duplicate document ID: " << docId << std::endl;
+            insertedIds.push_back("Duplicate document ID: "+docId);
+            continue;  // 跳过该文档
+        }
+
+        // 创建新的文档并加载 JSON 数据
+        auto doc = std::make_shared<Document>();
+        try {
+            doc->fromJson(value);  // 加载 JSON 数据到文档
+            documents_[docId] = doc;  // 插入到集合
+            insertedIds.push_back(docId);  // 将成功插入的文档 ID 添加到返回列表
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to insert document with ID " << docId << ": " << e.what() << std::endl;
         }
     }
-    return inserted;
+
+    return insertedIds;  // 返回插入文档的 ID 列表
 }
 
 // 插入文档
