@@ -64,11 +64,10 @@ int test(const std::string jsonConfig) {
 
 void insert_collection(std::string& name) {
     std::string rawJson = R"([{
-        "id_": "1234",
-        "title": "insert Document",
+        "title": "cmass",
         "version": 1,
         "nested": {
-            "name": "Nested Document",
+            "title": "1 Document",
             "value": 43,
             "details": {
                 "created_at": "2025-01-24",
@@ -84,7 +83,7 @@ void insert_collection(std::string& name) {
     {
         "title": "ou mass",
         "nested": {
-            "name": "Nested Document",
+            "title": "2 Document",
             "details": {
                 "stats": {
                     "views": 15000,
@@ -99,6 +98,7 @@ void insert_collection(std::string& name) {
     jsonData["action"] = "insert";
     jsonData["name"] = name;
     jsonData["documents"] = j;
+
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
     
@@ -108,13 +108,32 @@ void insert_collection(std::string& name) {
 
 void create_collection(std::string& name) {
     // 原始 JSON 数据
-    std::string rawJson = R"(
-    {
-        "name": "users",
-        "fields": ["name", "email", "age"],
-        "additionalSettings": {
-            "index": "email",
-            "partitioned": "true"
+    std::string rawJson = R"({
+        "fields": {
+            "id": {
+                "type": "int",
+                "constraints": {
+                    "required": false,
+                    "unique": true,
+                    "defaultValue": 100
+                }
+            },
+            "title": {
+                "type": "string",
+                "constraints": {
+                    "required": true,
+                    "unique": false,
+                    "defaultValue": "Hello"
+                }
+            },
+            "nested": {
+                "type": "document",
+                "constraints": {
+                    "required": false,
+                    "unique": true,
+                    "defaultValue": "Hello"
+                }
+            }
         }
     })";
 
@@ -172,7 +191,7 @@ void create_tbl(std::string& name) {
 
     jsonCols.push_back({ 
         {"name", "created_at"}, 
-        {"type", "date"},
+        {"type", "time"},
         {"indexed", true}
     });
 
@@ -345,9 +364,10 @@ int main(int argc, char* argv[]) {
     std::string param = argv[2];
     
     if (command == "create") {
-        //create_tbl(param);
+        create_tbl(param);
+    } else if (command == "createc") {
         create_collection(param);
-    } else if (command == "drop") {
+    }else if (command == "drop") {
         drop_tbl(param);
     } else if (command == "show") {
         show_tbl(param);
@@ -359,12 +379,14 @@ int main(int argc, char* argv[]) {
         select(param);
     } else if (command == "update") {
         update(param);
+    } else if (command == "insertc") {
+        insert_collection(param);
     } else if (command == "insert") {
-        /*while (!exiting) {
+        while (!exiting) {
             insert_tbl(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }*/
-       insert_collection(param);
+        }
+       //insert_collection(param);
     } else if (command == "get") {
         while (!exiting) {
             get(param);

@@ -2,44 +2,31 @@
 #include "util/util.hpp"
 #include "field.hpp"
 
-FieldValue getDefault(const std::string& type) {
-    if (type == "date") {
-        return std::time(nullptr);
-    }
-    return std::monostate{};
-}
+
 
 std::vector<Column> jsonToColumns(const json& jsonColumns) {
     //std::cout << jsonColumns.dump(4) << std::endl;
     std::vector<Column> columns = {};
     for (const auto& col : jsonColumns["columns"]) {
         FieldValue defaultValue;
+        FieldType type = typefromJson(col);
+        //std::cout << "type: " << type << std::endl;
         if (col.contains("defaultValue") && !col["defaultValue"].is_null()) {
-            const auto& defaultVal = col["defaultValue"];
-            if (col["type"] == "int") {
-                defaultValue = defaultVal.get<int>();
-            } else if (col["type"] == "double") {
-                defaultValue = defaultVal.get<double>();
-            } else if (col["type"] == "string") {
-                defaultValue = defaultVal.get<std::string>();
-            } else if (col["type"] == "bool") {
-                defaultValue = defaultVal.get<bool>();
-            } else if (col["type"] == "date") {
-                //defaultValue = defaultVal.get<std::time_t>();
-                defaultValue = stringToTimeT(defaultVal.get<std::string>());
-            } else if (col["type"] == "array") {
-                defaultValue = std::vector<uint8_t>(defaultVal.begin(), defaultVal.end());
-            }
+            defaultValue = valuefromJson(col["defaultValue"]);
+            //std::cout << "defaultValue: " << defaultValue << std::endl;
         } else {
-            defaultValue = getDefault(col["type"]); // 使用 DefaultValue 类生成默认值
+            defaultValue = getDefault(type); // 使用 DefaultValue 类生成默认值
         }
+        //if (!typeMatches(defaultValue, type)) {
+        //    throw std::invalid_argument("type and default miss matched: " + typetoString(type));
+        //}
         /*std::cout << "Processing column: " << col["name"] 
             << ", type: " << col["type"] 
             << ", default: " << defaultValue
             << std::endl;*/
         columns.push_back({
             col["name"],
-            col["type"],
+            type,
             col.value("nullable", false),
             defaultValue,
             col.value("primaryKey", false),
@@ -52,15 +39,14 @@ std::vector<Column> jsonToColumns(const json& jsonColumns) {
 json columnsToJson(const std::vector<Column>& columns) {
     json jsonColumns = json::array();
     for (const auto& column : columns) {
-        json colJson;
+        json colJson = typetoJson(column.type);;
         colJson["name"] = column.name;
-        colJson["type"] = column.type;
         colJson["nullable"] = column.nullable;
         colJson["primaryKey"] = column.primaryKey;
         colJson["indexed"] = column.indexed;
         // 使用 FieldValueToJson 转换 defaultValue 为 JSON
         if (column.defaultValue.index() != std::variant_npos) {
-            colJson["defaultValue"] = Field(column.defaultValue).toJson();
+            colJson["defaultValue"] = valuetoJson(column.defaultValue);
         }
 
         jsonColumns.push_back(colJson);

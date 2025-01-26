@@ -67,6 +67,27 @@ std::string get_timestamp() {
     return ss.str();
 }
 
+bool isDate(const std::string& dateStr) {
+    // 支持的时间格式
+    std::vector<std::string> formats = {
+        "%b %d %H:%M:%S %Y",
+        "%a %b %d %H:%M:%S %Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%m/%d/%Y %H:%M:%S",
+        "%Y/%m/%d %H:%M:%S"
+    };
+
+    // 尝试解析日期
+    for (const auto& format : formats) {
+        std::istringstream stream(dateStr);
+        std::tm tm = {};
+        stream >> std::get_time(&tm, format.c_str());
+        if (!stream.fail()) {
+            return true; // 成功解析
+        }
+    }
+    return false; // 全部格式解析失败
+}
 
 std::time_t stringToTimeT(const std::string& dateTimeStr) {
     std::vector<std::string> formats = {

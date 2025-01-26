@@ -9,7 +9,7 @@ void Table::fromJson(const json& j) {
         throw std::invalid_argument("Invalid table structure.");
     }
     for (const auto& column : columns_) {
-        if (column.name.empty() || column.type.empty()) {
+        if (column.name.empty() || column.type == FieldType::NONE) {
             throw std::invalid_argument("Each column must have a name and a type.");
         }
 
@@ -18,29 +18,6 @@ void Table::fromJson(const json& j) {
             throw std::invalid_argument("Nullable column must have a default value: " + column.name);
         }
     }
-}
-
-bool Table::isValidType(const FieldValue& value, const std::string& type) const{
-    if (type == "array") {
-        return std::holds_alternative<std::vector<uint8_t>>(value);
-    }
-    if (type == "date") {
-        return std::holds_alternative<std::time_t>(value);
-    }
-    if (type == "int") {
-        return std::holds_alternative<int>(value);
-    }
-    if (type == "bool") {
-        return std::holds_alternative<bool>(value);
-    }
-    if (type == "double") {
-        return std::holds_alternative<double>(value);
-    }
-    if (type == "string") {
-        return std::holds_alternative<std::string>(value);
-    }
-
-    return false; // 默认返回 false
 }
 
 bool Table::validateRow(const Row& row) {
@@ -53,7 +30,7 @@ bool Table::validateRow(const Row& row) {
         if (value.index() == 0 && !column.nullable) {
             throw std::invalid_argument("Missing required FieldValue: " + column.name);
         }
-        if (!isValidType(value, column.type)) {
+        if (!typeMatches(value, column.type)) {
             throw std::invalid_argument("Invalid type for FieldValue: " + column.name);
         }
     }
@@ -94,13 +71,13 @@ Row Table::processRowDefaults(const Row& row) const {
         // 检查 row 中是否有对应的字段，如果 row 中的列数不足，就插入默认值
         if (rowIndex < row.size()) {
             const auto& field = row[rowIndex];
-            if (isValidType(field.getValue(), column.type)) {
+            if (typeMatches(field.getValue(), column.type)) {
                 // 如果 row 中有值并且类型匹配，直接插入
                 newRow.push_back(field);
             } else {
                 // 如果类型不匹配，用默认值
                 //newRow.push_back(getDefault(column.type));
-                if (column.type == "date") {
+                if (column.type == FieldType::TIME) {
                     newRow.push_back(Field(getDefault(column.type)));
                 } else {
                     newRow.push_back(Field(column.defaultValue));
@@ -110,7 +87,7 @@ Row Table::processRowDefaults(const Row& row) const {
         } else {
             // 如果 row 中没有更多的列，插入该列的默认值
             //newRow.push_back(getDefault(column.type));
-            if (column.type == "date") {
+            if (column.type == FieldType::TIME) {
                 newRow.push_back(Field(getDefault(column.type)));
             } else {
                 newRow.push_back(Field(column.defaultValue));
@@ -133,7 +110,10 @@ Row Table::jsonToRow(const json& jsonRow) {
         
         if (columnIt != columns_.end()) {
             Field field;
-            field.fromJson(columnIt->type, value);
+            field.fromJson(value);
+            if (!typeMatches(field.getValue(),columnIt->type)) {
+                throw std::invalid_argument("type and value miss matched: " + typetoString(columnIt->type));
+            }
             size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
             row[index] = field;  // 使用列类型转换字段
         }
@@ -160,7 +140,10 @@ std::vector<Row> Table::jsonToRows(const json& jsonRows) {
             if (columnIt != columnNameToIndex.end()) {
                 size_t index = columnIt->second;  // 获取列的索引
                 Field field;
-                field.fromJson(columns_[index].type, value);// 使用索引填充行
+                field.fromJson(value);// 使用索引填充行
+                if (!typeMatches(field.getValue(),columns_[index].type)) {
+                    throw std::invalid_argument("type and value miss matched: " + typetoString(columns_[index].type));
+                }
                 row[index] = field;  
             }
         }
@@ -192,7 +175,10 @@ int Table::insertRowsFromJson(const json& jsonRows) {
 
             if (columnIt != columns_.end()) {
                 Field field;
-                field.fromJson(columnIt->type, value);
+                field.fromJson(value);
+                if (!typeMatches(field.getValue(),columnIt->type)) {
+                    throw std::invalid_argument("type and value miss matched: " + typetoString(columnIt->type));
+                }
                 size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
                 row[index] = field;
             }
@@ -328,14 +314,14 @@ size_t Table::getColumnIndex(const std::string& columnName) const {
 std::string Table::getColumnType(const std::string& columnName) const {
     for (size_t i = 0; i < columns_.size(); ++i) {
         if (columns_[i].name == columnName) {
-            return columns_[i].type;
+            return typetoString(columns_[i].type);
         }
     }
     throw std::invalid_argument("Column not found: " + columnName);
 }
 
-std::vector<std::string> Table::getColumnTypes(const std::vector<std::string>& columnNames) const {
-    std::vector<std::string> types;
+std::vector<FieldType> Table::getColumnTypes(const std::vector<std::string>& columnNames) const {
+    std::vector<FieldType> types;
     types.reserve(columnNames.size());
 
     for (const auto& columnName : columnNames) {

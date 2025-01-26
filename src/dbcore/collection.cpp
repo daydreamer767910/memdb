@@ -12,27 +12,32 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
     // 遍历 JSON 的键值对，将每个键作为 ID，值作为文档内容
     //for (const auto& [id, value] : j.items()) {
         //std::cout << "id: " << id << std::endl;
-    for (const auto& value : j["documents"]) {
+    for (const auto& jDoc : j["documents"]) {
         // 如果没有提供 ID，则生成唯一 ID
-        std::string docId = (value.contains("id_") && value["id_"].is_string()) ? 
-                            value["id_"].get<std::string>(): 
+        std::string docId = (jDoc.contains("id_") && jDoc["id_"].is_string()) ? 
+                            jDoc["id_"].get<std::string>(): 
                             generateUniqueId();
 
         // 检查文档 ID 是否已存在
         if (documents_.find(docId) != documents_.end()) {
             std::cerr << "Duplicate document ID: " << docId << std::endl;
-            insertedIds.push_back("Duplicate document ID: "+docId);
-            continue;  // 跳过该文档
+            throw std::invalid_argument("Duplicate document ID: " + docId);
+            //insertedIds.push_back("Duplicate document ID: "+docId);
+            //continue;  // 跳过该文档
         }
 
         // 创建新的文档并加载 JSON 数据
         auto doc = std::make_shared<Document>();
         try {
-            doc->fromJson(value);  // 加载 JSON 数据到文档
-            documents_[docId] = doc;  // 插入到集合
+            doc->fromJson(jDoc);  // 加载 JSON 数据到文档
+            schema_.validateDocument(doc);
+            //std::cout << *doc << std::endl;
+            documents_.emplace(docId, doc);
+            //documents_[docId] = doc;  // 插入到集合
             insertedIds.push_back(docId);  // 将成功插入的文档 ID 添加到返回列表
         } catch (const std::exception& e) {
             std::cerr << "Failed to insert document with ID " << docId << ": " << e.what() << std::endl;
+            throw std::invalid_argument("Failed to insert document with ID " + docId + ": " + e.what());
         }
     }
 
@@ -85,14 +90,15 @@ std::vector<std::shared_ptr<Document>> Collection::queryDocuments(const std::fun
 }
 
 json Collection::showDocs() const {
-    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
-    json jsonDocs = json::array();
-    for (const auto& [id, doc] : documents_) {
-        json j;
-        j[id] = doc->toJson();
-        jsonDocs.push_back(j);
+    json jsonDocs;
+    { 
+        // 锁定范围仅限于访问共享资源部分
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        //std::cout << "there are " << documents_.size() << " docs to show\n";
+        for (const auto& [id, doc] : documents_) {
+            jsonDocs[id] = doc->toJson();
+        }
     }
-
     return jsonDocs;
 }
 
@@ -116,16 +122,7 @@ void Collection::fromJson(const json& j) {
     }
     try {
         schema_.fromJson(j["schema"]);
-        /*std::cout << "Collection Name: " << schema_.collectionName << std::endl;
-        std::cout << "Fields: ";
-        for (const auto& field : schema_.fields) {
-            std::cout << field << " ";
-        }
-        std::cout << std::endl;
-
-        // 获取默认配置
-        json defaultSchema = schema_.getDefault();
-        std::cout << "Default Schema: " << defaultSchema.dump(4) << std::endl;*/
+        //std::cout << schema_.toJson().dump(4) << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }

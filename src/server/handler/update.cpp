@@ -9,8 +9,8 @@ public:
 		std::vector<std::string> operators = task["ops"].get<std::vector<std::string>>();
 
 		auto tb = db->getTable(tableName);
-		std::vector<std::string> vtypes = tb->getColumnTypes(columnNames);
-		std::vector<std::string> qtypes = tb->getColumnTypes(conditions);
+		std::vector<FieldType> vtypes = tb->getColumnTypes(columnNames);
+		std::vector<FieldType> qtypes = tb->getColumnTypes(conditions);
 
 		if (vtypes.size() != task["values"].size()) {
 			throw std::invalid_argument("Mismatch between types and values count");
@@ -24,7 +24,10 @@ public:
 		newValues.reserve(vtypes.size());
 		for (size_t i = 0; i < vtypes.size(); ++i) {
 			Field field;
-			field.fromJson(vtypes[i],task["values"][i]);
+			field.fromJson(task["values"][i]);
+			if (typeMatches(field.getValue(),vtypes[i])) {
+				throw std::invalid_argument("Mismatch type between vtypes and values");
+			}
 			newValues.push_back(field.getValue());
 		}
 
@@ -32,7 +35,10 @@ public:
 		queryValues.reserve(qtypes.size());
 		for (size_t i = 0; i < qtypes.size(); ++i) {
 			Field field;
-			field.fromJson(qtypes[i],task["qvalues"][i]);
+			field.fromJson(task["qvalues"][i]);
+			if (typeMatches(field.getValue(),qtypes[i])) {
+				throw std::invalid_argument("Mismatch type between types and values");
+			}
 			queryValues.push_back(field.getValue());
 		}
 

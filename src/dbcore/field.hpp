@@ -19,12 +19,6 @@ public:
 
     Field(const FieldValue& value) : value_(value) {}
 
-    // 获取 Field 的值
-    template <typename T>
-    T getValue() const {
-        return std::get<T>(value_);
-    }
-
 	const FieldValue& getValue() const {
 		return value_;
 	}
@@ -45,7 +39,7 @@ public:
 
 	json toJson() const;
 	Field& fromJson(const json& value);
-	Field& fromJson(const std::string& type,const json& value);
+	//Field& fromJson(const FieldType& type,const json& value);
 
 	Field& fromBinary(const char* data, size_t size);
 	std::string toBinary() const;

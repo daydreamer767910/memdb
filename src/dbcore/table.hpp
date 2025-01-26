@@ -41,7 +41,7 @@ public:
     std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
     
     size_t getColumnIndex(const std::string& columnName) const;
-    std::vector<std::string> getColumnTypes(const std::vector<std::string>& columnNames) const;
+    std::vector<FieldType> getColumnTypes(const std::vector<std::string>& columnNames) const;
     std::string getColumnType(const std::string& columnName) const;
     bool isPrimaryKey(const std::string& columnName) const;
 
@@ -77,7 +77,6 @@ public:
     virtual void exportToBinaryFile(const std::string& filePath) override;
     virtual void importFromBinaryFile(const std::string& filePath) override;
 private:
-    bool isValidType(const FieldValue& value, const std::string& type) const;
     bool validateRow(const Row& row) ;
     bool validatePrimaryKey(const Row& row) ;
     void updateIndexes(const Row& row, int rowIndex);

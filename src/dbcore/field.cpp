@@ -2,41 +2,7 @@
 #include "document.hpp"
 
 std::ostream& operator<<(std::ostream& os, const Field& field) {
-	try {
-		if (std::holds_alternative<std::monostate>(field.getValue())) {
-			os << "Uninitialized";
-		} else if (std::holds_alternative<int>(field.getValue())) {
-			os << field.getValue<int>();
-		} else if (std::holds_alternative<double>(field.getValue())) {
-			os << field.getValue<double>();
-		} else if (std::holds_alternative<bool>(field.getValue())) {
-			os << (field.getValue<bool>() ? "true" : "false");
-		} else if (std::holds_alternative<std::string>(field.getValue())) {
-			os << field.getValue<std::string>();
-		} else if (std::holds_alternative<std::time_t>(field.getValue())) {
-			std::time_t time = field.getValue<std::time_t>();
-			std::string timeStr = std::ctime(&time);
-			timeStr.erase(std::remove(timeStr.begin(), timeStr.end(), '\n'), timeStr.end());
-			os << timeStr; // 格式化时间为可读字符串
-		} else if (std::holds_alternative<std::vector<uint8_t>>(field.getValue())) {
-			const auto& vec = field.getValue<std::vector<uint8_t>>();
-			os << "[ ";
-			for (uint8_t byte : vec) {
-				os << static_cast<int>(byte) << " "; // 打印为整数
-			}
-			os << "]";
-		} else if (std::holds_alternative<std::shared_ptr<Document>>(field.getValue())) {
-			os << "Nested Document:\n";
-			os << *field.getValue<std::shared_ptr<Document>>(); // 假定 Document 类也有 operator<<
-		} else {
-			os << "Unknown type";
-		}
-	} catch (const std::exception& e) {
-		os << "Error: " << e.what();
-	} catch (...) {
-		os << "Unknown error in retrieving value";
-	}
-
+	os << field.getValue();
 	return os;
 }
 
@@ -49,7 +15,7 @@ std::size_t Field::hashDocumentPtr(const std::shared_ptr<Document>& doc) {
     std::size_t seed = 0;
     for (const auto& [name, field] : doc->getFields()) {
         seed ^= std::hash<std::string>{}(name) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed ^= Field::Hash{}(field); // 对每个 Field 递归计算哈希
+        seed ^= Field::Hash{}(*field); // 对每个 Field 递归计算哈希
     }
     return seed;
 }
@@ -154,70 +120,16 @@ Field& Field::fromBinary(const char* data, size_t size) {
 }
 
 json Field::toJson() const {
-    return std::visit([](auto&& value) -> json {
-        using T = std::decay_t<decltype(value)>;
-        // 处理 std::monostate
-        if constexpr (std::is_same_v<T, std::monostate>) {
-            return nullptr;  // 返回 null，表示空值
-        } else if constexpr (std::is_same_v<T, std::time_t>) {
-			std::string timeStr = std::ctime(&value);
-			timeStr.erase(std::remove(timeStr.begin(), timeStr.end(), '\n'), timeStr.end());
-			return timeStr;
-            //return std::ctime(&value);// 转换为时间戳表示 
-        } else if constexpr (std::is_same_v<T, std::vector<uint8_t>>) {
-            return value; // 直接转换为 JSON 数组
-        } else if constexpr (std::is_same_v<T, std::shared_ptr<Document>>) {
-            return value->toJson();  // 递归调用 Document 的 to_json
-        } else {
-            return value; // 其他类型直接转换
-        }
-    }, value_);
+    return valuetoJson(value_);
 }
 
-Field& Field::fromJson(const std::string& type, const json& value) {
-    if (type == "int") {
-        value_ = value.get<int>();
-    } else if (type == "double") {
-        value_ = value.get<double>();
-    } else if (type == "string") {
-        value_ = value.get<std::string>();
-    } else if (type == "bool") {
-        value_ = value.get<bool>();
-    } else if (type == "date") {
-        value_ = stringToTimeT(value.get<std::string>());
-    } else if (type == "array") {
-        value_ = std::vector<uint8_t>(value.begin(), value.end());
-    } else if (type == "document") {
-        auto doc = std::make_shared<Document>();
-        doc->fromJson(value);
-        value_ = doc;
-    } else {
-        throw std::invalid_argument("Unknown type for default value");
-    }
+/*Field& Field::fromJson(const FieldType& type, const json& value) {
+    value_ = valuefromJson(type, value);
     return *this;
-}
+}*/
 
 Field& Field::fromJson(const json& value) {
-    // 根据 JSON 值的类型来自动推断和赋值
-    if (value.is_null()) {
-        value_ = std::monostate{};  // 处理空值
-    } else if (value.is_boolean()) {
-        value_ = value.get<bool>();
-    } else if (value.is_number_integer()) {
-        value_ = value.get<int>();
-    } else if (value.is_number_float()) {
-        value_ = value.get<double>();
-    } else if (value.is_string()) {
-        value_ = value.get<std::string>();
-    } else if (value.is_array()) {
-        value_ = std::vector<uint8_t>(value.begin(), value.end());
-    } else if (value.is_object()) {
-        auto doc = std::make_shared<Document>();
-        doc->fromJson(value);  // 假设 Document 的 fromJson 处理的是对象
-        value_ = doc;
-    } else {
-        throw std::invalid_argument("Unknown type for default value");
-    }
+    value_ = valuefromJson(value);
     return *this;
 }
 

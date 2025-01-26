@@ -6,11 +6,11 @@
 class Document {
 public:
     // 添加或更新字段
-    void setField(const std::string& fieldName, const Field& field) {
+    void setField(const std::string& fieldName, const std::shared_ptr<Field> field) {
         fields_[fieldName] = field;
     }
 
-	std::unordered_map<std::string, Field> getFields() const{
+	std::unordered_map<std::string, std::shared_ptr<Field>> getFields() const{
 		return fields_;
 	}
 
@@ -20,7 +20,7 @@ public:
     }
 
     // 获取字段
-    Field getField(const std::string& fieldName) const {
+    std::shared_ptr<Field> getField(const std::string& fieldName) const {
         auto it = fields_.find(fieldName);
         if (it != fields_.end()) {
             return it->second;
@@ -36,7 +36,7 @@ public:
     void fromJson(const json& j);
 
 private:
-	std::unordered_map<std::string, Field> fields_;
+	std::unordered_map<std::string, std::shared_ptr<Field>> fields_;
 };
 std::ostream& operator<<(std::ostream& os, const Document& doc);
 

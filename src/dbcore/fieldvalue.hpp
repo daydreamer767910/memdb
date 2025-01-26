@@ -17,7 +17,30 @@ template <typename T>
 struct always_false : std::false_type {};
 // 定义FieldValue，可以支持不同的数据类型，包括 Document
 using FieldValue = std::variant<std::monostate, int, double, bool, std::string, std::time_t, std::vector<uint8_t>, std::shared_ptr<Document>>;
-//using FieldValue = std::variant<std::monostate,int, double, bool, std::string, std::time_t, std::vector<uint8_t>>;
+enum class FieldType {
+    NONE,
+    INT,
+    DOUBLE,
+    BOOL,
+    STRING,
+    TIME,
+    BINARY,
+    DOCUMENT
+};
+
+// 定义输出运算符
+std::ostream& operator<<(std::ostream& os, const FieldType& type);
+FieldType typefromJson(const json& j);
+json typetoJson(const FieldType& type);
+std::string typetoString(const FieldType& type);
+FieldType typefromString(const std::string& typeStr);
+// 检查类型是否匹配
+bool typeMatches(const FieldValue& value, const FieldType& type);
+FieldValue getDefault(const FieldType& type);
+std::ostream& operator<<(std::ostream& os, const FieldValue& value);
+//FieldValue valuefromJson(const FieldType& type, const json& value);
+FieldValue valuefromJson(const json& value);
+json valuetoJson(const FieldValue& value);
 
 template <typename T>
 bool compare(const T& value, const FieldValue& queryValue, const std::string& op) {
