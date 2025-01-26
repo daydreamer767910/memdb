@@ -66,7 +66,7 @@ public:
     }
 
     // 验证整个文档是否符合 schema
-    void validateDocument(const std::shared_ptr<Document> document) const;
+    void validateDocument(const std::shared_ptr<Document> document, uint8_t depth = 0) const;
 
 private:
     // 存储字段名称及其对应的 schema

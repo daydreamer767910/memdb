@@ -6,9 +6,45 @@
 #include <iomanip>
 #include "util.hpp"
 
-/*
-| Message Length (4 bytes) | Message Type (4 bytes) | Payload Data (variable length) |
-*/
+static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+// 编码函数
+std::string encodeBase64(const std::vector<uint8_t>& data) {
+    std::string result;
+    int val = 0;
+    int valb = -6;
+    for (unsigned char c : data) {
+        val = (val << 8) + c;
+        valb += 8;
+        while (valb >= 0) {
+            result.push_back(base64_chars[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+    if (valb > -6) result.push_back(base64_chars[((val << 8) >> (valb + 8)) & 0x3F]);
+    while (result.size() % 4) result.push_back('=');
+    return result;
+}
+
+// 解码函数
+std::vector<uint8_t> decodeBase64(const std::string& encoded_string) {
+    std::vector<uint8_t> result;
+    std::vector<int> T(256, -1);
+    for (int i = 0; i < 64; i++) T[base64_chars[i]] = i;
+    int val = 0;
+    int valb = -8;
+    for (unsigned char c : encoded_string) {
+        if (T[c] == -1) break;
+        val = (val << 6) + T[c];
+        valb += 6;
+        if (valb >= 0) {
+            result.push_back((val >> valb) & 0xFF);
+            valb -= 8;
+        }
+    }
+    return result;
+}
+
 void print_packet(const uint8_t* packet, size_t length) {
     std::vector<unsigned char> packet_unsigned(packet, packet+length);
     print_packet(packet_unsigned);

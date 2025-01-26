@@ -121,6 +121,7 @@ void create_collection(std::string& name) {
             "title": {
                 "type": "string",
                 "constraints": {
+                    "depth": 3,
                     "required": true,
                     "unique": false,
                     "defaultValue": "Hello"
@@ -129,7 +130,17 @@ void create_collection(std::string& name) {
             "nested": {
                 "type": "document",
                 "constraints": {
-                    "required": false,
+                    "depth": 1,
+                    "required": true,
+                    "unique": true,
+                    "defaultValue": "Hello"
+                }
+            },
+            "details": {
+                "type": "document",
+                "constraints": {
+                    "depth": 2,
+                    "required": true,
                     "unique": true,
                     "defaultValue": "Hello"
                 }
@@ -190,6 +201,13 @@ void create_tbl(std::string& name) {
     });
 
     jsonCols.push_back({ 
+        {"name", "data"}, 
+        {"type", "binary"}, 
+        {"nullable", false},
+        //{"defaultValue", "xxxx"} 
+    });
+
+    jsonCols.push_back({ 
         {"name", "created_at"}, 
         {"type", "time"},
         {"indexed", true}
@@ -221,19 +239,22 @@ void show_tbl(std::string& name) {
     test(jsonConfig);
 }
 
+
 void insert_tbl(std::string& name) {
 //3.insert rows
     json jsonData;
     jsonData["action"] = "insert";
     jsonData["name"] = name;
     json jsonRows = json::array();
-
+    
     for (int i=0;i<50;i++) {
         json row;
         row["id"] = id;
         row["name"] = "test name" + std::to_string(id);
         row["age"] = 20+i%50;
         row["addr"] = "street " + std::to_string(id);
+        std::vector<uint8_t> binaryData = { 55, 20, 108, 2, 1, 100, 200, 22, 17, 84, 23, 9}; 
+        row["data"] = binaryData;
         jsonRows.push_back(row);
         id++;
     }

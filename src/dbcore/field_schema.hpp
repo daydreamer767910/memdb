@@ -14,13 +14,15 @@ public:
     struct Constraints {
         bool required;
         bool unique;
+		uint64_t depth;
         std::optional<FieldValue> defaultValue;
 
         // Default constructor
-        Constraints() : required(false), unique(false), defaultValue(std::nullopt) {};
+        Constraints() : required(false), unique(false), depth(0xffffffffffffffff), defaultValue(std::nullopt) {};
 		void fromJson(const json& j) {
             if (j.contains("required")) required = j.at("required").get<bool>();
             if (j.contains("unique")) unique = j.at("unique").get<bool>();
+			if (j.contains("depth")) depth = j.at("depth").get<uint64_t>();
             if (j.contains("defaultValue")) {
                 // Handle defaultValue parsing based on JSON data type
                 if (j.at("defaultValue").is_number_integer()) {
@@ -35,7 +37,7 @@ public:
             json j;
             j["required"] = required;
             j["unique"] = unique;
-
+			j["depth"] = depth;
             if (defaultValue.has_value()) {
                 // Convert the variant to JSON based on its actual type
                 if (std::holds_alternative<int>(*defaultValue)) {
@@ -88,22 +90,7 @@ public:
         return j;
     }
     // 验证字段值是否合法
-    bool validate(const FieldValue& value) const {
-        // 检查类型匹配
-        if (!typeMatches(value,type_)) {
-            std::cerr << "Field type mismatch, required type: " << type_ << std::endl;
-            return false;
-        }
-
-        // 如果字段是空值且必需字段未提供值，则不合法
-        if (std::holds_alternative<std::monostate>(value) && constraints_.required) {
-            std::cerr << "Required field is missing.\n";
-            return false;
-        }
-
-        // 其他约束可以扩展（如范围、正则表达式等）
-        return true;
-    }
+    bool validate(const FieldValue& value, uint8_t depth) const;
 
 private:
     

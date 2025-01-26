@@ -3,6 +3,7 @@
 set(DBCORE_SOURCES
     fieldvalue.cpp
     field.cpp
+    field_schema.cpp
     collection_schema.cpp
     document.cpp
     collection.cpp
