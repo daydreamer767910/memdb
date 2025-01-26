@@ -54,8 +54,7 @@ std::string Field::toBinary() const {
     return outStream.str();
 }
 
-
-Field& Field::fromBinary(const char* data, size_t size) {
+void Field::fromBinary(const char* data, size_t size) {
     std::istringstream inStream(std::string(data, size), std::ios::binary);
     uint8_t typeIndex;
     inStream.read(reinterpret_cast<char*>(&typeIndex), sizeof(typeIndex));
@@ -116,21 +115,26 @@ Field& Field::fromBinary(const char* data, size_t size) {
         default:
             throw std::runtime_error("Unknown type index in binary data");
     }
-	return *this;
 }
 
 json Field::toJson() const {
     return valuetoJson(value_);
 }
 
-/*Field& Field::fromJson(const FieldType& type, const json& value) {
-    value_ = valuefromJson(type, value);
-    return *this;
-}*/
-
-Field& Field::fromJson(const json& value) {
+void Field::fromJson(const json& value) {
     value_ = valuefromJson(value);
-    return *this;
 }
 
-
+bool Field::typeMatches(const FieldType& type) const{
+	switch (type) {
+        case FieldType::INT: return std::holds_alternative<int>(value_);
+        case FieldType::DOUBLE: return std::holds_alternative<double>(value_);
+        case FieldType::BOOL: return std::holds_alternative<bool>(value_);
+        case FieldType::STRING: return std::holds_alternative<std::string>(value_);
+        case FieldType::TIME: return std::holds_alternative<std::time_t>(value_);
+        case FieldType::BINARY: return std::holds_alternative<std::vector<uint8_t>>(value_);
+        case FieldType::DOCUMENT: return std::holds_alternative<std::shared_ptr<Document>>(value_);
+        case FieldType::NONE: return std::holds_alternative<std::monostate>(value_);
+        default: return false;
+    }
+}

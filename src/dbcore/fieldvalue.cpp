@@ -100,21 +100,6 @@ FieldType typefromString(const std::string& typeStr) {
 	else return FieldType::NONE;
 }
 
-// 检查类型是否匹配
-bool typeMatches(const FieldValue& value, const FieldType& type) {
-    switch (type) {
-        case FieldType::INT: return std::holds_alternative<int>(value);
-        case FieldType::DOUBLE: return std::holds_alternative<double>(value);
-        case FieldType::BOOL: return std::holds_alternative<bool>(value);
-        case FieldType::STRING: return std::holds_alternative<std::string>(value);
-        case FieldType::TIME: return std::holds_alternative<std::time_t>(value);
-        case FieldType::BINARY: return std::holds_alternative<std::vector<uint8_t>>(value);
-        case FieldType::DOCUMENT: return std::holds_alternative<std::shared_ptr<Document>>(value);
-        case FieldType::NONE: return std::holds_alternative<std::monostate>(value);
-        default: return false;
-    }
-}
-
 FieldValue getDefault(const FieldType& type) {
     if (type == FieldType::TIME) {
         return std::time(nullptr);

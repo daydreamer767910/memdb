@@ -1,7 +1,7 @@
 #ifndef Table_HPP
 #define Table_HPP
 #include "datacontainer.hpp"
-#include "column.hpp"
+
 #include "field.hpp"
 
 using Row = std::vector<Field>;
@@ -13,6 +13,15 @@ using PrimaryKeyIndex = std::unordered_map<Field, size_t, Field::Hash>;
 
 class Table: public DataContainer {
 public:
+    struct Column {
+        std::string name = "";
+        FieldType type = FieldType::NONE;
+        bool nullable = false;
+        FieldValue defaultValue = std::monostate{};;
+        bool primaryKey = false;
+        bool indexed = false;
+    };
+
     using ptr = std::shared_ptr<Table>;
 
     explicit Table(const std::string& name, const std::string& type) : DataContainer(name,type) {}
@@ -27,6 +36,9 @@ public:
     // Move constructor and move assignment operator (optional, if needed)
     Table(Table&&) = default;
     Table& operator=(Table&&) = default;
+
+    std::vector<Column> jsonToColumns(const json& jsonColumns);
+    json columnsToJson() const;
 
     // Methods related to rows and columns
     int insertRowsFromJson(const json& jsonRows);

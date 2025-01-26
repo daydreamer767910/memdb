@@ -7,7 +7,6 @@ set(DBCORE_SOURCES
     collection_schema.cpp
     document.cpp
     collection.cpp
-    column.cpp 
     table.cpp 
     database.cpp
 )

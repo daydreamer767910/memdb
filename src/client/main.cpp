@@ -255,6 +255,7 @@ void insert_tbl(std::string& name) {
         row["addr"] = "street " + std::to_string(id);
         std::vector<uint8_t> binaryData = { 55, 20, 108, 2, 1, 100, 200, 22, 17, 84, 23, 9}; 
         row["data"] = binaryData;
+        //row["created_at"] = "${2024-12-22 00:00:00}";
         jsonRows.push_back(row);
         id++;
     }
@@ -280,10 +281,10 @@ void get(std::string& name) {
 void update(std::string& name) {
     json jsonData;
     std::vector<std::string> columnNames = {"name", "age","created_at"};
-    std::vector<FieldValue> newValues = {std::string("wh"), 25,std::string("2025-01-18 19:16:30")};  // 新值
-    std::vector<std::string> conditions = {"age", "name", "created_at"};
-    std::vector<FieldValue> queryValues = {25, std::string("wh"),std::string("2025-01-19 19:16:30")};
-    std::vector<std::string> operators = {">=", "==",">"};
+    std::vector<FieldValue> newValues = {std::string("nobody"), 25,std::string("${2025-01-18 19:16:30}")};  // 新值
+    std::vector<std::string> conditions = {"age", "created_at"};
+    std::vector<FieldValue> queryValues = {25, std::string("${2025-01-19 19:16:30}")};
+    std::vector<std::string> operators = {">=", "<"};
     jsonData["action"] = "update";
     jsonData["name"] = name;
     jsonData["columns"] = columnNames;
@@ -308,8 +309,8 @@ void select(std::string& name) {
     json jsonData;
     std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};
     std::vector<std::string> conditions = {"age", "created_at"};
-    std::vector<FieldValue> queryValues = {40, std::string("2025-01-19 00:16:30")};
-    std::vector<std::string> operators = {">", ">"};
+    std::vector<FieldValue> queryValues = {25, std::string("${2025-01-19 00:16:30}")};
+    std::vector<std::string> operators = {"==", "<"};
     jsonData["action"] = "select";
     jsonData["name"] = name;
     jsonData["limit"] = 5000;
@@ -328,8 +329,8 @@ void select(std::string& name) {
 void remove(std::string& name) {
     json jsonData;
     std::vector<std::string> conditions = {"age", "created_at"};
-    std::vector<FieldValue> queryValues = {40, std::string("2025-01-19 00:16:30")};
-    std::vector<std::string> operators = {">", ">"};
+    std::vector<FieldValue> queryValues = {25, std::string("${2025-01-18 00:16:30}")};
+    std::vector<std::string> operators = {">=", ">="};
     jsonData["action"] = "delete";
     jsonData["name"] = name;
     jsonData["conditions"] = conditions;

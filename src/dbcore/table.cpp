@@ -1,6 +1,57 @@
 #include "table.hpp"
 #include "util/util.hpp"
 
+std::vector<Table::Column> Table::jsonToColumns(const json& jsonColumns) {
+    //std::cout << jsonColumns.dump(4) << std::endl;
+    std::vector<Column> columns = {};
+    for (const auto& col : jsonColumns["columns"]) {
+        FieldValue defaultValue;
+        FieldType type = typefromJson(col);
+        //std::cout << "type: " << type << std::endl;
+        if (col.contains("defaultValue") && !col["defaultValue"].is_null()) {
+            defaultValue = valuefromJson(col["defaultValue"]);
+            //std::cout << "defaultValue: " << defaultValue << std::endl;
+        } else {
+            defaultValue = getDefault(type); // 使用 DefaultValue 类生成默认值
+        }
+        //if (!typeMatches(defaultValue, type)) {
+        //    throw std::invalid_argument("type and default miss matched: " + typetoString(type));
+        //}
+        /*std::cout << "Processing column: " << col["name"] 
+            << ", type: " << col["type"] 
+            << ", default: " << defaultValue
+            << std::endl;*/
+        columns.push_back({
+            col["name"],
+            type,
+            col.value("nullable", false),
+            defaultValue,
+            col.value("primaryKey", false),
+            col.value("indexed", false)
+        });
+    }
+    return columns;
+}
+
+json Table::columnsToJson() const{
+    json jsonColumns = json::array();
+    for (const auto& column : columns_) {
+        json colJson = typetoJson(column.type);;
+        colJson["name"] = column.name;
+        colJson["nullable"] = column.nullable;
+        colJson["primaryKey"] = column.primaryKey;
+        colJson["indexed"] = column.indexed;
+        // 使用 FieldValueToJson 转换 defaultValue 为 JSON
+        if (column.defaultValue.index() != std::variant_npos) {
+            colJson["defaultValue"] = valuetoJson(column.defaultValue);
+        }
+
+        jsonColumns.push_back(colJson);
+    }
+
+    return jsonColumns;
+}
+
 void Table::fromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
     name_ = j.at("name").get<std::string>();
@@ -26,11 +77,11 @@ bool Table::validateRow(const Row& row) {
     }
     for (size_t i = 0; i < columns_.size(); ++i) {
         const auto& column = columns_[i];
-        const auto& value = row[i].getValue();
-        if (value.index() == 0 && !column.nullable) {
+        
+        if (row[i].is_null() && !column.nullable) {
             throw std::invalid_argument("Missing required FieldValue: " + column.name);
         }
-        if (!typeMatches(value, column.type)) {
+        if (!row[i].typeMatches(column.type)) {
             throw std::invalid_argument("Invalid type for FieldValue: " + column.name);
         }
     }
@@ -71,7 +122,7 @@ Row Table::processRowDefaults(const Row& row) const {
         // 检查 row 中是否有对应的字段，如果 row 中的列数不足，就插入默认值
         if (rowIndex < row.size()) {
             const auto& field = row[rowIndex];
-            if (typeMatches(field.getValue(), column.type)) {
+            if (field.typeMatches(column.type)) {
                 // 如果 row 中有值并且类型匹配，直接插入
                 newRow.push_back(field);
             } else {
@@ -102,7 +153,7 @@ Row Table::jsonToRow(const json& jsonRow) {
     Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
 
     // 遍历 JSON 对象的所有字段
-    for (const auto& [key, value] : jsonRow.items()) {
+    for (const auto& [key, j] : jsonRow.items()) {
         // 找到对应的列
         auto columnIt = std::find_if(columns_.begin(), columns_.end(), [&key](const Column& col) {
             return col.name == key;
@@ -110,8 +161,8 @@ Row Table::jsonToRow(const json& jsonRow) {
         
         if (columnIt != columns_.end()) {
             Field field;
-            field.fromJson(value);
-            if (!typeMatches(field.getValue(),columnIt->type)) {
+            field.fromJson(j);
+            if (!field.typeMatches(columnIt->type)) {
                 throw std::invalid_argument("type and value miss matched: " + typetoString(columnIt->type));
             }
             size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
@@ -134,14 +185,14 @@ std::vector<Row> Table::jsonToRows(const json& jsonRows) {
     for (const auto& jsonRow : jsonRows["rows"]) {
         Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
 
-        for (const auto& [key, value] : jsonRow.items()) {
+        for (const auto& [key, j] : jsonRow.items()) {
             // 查找列名对应的索引
             auto columnIt = columnNameToIndex.find(key);
             if (columnIt != columnNameToIndex.end()) {
                 size_t index = columnIt->second;  // 获取列的索引
                 Field field;
-                field.fromJson(value);// 使用索引填充行
-                if (!typeMatches(field.getValue(),columns_[index].type)) {
+                field.fromJson(j);// 使用索引填充行
+                if (!field.typeMatches(columns_[index].type)) {
                     throw std::invalid_argument("type and value miss matched: " + typetoString(columns_[index].type));
                 }
                 row[index] = field;  
@@ -168,15 +219,15 @@ int Table::insertRowsFromJson(const json& jsonRows) {
 
     for (const auto& jsonRow : jsonRows["rows"]) {
         Row row(columns_.size());  // 初始化一个 Row，大小为 columns_ 的大小
-        for (const auto& [key, value] : jsonRow.items()) {
+        for (const auto& [key, j] : jsonRow.items()) {
             auto columnIt = std::find_if(columns_.begin(), columns_.end(), [&key](const Column& col) {
                 return col.name == key;
             });
 
             if (columnIt != columns_.end()) {
                 Field field;
-                field.fromJson(value);
-                if (!typeMatches(field.getValue(),columnIt->type)) {
+                field.fromJson(j);
+                if (!field.typeMatches(columnIt->type)) {
                     throw std::invalid_argument("type and value miss matched: " + typetoString(columnIt->type));
                 }
                 size_t index = std::distance(columns_.begin(), columnIt);  // 获取列的索引
@@ -665,7 +716,7 @@ json Table::toJson() const{
     json jsonTable;
     jsonTable["name"] = name_;
     jsonTable["type"] = type_;
-    jsonTable["columns"] = columnsToJson(columns_); // 调用封装函数
+    jsonTable["columns"] = columnsToJson(); // 调用封装函数
     //jsonTable["rows"] = rowsToJson(rows_);          // 调用封装函数
     return jsonTable;
 }
@@ -684,7 +735,7 @@ void Table::saveSchema(const std::string& filePath) {
     json root;
     root["name"] = name_;
     root["type"] = "table";
-    root["columns"] = columnsToJson(columns_);
+    root["columns"] = columnsToJson();
 
     // 将 JSON 写入文件
     std::ofstream outputFile(filePath);

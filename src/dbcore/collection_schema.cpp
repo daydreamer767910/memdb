@@ -17,16 +17,16 @@ void CollectionSchema::validateDocument(const std::shared_ptr<Document> document
 		}
 
 		auto field = document->getFields().at(fieldName);
-		FieldValue value = field->getValue();
-
-		if (!schema.validate(value, depth)) {
-			std::cerr << "Invalid field: " << fieldName << " value: " << value << "\n";
+		
+		if (!schema.validate(*field, depth)) {
+			std::cerr << "Invalid field: " << fieldName << " value: " << *field << "\n";
 			throw std::invalid_argument("Invalid field: " + fieldName);
 			//return false;
 		}
 
 		if (schema.getType() == FieldType::DOCUMENT) {
 			// For DOCUMENT type, recursively validate nested fields
+			FieldValue value = field->getValue();
 			if (auto doc = std::get_if<std::shared_ptr<Document>>(&value)) {
 				validateDocument(*doc, depth+1);
 			} else {

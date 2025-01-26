@@ -103,7 +103,23 @@ std::string get_timestamp() {
     return ss.str();
 }
 
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <ctime>
+#include <algorithm>
+
 bool isDate(const std::string& dateStr) {
+    // 确保字符串以"${"开头并以"}"结尾
+    if (dateStr.size() < 4 || dateStr.substr(0, 2) != "${" || dateStr.back() != '}') {
+        return false; // 如果不符合格式，直接返回false
+    }
+
+    // 去除前后的"${"和"}"
+    std::string trimmedDate = dateStr.substr(2, dateStr.length() - 3);
+
     // 支持的时间格式
     std::vector<std::string> formats = {
         "%b %d %H:%M:%S %Y",
@@ -115,17 +131,28 @@ bool isDate(const std::string& dateStr) {
 
     // 尝试解析日期
     for (const auto& format : formats) {
-        std::istringstream stream(dateStr);
+        std::istringstream stream(trimmedDate);
         std::tm tm = {};
         stream >> std::get_time(&tm, format.c_str());
-        if (!stream.fail()) {
-            return true; // 成功解析
+
+        // 确保流没有发生错误并且已经完全读取完日期字符串
+        if (!stream.fail() && stream.eof()) {
+            return true; // 成功解析并且符合格式
         }
     }
     return false; // 全部格式解析失败
 }
 
 std::time_t stringToTimeT(const std::string& dateTimeStr) {
+    // 确保字符串以"${"开头并以"}"结尾
+    if (dateTimeStr.size() < 4 || dateTimeStr.substr(0, 2) != "${" || dateTimeStr.back() != '}') {
+        throw std::runtime_error("Invalid date format, must be enclosed in ${}.");
+    }
+
+    // 去除前后的"${"和"}"
+    std::string trimmedDate = dateTimeStr.substr(2, dateTimeStr.length() - 3);
+
+    // 支持的时间格式
     std::vector<std::string> formats = {
         "%b %d %H:%M:%S %Y",
         "%a %b %d %H:%M:%S %Y",
@@ -133,17 +160,18 @@ std::time_t stringToTimeT(const std::string& dateTimeStr) {
         "%m/%d/%Y %H:%M:%S",
         "%Y/%m/%d %H:%M:%S"
     };
-    
+
     std::tm tm = {};
     std::stringstream ss;
-    
+
+    // 尝试解析日期
     for (const auto& format : formats) {
-        ss.clear();  // Clear the error flag
-        ss.str(dateTimeStr);  // Reset stringstream with the current input string
-        
+        ss.clear();  // 清除错误标志
+        ss.str(trimmedDate);  // 重置字符串流为当前的输入字符串
+
         ss >> std::get_time(&tm, format.c_str());
         if (!ss.fail()) {
-            return std::mktime(&tm);  // Successfully parsed
+            return std::mktime(&tm);  // 成功解析
         }
     }
 

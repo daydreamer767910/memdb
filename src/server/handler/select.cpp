@@ -19,7 +19,7 @@ public:
 		for (size_t i = 0; i < qtypes.size(); ++i) {
 			Field field;
 			field.fromJson(task["qvalues"][i]);
-			if (typeMatches(field.getValue(),qtypes[i])) {
+			if (!field.typeMatches(qtypes[i])) {
 				throw std::invalid_argument("Mismatch type between types and values");
 			}
 			queryValues.push_back(field.getValue());

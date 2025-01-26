@@ -9,8 +9,7 @@
 #include <optional>
 #include <set>
 #include <fstream>
-#include <nlohmann/json.hpp>
-#include "util/util.hpp"
+
 #include "fieldvalue.hpp"
 
 class Field {
@@ -37,12 +36,18 @@ public:
         return value_ < other.value_;
     }
 
+	bool is_null() const{
+		return std::holds_alternative<std::monostate>(value_);
+	}
+
 	json toJson() const;
-	Field& fromJson(const json& value);
+	void fromJson(const json& value);
 	//Field& fromJson(const FieldType& type,const json& value);
 
-	Field& fromBinary(const char* data, size_t size);
+	void fromBinary(const char* data, size_t size);
 	std::string toBinary() const;
+
+	bool typeMatches(const FieldType& type) const;
 
 	struct Hash {
 		std::size_t operator()(const Field& field) const {

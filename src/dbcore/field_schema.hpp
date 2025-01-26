@@ -90,7 +90,7 @@ public:
         return j;
     }
     // 验证字段值是否合法
-    bool validate(const FieldValue& value, uint8_t depth) const;
+    bool validate(const Field& field, uint8_t depth) const;
 
 private:
     
