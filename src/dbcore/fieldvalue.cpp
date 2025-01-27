@@ -106,35 +106,7 @@ FieldValue getDefault(const FieldType& type) {
     }
     return std::monostate{};
 }
-/*
-FieldValue valuefromJson(const FieldType& type, const json& value) {
-    if (type == FieldType::INT) {
-        return value.get<int>();
-    } else if (type == FieldType::DOUBLE) {
-        return value.get<double>();
-    } else if (type == FieldType::STRING) {
-        return value.get<std::string>();
-    } else if (type == FieldType::BOOL) {
-        return value.get<bool>();
-    } else if (type == FieldType::TIME) {
-        return stringToTimeT(value.get<std::string>());
-    } else if (type == FieldType::BINARY) {
-		// 验证是否是字节数组
-        if (!value.is_array() || !std::all_of(value.begin(), value.end(), 
-				[](const json& elem) { 
-					return elem.is_number_unsigned();
-				})) {
-            throw std::invalid_argument("Invalid binary type for FieldValue");
-        }
-        return std::vector<uint8_t>(value.begin(), value.end());
-    } else if (type == FieldType::DOCUMENT) {
-        auto doc = std::make_shared<Document>();
-        doc->fromJson(value);
-        return doc;
-    } else {
-        throw std::invalid_argument("Unknown type for value");
-    }
-}*/
+
 
 FieldValue valuefromJson(const json& value) {
     // 根据 JSON 值的类型来自动推断和赋值

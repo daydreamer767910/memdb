@@ -37,32 +37,7 @@ public:
 
     // 获取默认配置
     json getDefault() const override {
-        json defaultJson;
-
-        for (const auto& [fieldName, fieldSchema] : fieldSchemas_) {
-            const auto& constraints = fieldSchema.getConstraints();
-            if (constraints.defaultValue.has_value()) {
-                // Populate the field with the default value
-                const auto& defaultValue = constraints.defaultValue.value();
-                if (std::holds_alternative<int>(defaultValue)) {
-                    defaultJson[fieldName] = std::get<int>(defaultValue);
-                } else if (std::holds_alternative<double>(defaultValue)) {
-                    defaultJson[fieldName] = std::get<double>(defaultValue);
-                } else if (std::holds_alternative<bool>(defaultValue)) {
-                    defaultJson[fieldName] = std::get<bool>(defaultValue);
-                } else if (std::holds_alternative<std::string>(defaultValue)) {
-                    defaultJson[fieldName] = std::get<std::string>(defaultValue);
-                } else if (std::holds_alternative<std::monostate>(defaultValue)) {
-                    defaultJson[fieldName] = nullptr;  // Explicitly set to null
-                }
-                // Add more cases for other FieldValue types as needed
-            } else if (constraints.required) {
-                // For required fields without default values, use a placeholder
-                defaultJson[fieldName] = nullptr;
-            }
-        }
-
-        return defaultJson;
+        return toJson();
     }
 
     // 验证整个文档是否符合 schema

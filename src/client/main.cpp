@@ -64,6 +64,7 @@ int test(const std::string jsonConfig) {
 
 void insert_collection(std::string& name) {
     std::string rawJson = R"([{
+        "id": 0,
         "title": "cmass",
         "version": 1,
         "nested": {
@@ -81,6 +82,7 @@ void insert_collection(std::string& name) {
         }
     },
     {
+        "id": 1,
         "title": "ou mass",
         "nested": {
             "title": "2 Document",
@@ -107,15 +109,34 @@ void insert_collection(std::string& name) {
 }
 
 void create_collection(std::string& name) {
+/*
+email限制:
+    ^[a-zA-Z0-9._%+-]+：用户名部分，可以包含字母、数字、点号、下划线和破折号
+    @[a-zA-Z0-9.-]+：@ 后的域名部分
+    \.[a-zA-Z]{2,}$：域名后缀，至少 2 个字母
+
+密码限制:
+    (?=.*[a-z])：至少一个小写字母
+    (?=.*[A-Z])：至少一个大写字母
+    (?=.*\d)：至少一个数字
+    (?=.*[@$!%*?&])：至少一个特殊字符
+    [A-Za-z\d@$!%*?&]{8,}：至少 8 个字符，且由这些字符组成
+
+电话限制:
+    ^\+?：可选的 +，表示国际电话
+    [1-9]\d{0,2}：国家代码（1-3 位数字）
+    [-\s]?：可选的破折号或空格
+    (\d{3}[-\s]?){2}：中间的 3 位区号和号码部分，可用空格或破折号分隔
+    \d{4}$：最后的 4 位号码
+*/
     // 原始 JSON 数据
     std::string rawJson = R"({
         "fields": {
             "id": {
                 "type": "int",
                 "constraints": {
-                    "required": false,
-                    "unique": true,
-                    "defaultValue": 100
+                    "required": true,
+                    "depth": 1
                 }
             },
             "title": {
@@ -123,26 +144,57 @@ void create_collection(std::string& name) {
                 "constraints": {
                     "depth": 3,
                     "required": true,
-                    "unique": false,
-                    "defaultValue": "Hello"
+                    "minLength": 5,
+                    "maxLength": 50
+                }
+            },
+            "email": {
+                "type": "string",
+                "constraints": {
+                    "required": false,
+                    "minLength": 5,
+                    "maxLength": 100,
+                    "regexPattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+                }
+            },
+            "phone": {
+                "type": "string",
+                "constraints": {
+                    "required": false,
+                    "minLength": 8,
+                    "maxLength": 16,
+                    "regexPattern": "^\\+?[1-9]\\d{0,2}[-\\s]?(\\d{3}[-\\s]?){2}\\d{4}$"
+                }
+            },
+            "password": {
+                "type": "string",
+                "constraints": {
+                    "required": false,
+                    "minLength": 8,
+                    "maxLength": 16,
+                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+                }
+            },
+            "age":{
+                "type": "int",
+                "constraints": {
+                    "required": false,
+                    "minValue": 1,
+                    "maxValue": 120
                 }
             },
             "nested": {
                 "type": "document",
                 "constraints": {
                     "depth": 1,
-                    "required": true,
-                    "unique": true,
-                    "defaultValue": "Hello"
+                    "required": true
                 }
             },
             "details": {
                 "type": "document",
                 "constraints": {
                     "depth": 2,
-                    "required": true,
-                    "unique": true,
-                    "defaultValue": "Hello"
+                    "required": true
                 }
             }
         }

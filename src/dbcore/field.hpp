@@ -18,6 +18,14 @@ public:
 
     Field(const FieldValue& value) : value_(value) {}
 
+	template <typename T>
+	T getValue() const{
+		if (std::holds_alternative<T>(value_)) {
+			return std::get<T>(value_);
+		}
+		throw std::bad_variant_access();
+	}
+
 	const FieldValue& getValue() const {
 		return value_;
 	}

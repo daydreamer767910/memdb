@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <variant>
+#include <regex>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -10,53 +11,21 @@
 
 class FieldSchema {
 public:
-    
     struct Constraints {
-        bool required;
-        bool unique;
-		uint64_t depth;
-        std::optional<FieldValue> defaultValue;
+		bool required = false;
+		uint64_t depth = 0xffffffffffffffff; // bits for depths, eg. 0x01 means depth 0 is effective
+		//std::optional<FieldValue> defaultValue = std::nullopt;
+		std::optional<int> minLength;              // 最小长度（字符串）
+		std::optional<int> maxLength;              // 最大长度（字符串）
+		std::optional<int> minValue;               // 最小值（数值）
+		std::optional<int> maxValue;               // 最大值（数值）
+		std::optional<std::string> regexPattern;    // 字符串格式限制
 
-        // Default constructor
-        Constraints() : required(false), unique(false), depth(0xffffffffffffffff), defaultValue(std::nullopt) {};
-		void fromJson(const json& j) {
-            if (j.contains("required")) required = j.at("required").get<bool>();
-            if (j.contains("unique")) unique = j.at("unique").get<bool>();
-			if (j.contains("depth")) depth = j.at("depth").get<uint64_t>();
-            if (j.contains("defaultValue")) {
-                // Handle defaultValue parsing based on JSON data type
-                if (j.at("defaultValue").is_number_integer()) {
-                    defaultValue = j.at("defaultValue").get<int>();
-                } else if (j.at("defaultValue").is_string()) {
-                    defaultValue = j.at("defaultValue").get<std::string>();
-                }
-                // Add more cases as needed for other FieldValue types
-            }
-        };
-		json toJson() const {
-            json j;
-            j["required"] = required;
-            j["unique"] = unique;
-			j["depth"] = depth;
-            if (defaultValue.has_value()) {
-                // Convert the variant to JSON based on its actual type
-                if (std::holds_alternative<int>(*defaultValue)) {
-                    j["defaultValue"] = std::get<int>(*defaultValue);
-                } else if (std::holds_alternative<double>(*defaultValue)) {
-                    j["defaultValue"] = std::get<double>(*defaultValue);
-                } else if (std::holds_alternative<bool>(*defaultValue)) {
-                    j["defaultValue"] = std::get<bool>(*defaultValue);
-                } else if (std::holds_alternative<std::string>(*defaultValue)) {
-                    j["defaultValue"] = std::get<std::string>(*defaultValue);
-                }
-                // Add more cases as needed for other FieldValue types
-            } else {
-                j["defaultValue"] = nullptr;
-            }
+		void fromJson(const json& j);
 
-            return j;
-        };
-    };
+		json toJson() const ;
+	};
+
 
 private:
     FieldType type_;
@@ -65,9 +34,6 @@ public:
 	
 	// Default constructor
     FieldSchema() : type_(FieldType::NONE) {}
-
-    FieldSchema(FieldType type, Constraints constraints = Constraints())
-        : type_(type), constraints_(constraints) {}
 
     // 获取字段类型
     FieldType getType() const { return type_; }
@@ -92,6 +58,4 @@ public:
     // 验证字段值是否合法
     bool validate(const Field& field, uint8_t depth) const;
 
-private:
-    
 };

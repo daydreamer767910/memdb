@@ -11,7 +11,7 @@ set(DBCORE_SOURCES
     database.cpp
 )
 # 定义核心功能的库
-add_library(dbcore STATIC ${DBCORE_SOURCES})
+add_library(dbcore SHARED ${DBCORE_SOURCES})
 
 # 如果有依赖其他模块，进行链接
 target_link_libraries(dbcore PUBLIC util -lstdc++fs)
