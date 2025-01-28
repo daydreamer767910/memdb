@@ -104,7 +104,7 @@ Query& Query::fromJson(const json& j) {
 			//std::cout << "condition: " << path << ":" << op << ":" << value;
             condition(path, value, op);
         }
-		std::cout << std::endl;
+		//std::cout << std::endl;
     }
     
     // 处理排序

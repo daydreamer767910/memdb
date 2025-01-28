@@ -62,6 +62,42 @@ int test(const std::string jsonConfig) {
     
 }
 
+void update_collection(std::string& name) {
+    // 示例 JSON
+    std::string json_str = R"({
+        "conditions": [
+            {
+                "path": "nested.details.age",
+                "op": ">",
+                "value": 25
+            },
+            {
+                "path": "nested.details.email",
+                "op": "regex",
+                "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            }
+        ]
+    })";
+    
+    // 解析 JSON
+    json jsonData = json::parse(json_str);
+    json updateFields = {
+        {"nested.details.author", "nobody"},
+        {"nested.details.age", 30},
+        {"nested.details.newone", "for test"}
+    };
+    jsonData["fields"] = updateFields;
+    jsonData["action"] = "update";
+    jsonData["name"] = name;
+
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
 void query_collection(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
@@ -83,7 +119,7 @@ void query_collection(std::string& name) {
         },
         "pagination": {
             "offset": 0,
-            "limit": 5
+            "limit": 10
         }
     })";
     
@@ -498,6 +534,8 @@ int main(int argc, char* argv[]) {
         select(param);
     } else if (command == "selectc") {
         query_collection(param);
+    } else if (command == "updatec") {
+        update_collection(param);
     } else if (command == "update") {
         update(param);
     } else if (command == "insertc") {

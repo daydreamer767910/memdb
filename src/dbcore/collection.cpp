@@ -51,16 +51,51 @@ void Collection::insertDocument(const DocumentId& id, const Document& doc) {
     documents_[id] = std::make_shared<Document>(doc);
 }
 
-// 更新文档
-bool Collection::updateDocument(const DocumentId& id, const Document& doc) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
+bool Collection::updateDocument(DocumentId id, const json& updateFields) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+
     auto it = documents_.find(id);
-    if (it != documents_.end()) {
-        it->second = std::make_shared<Document>(doc);
-        return true;
+    if (it == documents_.end()) {
+        return false; // 文档不存在
     }
-    return false;
+
+    auto doc = it->second; // 获取文档
+    for (auto it = updateFields.begin(); it != updateFields.end(); ++it) {
+        const FieldValue& value = valuefromJson(it.value());
+        auto field = std::make_shared<Field>();
+        field->setValue(value);
+        doc->setField(it.key(), field); // 更新,添加新字段
+    }
+
+    return true;
 }
+
+int Collection::updateFromJson(const json& j) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::vector<std::shared_ptr<Document>> input;
+    for (const auto& pair : documents_) {
+            input.push_back(pair.second);
+    }
+    // 执行查询，获取需要更新的文档
+    Query query;
+    query.fromJson(j);
+    auto matchedDocs = query.execute(input);
+    const json& updateFields = j["fields"];
+
+    int updatedCount = 0;
+    for (const auto& doc : matchedDocs) {
+        for (auto it = updateFields.begin(); it != updateFields.end(); ++it) {
+            const FieldValue& value = valuefromJson(it.value());
+            auto field = std::make_shared<Field>();
+            field->setValue(value);
+            doc->setFieldByPath(it.key(), field); // 更新,添加新字段
+        }
+        ++updatedCount;
+    }
+
+    return updatedCount;
+}
+
 
 // 删除文档
 bool Collection::deleteDocument(const DocumentId& id) {
@@ -85,7 +120,7 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
     std::vector<std::shared_ptr<Document>> input;
     for (const auto& pair : documents_) {
             input.push_back(pair.second);
-     }
+    }
     Query query;
     query.fromJson(j);
     

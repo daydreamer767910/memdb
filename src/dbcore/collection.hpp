@@ -10,6 +10,7 @@
 #include "datacontainer.hpp"
 #include "document.hpp"
 #include "collection_schema.hpp"
+#include "query.hpp"
 
 class Collection: public DataContainer {
 public:
@@ -31,8 +32,11 @@ public:
     // 添加一个文档
     void insertDocument(const DocumentId& id, const Document& doc);
 
-    // 更新一个文档（通过 ID）
-    bool updateDocument(const DocumentId& id, const Document& doc);
+    // 单文档更新
+    bool updateDocument(DocumentId id, const json& updateFields);
+
+    // 根据查询条件批量更新文档
+    int updateFromJson(const json& j);
 
     // 删除一个文档（通过 ID）
     bool deleteDocument(const DocumentId& id);

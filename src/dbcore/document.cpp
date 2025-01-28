@@ -82,6 +82,43 @@ std::shared_ptr<Field> Document::getField(const std::string& fieldName) const {
 	}
 }
 
+void Document::setFieldByPath(const std::string& path, const std::shared_ptr<Field> field) {
+    size_t pos = path.find('.');
+
+    if (pos == std::string::npos) {
+        // 如果路径没有嵌套，直接在顶层设置字段
+//std::cout << "finally: " << path << std::endl;
+        fields_[path] = field;
+    } else {
+        // 如果路径有嵌套，解析嵌套字段
+        std::string currentField = path.substr(0, pos);
+        std::string remainingPath = path.substr(pos + 1);
+//std::cout << "currentField: " << currentField << " remainingPath: " << remainingPath << std::endl;
+        auto it = fields_.find(currentField);
+        std::shared_ptr<Document> nestedDoc;
+
+        if (it != fields_.end()) {
+            // 如果字段已存在且是一个嵌套文档，获取该嵌套文档
+            if (it->second->getType() == FieldType::DOCUMENT) {
+                nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+            } else {
+                // 如果存在同名字段但不是文档，抛出异常或覆盖为文档
+                throw std::runtime_error("Field '" + currentField + "' is not a document");
+            }
+        }
+
+        if (!nestedDoc) {
+            // 如果嵌套文档不存在，创建一个新的嵌套文档
+            nestedDoc = std::make_shared<Document>();
+            fields_[currentField] = std::make_shared<Field>(nestedDoc);
+        }
+
+        // 在嵌套文档中递归设置字段
+        nestedDoc->setFieldByPath(remainingPath, field);
+    }
+}
+
+
 std::shared_ptr<Field> Document::getFieldByPath(const std::string& path) const {
     size_t pos = path.find('.');
 	//std::cout << "searching for path: " << path << "\n";
