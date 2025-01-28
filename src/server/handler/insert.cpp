@@ -7,7 +7,7 @@ public:
         auto container = db->getContainer(name);
         
         // 准备响应
-        response["response"] = "insert table success";
+        response["response"] = "insert container success";
         response["status"] = "200";
         
         if (container == nullptr) {

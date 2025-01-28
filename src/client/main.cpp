@@ -62,9 +62,48 @@ int test(const std::string jsonConfig) {
     
 }
 
+void query_collection(std::string& name) {
+    // 示例 JSON
+    std::string json_str = R"({
+        "conditions": [
+            {
+                "path": "nested.details.age",
+                "op": ">",
+                "value": 25
+            },
+            {
+                "path": "nested.details.email",
+                "op": "regex",
+                "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            }
+        ],
+        "sorting": {
+            "path": "nested.details.age",
+            "ascending": true
+        },
+        "pagination": {
+            "offset": 0,
+            "limit": 5
+        }
+    })";
+    
+    // 解析 JSON
+    json jsonData = json::parse(json_str);
+
+    jsonData["action"] = "select";
+    jsonData["name"] = name;
+
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
 void insert_collection(std::string& name) {
     std::string rawJson = R"([{
-        "id": 0,
+        "id": 3,
         "title": "cmass",
         "version": 1,
         "nested": {
@@ -73,6 +112,10 @@ void insert_collection(std::string& name) {
             "details": {
                 "created_at": "2025-01-24",
                 "author": "Emily Doe",
+                "age": 27,
+                "email": "xx@yy.zz",
+                "phone": "+10 123 456-7890",
+                "password": "Sb123456#",
                 "stats": {
                     "views": 1500,
                     "likes": 3005,
@@ -87,6 +130,8 @@ void insert_collection(std::string& name) {
         "nested": {
             "title": "2 Document",
             "details": {
+            "author": "Emily LEE",
+                "age": 26,
                 "stats": {
                     "views": 15000,
                     "shares": 750
@@ -119,7 +164,7 @@ email限制:
     (?=.*[a-z])：至少一个小写字母
     (?=.*[A-Z])：至少一个大写字母
     (?=.*\d)：至少一个数字
-    (?=.*[@$!%*?&])：至少一个特殊字符
+    (?=.*[#@$!%*?&])：至少一个特殊字符
     [A-Za-z\d@$!%*?&]{8,}：至少 8 个字符，且由这些字符组成
 
 电话限制:
@@ -172,7 +217,7 @@ email限制:
                     "required": false,
                     "minLength": 8,
                     "maxLength": 16,
-                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
                 }
             },
             "age":{
@@ -451,6 +496,8 @@ int main(int argc, char* argv[]) {
         remove(param);
     } else if (command == "select") {
         select(param);
+    } else if (command == "selectc") {
+        query_collection(param);
     } else if (command == "update") {
         update(param);
     } else if (command == "insertc") {

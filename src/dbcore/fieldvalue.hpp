@@ -7,6 +7,9 @@
 #include <variant>
 #include <optional>
 #include <stdexcept>
+#include <regex>
+#include <iostream>
+#include <memory>
 #include <set>
 #include <fstream>
 #include <nlohmann/json.hpp>

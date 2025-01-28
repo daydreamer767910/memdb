@@ -72,3 +72,33 @@ void Document::fromJson(const json& j) {
         }
     }
 }
+
+std::shared_ptr<Field> Document::getField(const std::string& fieldName) const {
+	auto it = fields_.find(fieldName);
+	if (it != fields_.end()) {
+		return it->second;
+	} else {
+		return nullptr;
+	}
+}
+
+std::shared_ptr<Field> Document::getFieldByPath(const std::string& path) const {
+    size_t pos = path.find('.');
+	//std::cout << "searching for path: " << path << "\n";
+    if (pos == std::string::npos) {
+        // 没有嵌套，直接返回顶层字段
+        return getField(path);
+    } else {
+        // 解析嵌套字段
+        std::string currentField = path.substr(0, pos);
+		//std::cout << "finding " << currentField << "\n";
+        auto it = fields_.find(currentField);
+        if (it != fields_.end() && it->second->getType() == FieldType::DOCUMENT) {
+            const auto& nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+            if (nestedDoc) {
+                return nestedDoc->getFieldByPath(path.substr(pos + 1));
+            }
+        }
+    }
+    return nullptr;
+}

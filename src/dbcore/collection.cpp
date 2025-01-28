@@ -1,5 +1,6 @@
 #include "collection.hpp"
 #include "util/util.hpp"
+#include "query.hpp"
 
 std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
     std::vector<std::string> insertedIds;
@@ -78,14 +79,17 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
 }
 
 // 查询文档
-std::vector<std::shared_ptr<Document>> Collection::queryDocuments(const std::function<bool(const Document&)>& predicate) const {
+std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
-    std::vector<std::shared_ptr<Document>> result;
-    for (const auto& [id, doc] : documents_) {
-        if (predicate(*doc)) {
-            result.push_back(doc);
-        }
-    }
+
+    std::vector<std::shared_ptr<Document>> input;
+    for (const auto& pair : documents_) {
+            input.push_back(pair.second);
+     }
+    Query query;
+    query.fromJson(j);
+    
+    auto result = query.execute(input);
     return result;
 }
 

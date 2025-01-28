@@ -57,6 +57,7 @@ public:
 
 	bool typeMatches(const FieldType& type) const;
 
+	FieldType getType() const;
 	struct Hash {
 		std::size_t operator()(const Field& field) const {
 			return std::visit([](const auto& value) -> std::size_t {

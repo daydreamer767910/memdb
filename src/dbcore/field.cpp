@@ -138,3 +138,29 @@ bool Field::typeMatches(const FieldType& type) const{
         default: return false;
     }
 }
+
+// 获取字段类型
+FieldType Field::getType() const {
+	return std::visit([](const auto& val) -> FieldType {
+		using T = std::decay_t<decltype(val)>;
+		if constexpr (std::is_same_v<T, std::monostate>) {
+			return FieldType::NONE;
+		} else if constexpr (std::is_same_v<T, int>) {
+			return FieldType::INT;
+		} else if constexpr (std::is_same_v<T, double>) {
+			return FieldType::DOUBLE;
+		} else if constexpr (std::is_same_v<T, bool>) {
+			return FieldType::BOOL;
+		} else if constexpr (std::is_same_v<T, std::string>) {
+			return FieldType::STRING;
+		} else if constexpr (std::is_same_v<T, std::time_t>) {
+			return FieldType::TIME;
+		} else if constexpr (std::is_same_v<T, std::vector<uint8_t>>) {
+			return FieldType::BINARY;
+		} else if constexpr (std::is_same_v<T, std::shared_ptr<Document>>) {
+			return FieldType::DOCUMENT;
+		} else {
+			static_assert(always_false<T>::value, "Unknown FieldValue type");
+		}
+	}, value_);
+}

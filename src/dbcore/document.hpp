@@ -20,15 +20,9 @@ public:
     }
 
     // 获取字段
-    std::shared_ptr<Field> getField(const std::string& fieldName) const {
-        auto it = fields_.find(fieldName);
-        if (it != fields_.end()) {
-            return it->second;
-        } else {
-            throw std::invalid_argument("Field not found: " + fieldName);
-        }
-    }
+    std::shared_ptr<Field> getField(const std::string& fieldName) const ;
 
+	std::shared_ptr<Field> getFieldByPath(const std::string& path) const ;
     
 	json toJson() const;
 	std::string toBinary() const;

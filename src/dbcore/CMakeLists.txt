@@ -6,6 +6,7 @@ set(DBCORE_SOURCES
     field_schema.cpp
     collection_schema.cpp
     document.cpp
+    query.cpp
     collection.cpp
     table.cpp 
     database.cpp

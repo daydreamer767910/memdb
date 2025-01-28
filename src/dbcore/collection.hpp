@@ -41,7 +41,7 @@ public:
     std::shared_ptr<Document> getDocument(const DocumentId& id) const;
 
     // 查询文档集合，支持过滤
-    std::vector<std::shared_ptr<Document>> queryDocuments(const std::function<bool(const Document&)>& predicate) const;
+    std::vector<std::shared_ptr<Document>> queryFromJson(const json& j) const;
 
     // 序列化和反序列化
     virtual json toJson() const override;
