@@ -72,36 +72,116 @@ bool Collection::updateDocument(DocumentId id, const json& updateFields) {
 
 int Collection::updateFromJson(const json& j) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    std::vector<std::shared_ptr<Document>> input;
-    for (const auto& pair : documents_) {
-            input.push_back(pair.second);
+    int updateCount = 0; // 更新的文档数
+
+    // Step 1: 检查是否有 "fields" 字段
+    if (!j.contains("fields")) {
+        throw std::invalid_argument("Update JSON must contain a 'fields' object with the fields to update.");
     }
     // 执行查询，获取需要更新的文档
     Query query;
     query.fromJson(j);
-    auto matchedDocs = query.execute(input);
-    const json& updateFields = j["fields"];
+    // Step 2: 解析 "fields" 字段
+    const json& fieldsToUpdate = j["fields"];
 
-    int updatedCount = 0;
-    for (const auto& doc : matchedDocs) {
-        for (auto it = updateFields.begin(); it != updateFields.end(); ++it) {
-            const FieldValue& value = valuefromJson(it.value());
-            auto field = std::make_shared<Field>();
-            field->setValue(value);
-            doc->setFieldByPath(it.key(), field); // 更新,添加新字段
+    // Step 3: 遍历文档并更新
+    if (j.contains("conditions")) {
+        for (auto& [docId, doc] : documents_) {
+            // 如果文档匹配条件
+            if (query.match(doc)) {
+                bool updated = false;
+
+                // 更新指定字段
+                for (auto it = fieldsToUpdate.begin(); it != fieldsToUpdate.end(); ++it) {
+                    const std::string& path = it.key();   // 字段路径
+                    const auto& value = valuefromJson(it.value());      // 字段新值
+
+                    auto field = doc->getFieldByPath(path);
+                    if (field) {
+                        // 如果字段已存在，更新值
+                        field->setValue(value);
+                    } else {
+                        // 如果字段不存在，则新增字段
+                        auto newField = std::make_shared<Field>(value);
+                        doc->setField(path, newField);
+                    }
+
+                    updated = true;
+                }
+
+                if (updated) {
+                    ++updateCount; // 计数已更新的文档
+                }
+            }
         }
-        ++updatedCount;
     }
 
-    return updatedCount;
+    return updateCount;
 }
-
 
 // 删除文档
 bool Collection::deleteDocument(const DocumentId& id) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     return documents_.erase(id) > 0;
 }
+
+int Collection::deleteFromJson(const json& j) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
+    int deleteCount = 0; // 删除的文档数
+    Query query;
+    query.fromJson(j);
+
+    // Step 1: 解析 "fields" 字段为集合
+    std::unordered_set<std::string> deleteFields;
+    if (j.contains("fields")) {
+        const json& fields = j["fields"];
+        for (const auto& path : fields) {
+            deleteFields.insert(path.get<std::string>());
+        }
+    }
+
+    // Step 2: 匹配文档并删除
+    if (j.contains("conditions")) {
+        for (auto it = documents_.begin(); it != documents_.end();) {
+            auto& doc = it->second;
+            bool hasDeletedField = false;
+
+            // 如果文档匹配查询条件
+            if (query.match(doc)) {
+                // 如果有指定字段进行删除
+                if (!deleteFields.empty()) {
+                    for (const auto& path : deleteFields) {
+                        if (doc->removeFieldByPath(path)) {
+                            hasDeletedField = true;
+                        } else {
+                            std::cerr << "Warning: Field " << path << " does not exist in document.\n";
+                        }
+                    }
+
+                    // 如果删除字段后，文档还有字段，则继续迭代
+                    if (hasDeletedField && !doc->getFields().empty()) {
+                        ++it; // 继续处理下一个文档
+                    } else if (hasDeletedField) {
+                        // 如果删除字段后，文档为空，就删除该文档
+                        it = documents_.erase(it);
+                        ++deleteCount;
+                    } else {
+                        ++it; // 如果没有字段被删除，继续迭代
+                    }
+                } else {
+                    // 没有指定 "fields"，删除整个文档
+                    it = documents_.erase(it);
+                    ++deleteCount;
+                }
+            } else {
+                ++it; // 如果没有匹配条件，继续迭代
+            }
+        }
+    }
+
+    return deleteCount;
+}
+
 
 // 获取文档
 std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
@@ -117,15 +197,51 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
 std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
-    std::vector<std::shared_ptr<Document>> input;
-    for (const auto& pair : documents_) {
-            input.push_back(pair.second);
-    }
     Query query;
     query.fromJson(j);
-    
-    auto result = query.execute(input);
-    return result;
+    std::vector<std::shared_ptr<Document>> results;
+    if (j.contains("conditions")) {
+        // 提前解析 fields 字段为集合
+        std::unordered_set<std::string> fieldsToProject;
+        bool hasProjection = j.contains("fields");
+        if (hasProjection) {
+            for (const auto& path : j["fields"]) {
+                fieldsToProject.insert(path.get<std::string>());
+            }
+        }
+        // 遍历文档集合
+        for (const auto& [docId, docPtr] : documents_) {
+            if (!query.match(docPtr)) {
+                continue;  // 不符合条件，跳过
+            }
+            if (hasProjection) {
+                // 投影字段逻辑
+                auto projectedDoc = std::make_shared<Document>();
+                for (const auto& path : fieldsToProject) {
+                    auto field = docPtr->getFieldByPath(path);
+                    if (field) {
+                        projectedDoc->setField(path, field);  // 设置投影字段
+                    } else {
+                        std::cerr << "Error: Field " << path << " does not exist in document " << docId << ".\n";
+                        throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
+                    }
+                }
+                results.push_back(projectedDoc);
+            } else {
+                // 返回整个文档
+                results.push_back(docPtr);
+            }
+        }
+    }
+
+    if (j.contains("sorting")) {
+        query.sort(results);
+    }
+    if (j.contains("pagination")) {
+        results = query.page(results);
+    }
+
+    return results;
 }
 
 json Collection::showDocs() const {

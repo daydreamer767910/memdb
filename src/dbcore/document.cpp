@@ -139,3 +139,27 @@ std::shared_ptr<Field> Document::getFieldByPath(const std::string& path) const {
     }
     return nullptr;
 }
+
+bool Document::removeFieldByPath(const std::string& path) {
+    size_t pos = path.find('.');
+    if (pos == std::string::npos) {
+        // 删除顶层字段
+        auto it = fields_.find(path);
+        if (it != fields_.end()) {
+            fields_.erase(it);
+            return true; // 删除成功
+        }
+        return false; // 字段不存在
+    } else {
+        // 解析嵌套字段
+        std::string currentField = path.substr(0, pos);
+        auto it = fields_.find(currentField);
+        if (it != fields_.end() && it->second->getType() == FieldType::DOCUMENT) {
+            auto nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+            if (nestedDoc) {
+                return nestedDoc->removeFieldByPath(path.substr(pos + 1));
+            }
+        }
+        return false; // 嵌套字段不存在
+    }
+}

@@ -24,6 +24,7 @@ public:
 
 	std::shared_ptr<Field> getFieldByPath(const std::string& path) const ;
 	void setFieldByPath(const std::string& path, const std::shared_ptr<Field> field);
+	bool removeFieldByPath(const std::string& path);
     
 	json toJson() const;
 	std::string toBinary() const;

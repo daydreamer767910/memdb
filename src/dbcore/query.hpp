@@ -23,8 +23,9 @@ public:
     Query& orderBy(const std::string& path, bool ascending = true);
     Query& limit(size_t maxResults);
     Query& offset(size_t startIndex);
-	Query& project(const std::vector<std::string>& fields);
-    std::vector<std::shared_ptr<Document>> execute(const std::vector<std::shared_ptr<Document>>& documents) const;
+    bool match(const std::shared_ptr<Document>& document);
+	void sort(std::vector<std::shared_ptr<Document>>& documents);
+	std::vector<std::shared_ptr<Document>> page(const std::vector<std::shared_ptr<Document>>& documents);
 	// 从 JSON 创建 Query 对象
     Query& fromJson(const json& j);
 private:
@@ -40,7 +41,6 @@ private:
     };
 
     std::vector<Condition> conditions;
-	std::vector<std::string> fieldsToProject;
     Sorting sorting;
     size_t maxResults = 0;
     size_t startIndex = 0;

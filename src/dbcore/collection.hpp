@@ -2,6 +2,7 @@
 #define COLLECTION_HPP
 #include <unordered_map>
 #include <string>
+#include <unordered_set>
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -40,6 +41,8 @@ public:
 
     // 删除一个文档（通过 ID）
     bool deleteDocument(const DocumentId& id);
+
+    int deleteFromJson(const json& j);
 
     // 根据 ID 获取文档
     std::shared_ptr<Document> getDocument(const DocumentId& id) const;

@@ -62,6 +62,32 @@ int test(const std::string jsonConfig) {
     
 }
 
+void delete_collection(std::string& name) {
+    // 示例 JSON
+    std::string json_str = R"({
+        "conditions": [
+            {
+                "path": "id",
+                "op": ">=",
+                "value": 1
+            }
+        ]
+    })";
+    
+    // 解析 JSON
+    json jsonData = json::parse(json_str);
+    //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
+    jsonData["action"] = "delete";
+    jsonData["name"] = name;
+
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
 void update_collection(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
@@ -120,7 +146,11 @@ void query_collection(std::string& name) {
         "pagination": {
             "offset": 0,
             "limit": 10
-        }
+        },
+        "fields": [
+            "nested.details.age",
+            "nested.details"
+        ]
     })";
     
     // 解析 JSON
@@ -128,7 +158,6 @@ void query_collection(std::string& name) {
 
     jsonData["action"] = "select";
     jsonData["name"] = name;
-
 
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
@@ -528,6 +557,8 @@ int main(int argc, char* argv[]) {
         show_tbl(param);
     } else if (command == "count") {
         count(param);
+    } else if (command == "deletec") {
+        delete_collection(param);
     } else if (command == "delete") {
         remove(param);
     } else if (command == "select") {

@@ -10,11 +10,6 @@ Query& Query::orderBy(const std::string& path, bool ascending) {
     return *this;
 }
 
-Query& Query::project(const std::vector<std::string>& fields) {
-    this->fieldsToProject = fields;
-    return *this;
-}
-
 // 限制返回结果数量
 Query& Query::limit(size_t maxResults) {
     this->maxResults = maxResults;
@@ -28,70 +23,80 @@ Query& Query::offset(size_t startIndex) {
 }
 
 // 执行查询
-std::vector<std::shared_ptr<Document>> Query::execute(const std::vector<std::shared_ptr<Document>>& documents) const {
-    std::vector<std::shared_ptr<Document>> results;
+bool Query::match(const std::shared_ptr<Document>& document) {
     // 条件匹配
-    for (const auto& doc : documents) {
-        bool match = true;
-        for (const auto& condition : conditions) {
-            // 获取字段值
-            auto field = doc->getFieldByPath(condition.path);
-            if (!field) {
-                match = false;
-                break;
-            }
-            const FieldValue& fieldValue = field->getValue();
+	bool match = true;
+	for (const auto& condition : conditions) {
+		// 获取字段值
+		auto field = document->getFieldByPath(condition.path);
+		if (!field) {
+			match = false;
+			break;
+		}
+		const FieldValue& fieldValue = field->getValue();
 
-            // 使用 std::visit 判断值是否匹配
-            match = std::visit([&](const auto& value) -> bool {
-                if (condition.op == "regex") {
-                    if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::string>) {
-                        std::regex regex(std::get<std::string>(condition.value));
-                        return std::regex_match(value, regex);
-                    }
-                    return false;  // 非字符串类型无法匹配正则
-                } else {
-                    return compare(value, condition.value, condition.op);
-                }
-            }, fieldValue);
+		// 使用 std::visit 判断值是否匹配
+		match = std::visit([&](const auto& value) -> bool {
+			if (condition.op == "regex") {
+				if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::string>) {
+					std::regex regex(std::get<std::string>(condition.value));
+					return std::regex_match(value, regex);
+				}
+				return false;  // 非字符串类型无法匹配正则
+			} else {
+				return compare(value, condition.value, condition.op);
+			}
+		}, fieldValue);
 
-            if (!match) break;
-        }
+		if (!match) break;
+	}
+    return match;
+}
 
-        // 如果匹配，处理投影字段
-        if (match) {
-            if (fieldsToProject.empty()) {
-                results.push_back(doc);  // 返回完整文档
-            } else {
-                auto projectedDoc = std::make_shared<Document>();
-                for (const auto& field : fieldsToProject) {
-                    auto it = doc->getFieldByPath(field);
-                    projectedDoc->setField(field,it);  // 投影指定字段
-                }
-                results.push_back(projectedDoc);
-            }
-        }
-    }
-    // 排序
-    if (!sorting.path.empty()) {
-        std::sort(results.begin(), results.end(), [&](const std::shared_ptr<Document>& a, const std::shared_ptr<Document>& b) {
-            const auto& va = a->getFieldByPath(sorting.path)->getValue();
-            const auto& vb = b->getFieldByPath(sorting.path)->getValue();
-            return sorting.ascending ? va < vb : va > vb;
-        });
-    }
-
-    // 分页
-    if (startIndex < results.size()) {
-        results = std::vector<std::shared_ptr<Document>>(results.begin() + startIndex, results.end());
+std::vector<std::shared_ptr<Document>> Query::page(const std::vector<std::shared_ptr<Document>>& documents) {
+	// 分页
+	std::vector<std::shared_ptr<Document>> results;
+    if (startIndex < documents.size()) {
+        results = std::vector<std::shared_ptr<Document>>(documents.begin() + startIndex, documents.end());
     }
     if (maxResults > 0 && results.size() > maxResults) {
         results.resize(maxResults);
     }
-
     return results;
 }
 
+void Query::sort(std::vector<std::shared_ptr<Document>>& documents) {
+    if (!sorting.path.empty()) {
+        // 缓存目标字段值，避免重复调用 getFieldByPath
+        std::vector<std::pair<std::shared_ptr<Document>, std::optional<FieldValue>>> cache;
+        for (const auto& doc : documents) {
+            auto field = doc->getFieldByPath(sorting.path);
+            if (field) {
+                cache.emplace_back(doc, field->getValue());
+            } else {
+                cache.emplace_back(doc, std::nullopt); // 无法找到字段
+            }
+        }
+
+        // 使用 std::stable_sort 保证排序稳定性
+        std::stable_sort(cache.begin(), cache.end(), [&](const auto& a, const auto& b) {
+            const auto& va = a.second;
+            const auto& vb = b.second;
+
+            // 如果某个字段不存在，优先排后面
+            if (!va) return sorting.ascending;
+            if (!vb) return !sorting.ascending;
+
+            // 比较值
+            return sorting.ascending ? (*va < *vb) : (*va > *vb);
+        });
+
+        // 重新排列 documents
+        for (size_t i = 0; i < cache.size(); ++i) {
+            documents[i] = cache[i].first;
+        }
+    }
+}
 
 // 从 JSON 创建 Query 对象
 Query& Query::fromJson(const json& j) {
