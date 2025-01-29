@@ -1,4 +1,4 @@
-#include "Query.hpp"
+#include "query.hpp"
 
 Query& Query::condition(const std::string& path, const FieldValue& value, const std::string& op) {
 	conditions.push_back({op, path, value});

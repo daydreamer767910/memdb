@@ -16,11 +16,11 @@ json FieldSchema::Constraints::toJson() const {
 	j["depth"] = depth;
 
 	// Serialize constraints
-	if (minLength.has_value()) j["minLength"] = minLength;
-	if (maxLength.has_value()) j["maxLength"] = maxLength;
-	if (minValue.has_value()) j["minValue"] = minValue;
-	if (maxValue.has_value()) j["maxValue"] = maxValue;
-	if (regexPattern.has_value()) j["regexPattern"] = regexPattern;
+	if (minLength.has_value()) j["minLength"] = minLength.value_or(0);
+	if (maxLength.has_value()) j["maxLength"] = maxLength.value_or(0);
+	if (minValue.has_value()) j["minValue"] = minValue.value_or(0);
+	if (maxValue.has_value()) j["maxValue"] = maxValue.value_or(0);
+	if (regexPattern.has_value()) j["regexPattern"] = regexPattern.value_or("");
 
 	return j;
 }
