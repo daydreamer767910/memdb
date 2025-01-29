@@ -23,12 +23,36 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 			io_.run();
 		});
 	}
-	/*timer_thread_ = std::thread([this]() {
-		std::cout << "DBService loop starting:" << std::this_thread::get_id() << std::endl;
-		io_.run();
-		save_db();
-		std::cout << "DBService saved and stop" << std::endl;
-	});*/
+	DataContainer::ptr container = db->addContainer("users", "collection");
+	json j = R"({
+	  "schema":{
+        "fields": {
+            "role": {
+                "type": "string",
+                "constraints": {
+                    "required": true,
+                    "depth": 1
+                }
+            },
+            "password": {
+                "type": "string",
+                "constraints": {
+                    "required": false,
+                    "minLength": 8,
+                    "maxLength": 16,
+                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
+                }
+            }
+        }
+	  }
+    })"_json;
+	container->fromJson(j);
+	Document document;
+	document.setFieldByPath(std::string("role"), Field(std::string("admin")));
+	document.setFieldByPath(std::string("password"), Field(std::string("admin")));
+	auto collection = std::dynamic_pointer_cast<Collection>(container);
+	collection->insertDocument("oumass", document);
+	
 }
 
 DBService::~DBService() {

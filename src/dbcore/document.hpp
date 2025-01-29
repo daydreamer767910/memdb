@@ -23,7 +23,7 @@ public:
     std::shared_ptr<Field> getField(const std::string& fieldName) const ;
 
 	std::shared_ptr<Field> getFieldByPath(const std::string& path) const ;
-	void setFieldByPath(const std::string& path, const std::shared_ptr<Field> field);
+	void setFieldByPath(const std::string& path, const Field& field);
 	bool removeFieldByPath(const std::string& path);
     
 	json toJson() const;

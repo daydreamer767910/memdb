@@ -37,7 +37,11 @@ public:
 
     // 获取默认配置
     json getDefault() const override {
-        return toJson();
+        return json{
+            {"fields", {
+                {"name", "string"}
+            }}
+        };
     }
 
     // 验证整个文档是否符合 schema

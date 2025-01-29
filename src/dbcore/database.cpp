@@ -2,6 +2,28 @@
 #include <filesystem>
 #include "database.hpp"
 
+DataContainer::ptr Database::addContainer(const std::string& name, const std::string& type) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = containers_.find(name);
+    if (it != containers_.end()) { // 如果已存在，直接返回
+        std::cerr << "Container [" << name << "] already exists\n";
+        return it->second;
+    }
+
+    // 创建 container
+    DataContainer::ptr container;
+    if (type == "table") {
+        container = std::make_shared<Table>(name, type);
+    } else if (type == "collection") {
+        container = std::make_shared<Collection>(name, type);
+    } else {
+        throw std::invalid_argument("Unknown container type: " + type);
+    }
+
+    // 插入 map 并返回
+    return containers_.emplace(name, container).first->second;
+}
+
 void Database::addContainer(const json& j) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::string type = "table";
@@ -13,18 +35,16 @@ void Database::addContainer(const json& j) {
     if (containers_.find(name) != containers_.end()) {
         throw std::invalid_argument("container " + name + " already exists.");
     }
-
+    DataContainer::ptr container;
     if (type == "table") {
-        auto table = std::make_shared<Table>(name,type);
-        table->fromJson(j);
-        containers_[name] = table;
+        container = std::make_shared<Table>(name,type);  
     } else if (type == "collection") {
-        auto collection = std::make_shared<Collection>(name,type);
-        collection->fromJson(j);
-        containers_[name] = collection;
+        container = std::make_shared<Collection>(name,type);
     } else {
         throw std::invalid_argument("Unknown container type");
     }
+    container->fromJson(j);
+    containers_.emplace(name, container);
 }
 
 void Database::addContainerFromSchema(const std::string& filePath) {
@@ -40,12 +60,6 @@ void Database::addContainerFromSchema(const std::string& filePath) {
     addContainer(j);
     inputFile.close();
 }
-
-// Retrieve a table by its name
-Table::ptr Database::getTable(const std::string& tableName) {
-    return std::dynamic_pointer_cast<Table>(getContainer(tableName));
-}
-
 
 // Get all container instances in the Database
 std::vector<DataContainer::ptr> Database::listContainers() const {

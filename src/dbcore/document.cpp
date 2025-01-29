@@ -82,13 +82,12 @@ std::shared_ptr<Field> Document::getField(const std::string& fieldName) const {
 	}
 }
 
-void Document::setFieldByPath(const std::string& path, const std::shared_ptr<Field> field) {
+void Document::setFieldByPath(const std::string& path, const Field& field) {
     size_t pos = path.find('.');
 
     if (pos == std::string::npos) {
         // 如果路径没有嵌套，直接在顶层设置字段
-//std::cout << "finally: " << path << std::endl;
-        fields_[path] = field;
+        fields_[path] = std::make_shared<Field>(field);
     } else {
         // 如果路径有嵌套，解析嵌套字段
         std::string currentField = path.substr(0, pos);

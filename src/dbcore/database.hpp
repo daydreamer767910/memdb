@@ -26,6 +26,8 @@ public:
         return instance;
     }
 
+    DataContainer::ptr addContainer(const std::string& name, const std::string& type);
+
     void addContainer(const json& j);
 
     DataContainer::ptr getContainer(const std::string& name) const {
@@ -39,7 +41,6 @@ public:
 
     void addContainerFromSchema(const std::string& filePath);
 
-    Table::ptr getTable(const std::string& tableName);
     // 删除容器
     void removeContainer(const std::string& name) {
         std::lock_guard<std::mutex> lock(mutex_);
