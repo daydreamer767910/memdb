@@ -50,6 +50,8 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	Document document;
 	document.setFieldByPath(std::string("role"), Field(std::string("admin")));
 	document.setFieldByPath(std::string("password"), Field(std::string("admin")));
+	document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
+	document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
 	auto collection = std::dynamic_pointer_cast<Collection>(container);
 	collection->insertDocument("oumass", document);
 	

@@ -33,3 +33,22 @@ void CollectionSchema::validateDocument(const std::shared_ptr<Document> document
 	}
 	//return true;
 }
+//指定路径验证field
+void CollectionSchema::validateField(const std::string& path, const Field& field) const {
+	uint8_t depth = static_cast<uint8_t>(std::count(path.begin(), path.end(), '.'));
+	size_t pos = path.find_last_of('.');
+	std::string fieldName;
+    if (pos == std::string::npos) {
+        fieldName = path;  // 没有 `.`，说明是顶层字段，直接返回整个路径
+    } else {
+		fieldName = path.substr(pos + 1);
+	}
+	
+	auto it = fieldSchemas_.find(fieldName);
+    if (it != fieldSchemas_.end()) {
+        if (!it->second.validate(field, depth)) {
+			std::cerr << "Invalid field: " << path << " value: " << field << "\n";
+			throw std::invalid_argument("Invalid field: " + path);
+		}
+    }
+}

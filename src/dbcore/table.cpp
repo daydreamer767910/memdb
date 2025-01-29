@@ -578,7 +578,7 @@ std::vector<std::vector<FieldValue>> Table::query(
         if (limit<0) break;
         std::vector<FieldValue> fieldValues;
         // 检查该行是否满足所有条件
-        for (auto columnName :columnNames) {
+        for (auto& columnName :columnNames) {
             size_t colIdx = getColumnIndex(columnName);
             fieldValues.push_back(rows_[rowIdx][colIdx].getValue());
         }

@@ -87,7 +87,8 @@ void Document::setFieldByPath(const std::string& path, const Field& field) {
 
     if (pos == std::string::npos) {
         // 如果路径没有嵌套，直接在顶层设置字段
-        fields_[path] = std::make_shared<Field>(field);
+		fields_.emplace(path,std::make_shared<Field>(field));
+        //fields_[path] = std::make_shared<Field>(field);
     } else {
         // 如果路径有嵌套，解析嵌套字段
         std::string currentField = path.substr(0, pos);

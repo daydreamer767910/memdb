@@ -61,58 +61,68 @@ bool Collection::updateDocument(DocumentId id, const json& updateFields) {
 
     auto doc = it->second; // 获取文档
     for (auto it = updateFields.begin(); it != updateFields.end(); ++it) {
-        const FieldValue& value = valuefromJson(it.value());
-        auto field = std::make_shared<Field>();
-        field->setValue(value);
-        doc->setField(it.key(), field); // 更新,添加新字段
+        auto& path = it.key();
+        auto newValue = valuefromJson(it.value());
+        //Field field = Field(valuefromJson(it.value()));
+        auto field = doc->getFieldByPath(path);
+        if (field) {
+            field->setValue(newValue);// 更新
+        } else {
+            doc->setFieldByPath(path, Field(newValue));//添加新字段
+        }
     }
 
     return true;
 }
 
 int Collection::updateFromJson(const json& j) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);
-    int updateCount = 0; // 更新的文档数
-
-    // Step 1: 检查是否有 "fields" 字段
     if (!j.contains("fields")) {
-        throw std::invalid_argument("Update JSON must contain a 'fields' object with the fields to update.");
+        throw std::invalid_argument("Update JSON must contain a 'fields' object.");
     }
-    // 执行查询，获取需要更新的文档
+
+    // 解析查询条件
     Query query;
     query.fromJson(j);
-    // Step 2: 解析 "fields" 字段
+
+    // **Step 1: 解析 "fields" 并校验合法性**
+    std::unordered_map<std::string, Field> parsedFields;
     const json& fieldsToUpdate = j["fields"];
+    for (auto it = fieldsToUpdate.begin(); it != fieldsToUpdate.end(); ++it) {
+        std::string path = it.key();
+        Field field = Field(valuefromJson(it.value()));
 
-    // Step 3: 遍历文档并更新
-    if (j.contains("conditions")) {
-        for (auto& [docId, doc] : documents_) {
-            // 如果文档匹配条件
-            if (query.match(doc)) {
-                bool updated = false;
+        schema_.validateField(path, field);
+        parsedFields.emplace(path, std::move(field));
+    }
 
-                // 更新指定字段
-                for (auto it = fieldsToUpdate.begin(); it != fieldsToUpdate.end(); ++it) {
-                    const std::string& path = it.key();   // 字段路径
-                    const auto& value = valuefromJson(it.value());      // 字段新值
+    std::vector<std::shared_ptr<Document>> matchedDocs;
 
-                    auto field = doc->getFieldByPath(path);
-                    if (field) {
-                        // 如果字段已存在，更新值
-                        field->setValue(value);
-                    } else {
-                        // 如果字段不存在，则新增字段
-                        auto newField = std::make_shared<Field>(value);
-                        doc->setField(path, newField);
-                    }
+    // **Step 2: 先筛选符合条件的文档**
+    for (auto& [docId, doc] : documents_) {
+        if (query.match(doc)) {
+            matchedDocs.push_back(doc);
+        }
+    }
 
-                    updated = true;
-                }
+    // **Step 3: 获取写锁，仅更新符合条件的文档**
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    int updateCount = 0;
 
-                if (updated) {
-                    ++updateCount; // 计数已更新的文档
-                }
+    for (auto& doc : matchedDocs) {
+        bool updated = false;
+
+        for (const auto& [path, newValue] : parsedFields) {
+            auto field = doc->getFieldByPath(path);
+            if (field) {
+                field->setValue(newValue.getValue());
+            } else {
+                doc->setFieldByPath(path, newValue);
             }
+            updated = true;
+        }
+
+        if (updated) {
+            ++updateCount;
         }
     }
 
@@ -220,7 +230,7 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
                 for (const auto& path : fieldsToProject) {
                     auto field = docPtr->getFieldByPath(path);
                     if (field) {
-                        projectedDoc->setField(path, field);  // 设置投影字段
+                        projectedDoc->setFieldByPath(path, *field);  // 设置投影字段
                     } else {
                         std::cerr << "Error: Field " << path << " does not exist in document " << docId << ".\n";
                         throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);

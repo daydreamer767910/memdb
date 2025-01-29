@@ -110,7 +110,7 @@ void update_collection(std::string& name) {
     json updateFields = {
         {"nested.details.author", "nobody"},
         {"nested.details.age", 30},
-        {"nested.details.newone", "for test"}
+        {"nested.details.email", "oumss@ou.mass"}
     };
     jsonData["fields"] = updateFields;
     jsonData["action"] = "update";
