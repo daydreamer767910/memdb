@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <random>
 #include "net/transportsrv.hpp"
 #include "log/logger.hpp"
 #include "util/util.hpp"
@@ -42,7 +43,7 @@ int test(const std::string jsonConfig) {
     
     // 读操作，支持超时
     char buffer[1024*500] = {};
-    ret = mdb_recv(buffer, sizeof(buffer) , 1000);
+    ret = mdb_recv(buffer, sizeof(buffer) , 3000);
     if (ret<0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         if (ret == -2) {
@@ -123,6 +124,45 @@ void update_collection(std::string& name) {
     // Test or use the generated JSON
     test(jsonConfig);
 }
+void get_collection(std::string& name) {
+    static int offset = 0;
+    int limit = 10; 
+    std::string json_str = R"({
+        "conditions": [
+            {
+                "path": "id",
+                "op": ">",
+                "value": 300
+            },
+            {
+                "path": "nested.details.created_at",
+                "op": ">=",
+                "value": "${2025-01-29 23:00:00}"
+            }
+        ],
+        "sorting": {
+            "path": "id",
+            "ascending": true
+        }
+    })";
+    
+    // 解析 JSON
+    json jsonData = json::parse(json_str);
+    // 添加分页信息
+    jsonData.emplace("pagination", json::object({
+        {"offset", offset},
+        {"limit", limit}
+    }));
+    offset += limit;
+    jsonData["action"] = "select";
+    jsonData["name"] = name;
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
 
 void query_collection(std::string& name) {
     // 示例 JSON
@@ -167,45 +207,41 @@ void query_collection(std::string& name) {
 }
 
 void insert_collection(std::string& name) {
-    std::string rawJson = R"([{
-        "id": 3,
-        "title": "cmass",
-        "version": 1,
-        "nested": {
-            "title": "1 Document",
-            "value": 43,
-            "details": {
-                "created_at": "2025-01-24",
-                "author": "Emily Doe",
-                "age": 27,
-                "email": "xx@yy.zz",
-                "phone": "+10 123 456-7890",
-                "password": "Sb123456#",
-                "stats": {
-                    "views": 1500,
-                    "likes": 3005,
-                    "shares": 750
-                }
-            }
-        }
-    },
-    {
-        "id": 1,
-        "title": "ou mass",
-        "nested": {
-            "title": "2 Document",
-            "details": {
-            "author": "Emily LEE",
-                "age": 26,
-                "stats": {
-                    "views": 15000,
-                    "shares": 750
-                }
-            }
-        }
-    }])";
     // 将字符串解析为 JSON 对象
-    json j = json::parse(rawJson);
+    //json j = json::parse(rawJson);
+    json j = json::array();
+    static int i = 0;
+    for (int k=0; k< 30; ++k) {
+        // 生成随机数
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(1000, 9999);  // 随机数范围
+        int randomValue = dis(gen);
+        i++;
+        j.push_back({
+            {"id", i},
+            {"title", "cmass"},
+            {"version", 1},
+            {"nested", {
+                {"title", "neseted Document " + std::to_string(i)},
+                {"value", randomValue*(i+3)},
+                {"details", {
+                    {"created_at", "${2025-01-29 23:00:00}"},
+                    {"author", "anybody " + std::to_string(i)},
+                    {"age", (i+20)%99},
+                    {"email", std::to_string(i) + "xx@yy.zz"},
+                    {"phone", "+10 123 456-" + std::to_string(randomValue)},
+                    {"password", "Sb123456#"},
+                    {"stats", {
+                        {"views", randomValue*i},
+                        {"likes", randomValue/(i+1)},
+                        {"shares", randomValue*(i+10)}
+                    }}
+                }}
+            }}
+        });
+    }
+    
     json jsonData;
     jsonData["action"] = "insert";
     jsonData["name"] = name;
@@ -429,7 +465,7 @@ void insert_tbl(std::string& name) {
 
 void get(std::string& name) {
     static int offset = 0;
-    int limit = 30;
+    int limit = 10;
     json jsonData;
     jsonData["action"] = "get";
     jsonData["name"] = name;
@@ -570,13 +606,21 @@ int main(int argc, char* argv[]) {
     } else if (command == "update") {
         update(param);
     } else if (command == "insertc") {
-        insert_collection(param);
+        while (!exiting) {
+            insert_collection(param);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
        //insert_collection(param);
+    } else if (command == "getc") {
+        while (!exiting) {
+            get_collection(param);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     } else if (command == "get") {
         while (!exiting) {
             get(param);

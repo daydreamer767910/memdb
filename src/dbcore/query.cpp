@@ -34,18 +34,22 @@ bool Query::match(const std::shared_ptr<Document>& document) {
 			break;
 		}
 		const FieldValue& fieldValue = field->getValue();
-
+        const FieldType& fieldType = field->getType();
+        if (Field(condition.value).getType() != fieldType) {
+            match = false;
+			break;
+        }
 		// 使用 std::visit 判断值是否匹配
 		match = std::visit([&](const auto& value) -> bool {
-			if (condition.op == "regex") {
+			/*if (condition.op == "regex") {//效率太低 不建议支持regex匹配
 				if constexpr (std::is_same_v<std::decay_t<decltype(value)>, std::string>) {
 					std::regex regex(std::get<std::string>(condition.value));
 					return std::regex_match(value, regex);
 				}
 				return false;  // 非字符串类型无法匹配正则
-			} else {
+			} else {*/
 				return compare(value, condition.value, condition.op);
-			}
+			//}
 		}, fieldValue);
 
 		if (!match) break;

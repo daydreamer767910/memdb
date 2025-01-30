@@ -15,8 +15,8 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
         //std::cout << "id: " << id << std::endl;
     for (const auto& jDoc : j["documents"]) {
         // 如果没有提供 ID，则生成唯一 ID
-        std::string docId = (jDoc.contains("id_") && jDoc["id_"].is_string()) ? 
-                            jDoc["id_"].get<std::string>(): 
+        std::string docId = (jDoc.contains("_id") && jDoc["_id"].is_string()) ? 
+                            jDoc["_id"].get<std::string>(): 
                             generateUniqueId();
 
         // 检查文档 ID 是否已存在
@@ -224,6 +224,8 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
             if (!query.match(docPtr)) {
                 continue;  // 不符合条件，跳过
             }
+            // **给 Document 添加 "_id" 字段**
+            docPtr->setFieldByPath("_id", Field(docId));
             if (hasProjection) {
                 // 投影字段逻辑
                 auto projectedDoc = std::make_shared<Document>();
@@ -236,6 +238,7 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
                         throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
                     }
                 }
+                projectedDoc->setFieldByPath("_id", Field(docId)); // **确保投影后仍包含 "_id"**
                 results.push_back(projectedDoc);
             } else {
                 // 返回整个文档
