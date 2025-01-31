@@ -14,12 +14,13 @@
 
 class Field {
 public:
-    Field() = default;
-
+	Field() = default;  // 添加默认构造函数
     Field(const FieldValue& value) : value_(value) {}
+    Field(FieldValue&& value) : value_(std::move(value)) {}
+
 
 	template <typename T>
-	T getValue() const{
+	const T& getValue() const& { // 对于左值，返回 const 引用
 		if (std::holds_alternative<T>(value_)) {
 			return std::get<T>(value_);
 		}

@@ -57,31 +57,37 @@ bool Query::match(const std::shared_ptr<Document>& document) {
     return match;
 }
 
-std::vector<std::shared_ptr<Document>> Query::page(const std::vector<std::shared_ptr<Document>>& documents) {
-	// 分页
-	std::vector<std::shared_ptr<Document>> results;
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::page(
+    const std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
+    // 分页
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
+    
+    // 根据 startIndex 获取分页结果
     if (startIndex < documents.size()) {
-        results = std::vector<std::shared_ptr<Document>>(documents.begin() + startIndex, documents.end());
+        results = std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>(
+            documents.begin() + startIndex, documents.end());
     }
+    
+    // 如果有最大结果限制，进行裁剪
     if (maxResults > 0 && results.size() > maxResults) {
         results.resize(maxResults);
     }
+
     return results;
 }
 
-void Query::sort(std::vector<std::shared_ptr<Document>>& documents) {
+void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
     if (!sorting.path.empty()) {
         // 缓存目标字段值，避免重复调用 getFieldByPath
-        std::vector<std::pair<std::shared_ptr<Document>, std::optional<FieldValue>>> cache;
-        for (const auto& doc : documents) {
-            auto field = doc->getFieldByPath(sorting.path);
+        std::vector<std::pair<std::pair<DocumentId, std::shared_ptr<Document>>, std::optional<FieldValue>>> cache;
+        for (const auto& docPair : documents) {
+            auto field = docPair.second->getFieldByPath(sorting.path);
             if (field) {
-                cache.emplace_back(doc, field->getValue());
+                cache.emplace_back(docPair, field->getValue());
             } else {
-                cache.emplace_back(doc, std::nullopt); // 无法找到字段
+                cache.emplace_back(docPair, std::nullopt); // 无法找到字段
             }
         }
-
         // 使用 std::stable_sort 保证排序稳定性
         std::stable_sort(cache.begin(), cache.end(), [&](const auto& a, const auto& b) {
             const auto& va = a.second;
@@ -97,10 +103,11 @@ void Query::sort(std::vector<std::shared_ptr<Document>>& documents) {
 
         // 重新排列 documents
         for (size_t i = 0; i < cache.size(); ++i) {
-            documents[i] = cache[i].first;
+            documents[i] = cache[i].first;  // 还原为原始的 DocumentId 和 shared_ptr
         }
     }
 }
+
 
 // 从 JSON 创建 Query 对象
 Query& Query::fromJson(const json& j) {

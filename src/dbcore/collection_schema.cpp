@@ -1,9 +1,9 @@
 #include "collection_schema.hpp"
 
 // 验证整个文档是否符合 schema
-void CollectionSchema::validateDocument(const std::shared_ptr<Document> document, uint8_t depth) const {
+void CollectionSchema::validateDocument(std::shared_ptr<const Document> document, uint8_t depth) const {
 	for (const auto& [fieldName, schema] : fieldSchemas_) {
-		auto field = document->getField(fieldName);
+		const Field* field = document->getField(fieldName);
 		if (field == nullptr) {
 			// 检查必需字段是否缺失
 			if (schema.getConstraints().required && 

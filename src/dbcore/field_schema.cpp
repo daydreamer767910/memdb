@@ -43,7 +43,7 @@ bool FieldSchema::validate(const Field& field, uint8_t depth) const {
         // 检查字段类型
         switch (type_) {
             case FieldType::STRING: {
-                auto value = field.getValue<std::string>();
+                const std::string& value = field.getValue<std::string>();
 				if (constraints_.minLength.has_value() && value.size() < constraints_.minLength.value()) {
 					throw std::invalid_argument("Field value is too short");
 				}

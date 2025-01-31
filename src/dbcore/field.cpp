@@ -15,7 +15,7 @@ std::size_t Field::hashDocumentPtr(const std::shared_ptr<Document>& doc) {
     std::size_t seed = 0;
     for (const auto& [name, field] : doc->getFields()) {
         seed ^= std::hash<std::string>{}(name) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed ^= Field::Hash{}(*field); // 对每个 Field 递归计算哈希
+        seed ^= Field::Hash{}(field); // 对每个 Field 递归计算哈希
     }
     return seed;
 }
@@ -85,7 +85,7 @@ void Field::fromBinary(const char* data, size_t size) {
             inStream.read(reinterpret_cast<char*>(&length), sizeof(length));
             std::string value(length, '\0');
             inStream.read(value.data(), length);
-            value_ = value;
+            value_ = std::move(value);
 			break;
         }
         case 5: { // std::time_t
@@ -99,7 +99,7 @@ void Field::fromBinary(const char* data, size_t size) {
             inStream.read(reinterpret_cast<char*>(&length), sizeof(length));
             std::vector<uint8_t> value(length);
             inStream.read(reinterpret_cast<char*>(value.data()), length);
-            value_ = value;
+            value_ = std::move(value);
 			break;
         }
 		case 7: { // std::shared_ptr<Document>
@@ -122,7 +122,7 @@ json Field::toJson() const {
 }
 
 void Field::fromJson(const json& value) {
-    value_ = valuefromJson(value);
+    value_ = std::move(valuefromJson(value));
 }
 
 bool Field::typeMatches(const FieldType& type) const{

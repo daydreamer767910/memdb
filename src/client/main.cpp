@@ -172,11 +172,6 @@ void query_collection(std::string& name) {
                 "path": "nested.details.age",
                 "op": ">",
                 "value": 25
-            },
-            {
-                "path": "nested.details.email",
-                "op": "regex",
-                "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             }
         ],
         "sorting": {

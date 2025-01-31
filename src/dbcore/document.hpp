@@ -3,14 +3,19 @@
 
 #include "field.hpp"
 
+using DocumentId = std::string;
 class Document {
 public:
     // 添加或更新字段
-    void setField(const std::string& fieldName, const std::shared_ptr<Field> field) {
+    void setField(const std::string& fieldName, const Field& field) {
         fields_[fieldName] = field;
     }
 
-	std::unordered_map<std::string, std::shared_ptr<Field>> getFields() const{
+    void setField(const std::string& fieldName, Field&& field) {
+        fields_[fieldName] = std::move(field); // 直接移动 Field
+    }
+
+	std::unordered_map<std::string, Field> getFields() const{
 		return fields_;
 	}
 
@@ -20,9 +25,9 @@ public:
     }
 
     // 获取字段
-    std::shared_ptr<Field> getField(const std::string& fieldName) const ;
-
-	std::shared_ptr<Field> getFieldByPath(const std::string& path) const ;
+    const Field* getField(const std::string& fieldName) const ;
+	
+	Field* getFieldByPath(const std::string& path) ;
 	// 添加新字段!!!不能更新
 	void setFieldByPath(const std::string& path, const Field& field);
 
@@ -34,7 +39,8 @@ public:
     void fromJson(const json& j);
 
 private:
-	std::unordered_map<std::string, std::shared_ptr<Field>> fields_;
+	Field* getField(const std::string& fieldName);
+	std::unordered_map<std::string, Field> fields_;
 };
 std::ostream& operator<<(std::ostream& os, const Document& doc);
 

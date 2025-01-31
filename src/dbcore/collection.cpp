@@ -204,12 +204,12 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
 }
 
 // 查询文档
-std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) const {
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryFromJson(const json& j) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     Query query;
     query.fromJson(j);
-    std::vector<std::shared_ptr<Document>> results;
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
     if (j.contains("conditions")) {
         // 提前解析 fields 字段为集合
         std::unordered_set<std::string> fieldsToProject;
@@ -224,8 +224,6 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
             if (!query.match(docPtr)) {
                 continue;  // 不符合条件，跳过
             }
-            // **给 Document 添加 "_id" 字段**
-            docPtr->setFieldByPath("_id", Field(docId));
             if (hasProjection) {
                 // 投影字段逻辑
                 auto projectedDoc = std::make_shared<Document>();
@@ -238,11 +236,10 @@ std::vector<std::shared_ptr<Document>> Collection::queryFromJson(const json& j) 
                         throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
                     }
                 }
-                projectedDoc->setFieldByPath("_id", Field(docId)); // **确保投影后仍包含 "_id"**
-                results.push_back(projectedDoc);
+                results.push_back({docId, projectedDoc});
             } else {
                 // 返回整个文档
-                results.push_back(docPtr);
+                results.push_back({docId, docPtr});
             }
         }
     }

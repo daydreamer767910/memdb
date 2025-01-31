@@ -24,8 +24,8 @@ public:
     Query& limit(size_t maxResults);
     Query& offset(size_t startIndex);
     bool match(const std::shared_ptr<Document>& document);
-	void sort(std::vector<std::shared_ptr<Document>>& documents);
-	std::vector<std::shared_ptr<Document>> page(const std::vector<std::shared_ptr<Document>>& documents);
+	void sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
+	std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> page(const std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
 	// 从 JSON 创建 Query 对象
     Query& fromJson(const json& j);
 private:

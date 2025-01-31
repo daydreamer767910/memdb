@@ -60,8 +60,8 @@ public:
                 }
                 auto results = collection->queryFromJson(task);
                 json j = json::array();
-                for (const auto& result : results) {
-                    j.push_back(result->toJson());
+                for (const auto& [docId, doc] : results) {
+                    j.push_back({docId,doc->toJson()});
                 }
                 response["results"] = j;
 				response["total"] = results.size();

@@ -15,7 +15,7 @@
 
 class Collection: public DataContainer {
 public:
-    using DocumentId = std::string;
+    
     explicit Collection(const std::string& name, const std::string& type) : DataContainer(name,type) {}
     //Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
@@ -52,7 +52,7 @@ public:
     std::shared_ptr<Document> getDocument(const DocumentId& id) const;
 
     // 查询文档集合，支持过滤
-    std::vector<std::shared_ptr<Document>> queryFromJson(const json& j) const;
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> queryFromJson(const json& j) const;
 
     // 序列化和反序列化
     virtual json toJson() const override;

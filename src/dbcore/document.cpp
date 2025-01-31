@@ -2,7 +2,7 @@
 
 std::ostream& operator<<(std::ostream& os, const Document& doc) {
 	for (const auto& [name, field] : doc.getFields()) {
-		os << "Field: " << name << " => " << *field << "\n";
+		os << "Field: " << name << " => " << field << "\n";
 	}
 	return os;
 }
@@ -11,7 +11,7 @@ json Document::toJson() const {
 	json jsonFields;
 	for (const auto& [key,field] : fields_) {
 		//std::cout << "key: " << key << " v: " << *field << std::endl;
-		jsonFields[key] = field->toJson();
+		jsonFields[key] = field.toJson();
 	}
 	return jsonFields;
 }
@@ -23,7 +23,7 @@ std::string Document::toBinary() const {
 		outStream.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength));
 		outStream.write(name.data(), nameLength); // 写入字段名称
 
-		std::string fieldBinaryData = field->toBinary();
+		std::string fieldBinaryData = field.toBinary();
 		size_t fieldSize = fieldBinaryData.size();
 		outStream.write(reinterpret_cast<const char*>(&fieldSize), sizeof(fieldSize));
 		outStream.write(fieldBinaryData.data(), fieldSize);
@@ -32,39 +32,45 @@ std::string Document::toBinary() const {
 }
 
 void Document::fromBinary(const char* data, size_t size) {
-	std::istringstream inStream(std::string(data, size), std::ios::binary);
-	while (inStream.peek() != EOF) {
-		size_t nameLength;
-		inStream.read(reinterpret_cast<char*>(&nameLength), sizeof(nameLength));
+    std::istringstream inStream(std::string(data, size), std::ios::binary);
 
-		std::string name(nameLength, '\0');
-		inStream.read(&name[0], nameLength); // 读取字段名称
+    // 缓冲区用于存储字段名称和数据
+    size_t nameLength, fieldSize;
+    std::string name, fieldData;
 
-		size_t fieldSize;
-		inStream.read(reinterpret_cast<char*>(&fieldSize), sizeof(fieldSize));
+    while (inStream.peek() != EOF) {
+        // 读取字段名称的长度并直接在缓冲区中分配空间
+        inStream.read(reinterpret_cast<char*>(&nameLength), sizeof(nameLength));
+        name.resize(nameLength);
+        inStream.read(&name[0], nameLength); // 读取字段名称
 
-		std::string fieldData(fieldSize, '\0');
-		inStream.read(&fieldData[0], fieldSize); // 读取字段数据
+        // 读取字段数据的长度并在缓冲区中分配空间
+        inStream.read(reinterpret_cast<char*>(&fieldSize), sizeof(fieldSize));
+        fieldData.resize(fieldSize);
+        inStream.read(&fieldData[0], fieldSize); // 读取字段数据
 
-		auto field = std::make_shared<Field>();
-		field->fromBinary(fieldData.c_str(), fieldSize); // 使用 fromBinary 恢复字段数据
+        // 通过二进制数据恢复字段内容
+        Field field;
+        field.fromBinary(fieldData.c_str(), fieldSize);
 
-		fields_[name] = field; // 将恢复的字段添加到 fields_
-	}
+        // 将字段添加到文档的 fields_ 中
+        fields_[name] = std::move(field); // 使用 move 避免不必要的拷贝
+    }
 }
 
 void Document::fromJson(const json& j) {
     for (const auto& [key, val] : j.items()) {
+        // 如果字段已存在，跳过插入
+        auto insert_result = fields_.insert({key, Field{}});
+        if (!insert_result.second) {
+            std::cerr << "Error processing key: " << key << " with value: " << val
+                      << ". Error: Duplicate field key." << std::endl;
+            throw std::invalid_argument("Duplicate field key: " + key);
+        }
+
+        // 对新插入的字段进行处理
         try {
-            //std::cout << "Processing key: " << key << " value: " << val << std::endl;
-
-            if (fields_.find(key) != fields_.end()) {
-                throw std::invalid_argument("Duplicate field key: " + key);
-            }
-
-            auto field = std::make_shared<Field>();
-            field->fromJson(val);
-            fields_.emplace(key, field);
+            insert_result.first->second.fromJson(val);
         } catch (const std::exception& e) {
             std::cerr << "Error processing key: " << key << " with value: " << val
                       << ". Error: " << e.what() << std::endl;
@@ -73,13 +79,21 @@ void Document::fromJson(const json& j) {
     }
 }
 
-std::shared_ptr<Field> Document::getField(const std::string& fieldName) const {
+const Field* Document::getField(const std::string& fieldName) const {
 	auto it = fields_.find(fieldName);
 	if (it != fields_.end()) {
-		return it->second;
+		return &(it->second);
 	} else {
 		return nullptr;
 	}
+}
+
+Field* Document::getField(const std::string& fieldName) {
+    auto it = fields_.find(fieldName);
+    if (it != fields_.end()) {
+        return &(it->second);
+    }
+    return nullptr;
 }
 
 void Document::setFieldByPath(const std::string& path, const Field& field) {
@@ -87,7 +101,7 @@ void Document::setFieldByPath(const std::string& path, const Field& field) {
 
     if (pos == std::string::npos) {
         // 如果路径没有嵌套，直接在顶层设置字段
-		fields_.emplace(path,std::make_shared<Field>(field));
+		fields_.emplace(path,field);
         //fields_[path] = std::make_shared<Field>(field);
     } else {
         // 如果路径有嵌套，解析嵌套字段
@@ -99,8 +113,8 @@ void Document::setFieldByPath(const std::string& path, const Field& field) {
 
         if (it != fields_.end()) {
             // 如果字段已存在且是一个嵌套文档，获取该嵌套文档
-            if (it->second->getType() == FieldType::DOCUMENT) {
-                nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+            if (it->second.getType() == FieldType::DOCUMENT) {
+                nestedDoc = std::get<std::shared_ptr<Document>>(it->second.getValue());
             } else {
                 // 如果存在同名字段但不是文档，抛出异常或覆盖为文档
                 throw std::runtime_error("Field '" + currentField + "' is not a document");
@@ -110,7 +124,7 @@ void Document::setFieldByPath(const std::string& path, const Field& field) {
         if (!nestedDoc) {
             // 如果嵌套文档不存在，创建一个新的嵌套文档
             nestedDoc = std::make_shared<Document>();
-            fields_[currentField] = std::make_shared<Field>(nestedDoc);
+            fields_[currentField] = Field(nestedDoc);
         }
 
         // 在嵌套文档中递归设置字段
@@ -119,7 +133,7 @@ void Document::setFieldByPath(const std::string& path, const Field& field) {
 }
 
 
-std::shared_ptr<Field> Document::getFieldByPath(const std::string& path) const {
+Field* Document::getFieldByPath(const std::string& path) {
     size_t pos = path.find('.');
 	//std::cout << "searching for path: " << path << "\n";
     if (pos == std::string::npos) {
@@ -130,8 +144,8 @@ std::shared_ptr<Field> Document::getFieldByPath(const std::string& path) const {
         std::string currentField = path.substr(0, pos);
 		//std::cout << "finding " << currentField << "\n";
         auto it = fields_.find(currentField);
-        if (it != fields_.end() && it->second->getType() == FieldType::DOCUMENT) {
-            const auto& nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+        if (it != fields_.end() && it->second.getType() == FieldType::DOCUMENT) {
+            const auto& nestedDoc = std::get<std::shared_ptr<Document>>(it->second.getValue());
             if (nestedDoc) {
                 return nestedDoc->getFieldByPath(path.substr(pos + 1));
             }
@@ -154,8 +168,8 @@ bool Document::removeFieldByPath(const std::string& path) {
         // 解析嵌套字段
         std::string currentField = path.substr(0, pos);
         auto it = fields_.find(currentField);
-        if (it != fields_.end() && it->second->getType() == FieldType::DOCUMENT) {
-            auto nestedDoc = std::get<std::shared_ptr<Document>>(it->second->getValue());
+        if (it != fields_.end() && it->second.getType() == FieldType::DOCUMENT) {
+            auto nestedDoc = std::get<std::shared_ptr<Document>>(it->second.getValue());
             if (nestedDoc) {
                 return nestedDoc->removeFieldByPath(path.substr(pos + 1));
             }
