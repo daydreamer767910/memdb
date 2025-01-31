@@ -57,23 +57,21 @@ bool Query::match(const std::shared_ptr<Document>& document) {
     return match;
 }
 
-std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::page(
-    const std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
-    // 分页
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
-    
-    // 根据 startIndex 获取分页结果
-    if (startIndex < documents.size()) {
-        results = std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>(
-            documents.begin() + startIndex, documents.end());
-    }
-    
-    // 如果有最大结果限制，进行裁剪
-    if (maxResults > 0 && results.size() > maxResults) {
-        results.resize(maxResults);
+void Query::page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
+    // 如果 startIndex 超过文档数量，则清空
+    if (startIndex >= documents.size()) {
+        documents.clear();
+        return;
     }
 
-    return results;
+    // 截取分页部分
+    documents = std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>(
+        documents.begin() + startIndex, documents.end());
+
+    // 如果有最大结果限制，进行裁剪
+    if (maxResults > 0 && documents.size() > maxResults) {
+        documents.resize(maxResults);
+    }
 }
 
 void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
@@ -105,9 +103,9 @@ void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& 
         for (size_t i = 0; i < cache.size(); ++i) {
             documents[i] = cache[i].first;  // 还原为原始的 DocumentId 和 shared_ptr
         }
+        cache.clear();
     }
 }
-
 
 // 从 JSON 创建 Query 对象
 Query& Query::fromJson(const json& j) {

@@ -241,14 +241,16 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
                 // 返回整个文档
                 results.push_back({docId, docPtr});
             }
+            
         }
     }
 
     if (j.contains("sorting")) {
         query.sort(results);
     }
+
     if (j.contains("pagination")) {
-        results = query.page(results);
+        query.page(results);
     }
 
     return results;
