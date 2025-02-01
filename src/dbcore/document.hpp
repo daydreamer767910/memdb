@@ -1,9 +1,11 @@
 #ifndef DOCUMENT_HPP
 #define DOCUMENT_HPP
-
+#include <unordered_set>
 #include "field.hpp"
 
 using DocumentId = std::string;
+using DocumentFields = std::unordered_map<std::string, Field>;
+
 class Document {
 public:
     // 添加或更新字段
@@ -15,7 +17,7 @@ public:
         fields_[fieldName] = std::move(field); // 直接移动 Field
     }
 
-	std::unordered_map<std::string, Field> getFields() const{
+	const DocumentFields& getFields() const{
 		return fields_;
 	}
 
@@ -33,15 +35,27 @@ public:
 
 	bool removeFieldByPath(const std::string& path);
     
-	json toJson() const;
+	virtual json toJson() const;
 	std::string toBinary() const;
     void fromBinary(const char* data, size_t size);
     void fromJson(const json& j);
 
 private:
 	Field* getField(const std::string& fieldName);
-	std::unordered_map<std::string, Field> fields_;
+	DocumentFields fields_;
 };
+
 std::ostream& operator<<(std::ostream& os, const Document& doc);
+
+class ProjectionDocument:public Document {
+public:
+    ProjectionDocument(const std::shared_ptr<Document>& sourceDoc,
+                       const std::unordered_set<std::string>& fieldsToProject);
+
+    virtual json toJson() const;
+private:
+    // 使用 std::weak_ptr 来避免循环引用
+    std::unordered_map<std::string, std::shared_ptr<const Field>> fields_;
+};
 
 #endif

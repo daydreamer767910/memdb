@@ -1,7 +1,7 @@
 #include "query.hpp"
 
 Query& Query::condition(const std::string& path, const FieldValue& value, const std::string& op) {
-	conditions.push_back({op, path, value});
+	conditions.push_back({op, path, value, Field(value).getType()});
     return *this;
 }
 // 排序方法
@@ -34,8 +34,8 @@ bool Query::match(const std::shared_ptr<Document>& document) {
 			break;
 		}
 		const FieldValue& fieldValue = field->getValue();
-        const FieldType& fieldType = field->getType();
-        if (Field(condition.value).getType() != fieldType) {
+
+        if (condition.type != field->getType()) {
             match = false;
 			break;
         }
@@ -64,9 +64,8 @@ void Query::page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& 
         return;
     }
 
-    // 截取分页部分
-    documents = std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>(
-        documents.begin() + startIndex, documents.end());
+    // 截取分页部分（不需要创建新 vector，直接调整原始 vector）
+    documents.erase(documents.begin(), documents.begin() + startIndex);
 
     // 如果有最大结果限制，进行裁剪
     if (maxResults > 0 && documents.size() > maxResults) {

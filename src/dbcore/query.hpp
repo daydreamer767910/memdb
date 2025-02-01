@@ -33,6 +33,7 @@ private:
         std::string op;
         std::string path;
         FieldValue value;
+        FieldType type;
     };
 
     struct Sorting {

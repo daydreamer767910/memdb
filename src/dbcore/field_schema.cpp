@@ -7,7 +7,11 @@ void FieldSchema::Constraints::fromJson(const json& j) {
 	if (j.contains("maxLength")) maxLength = j.at("maxLength").get<int>();
 	if (j.contains("minValue")) minValue = j.at("minValue").get<int>();
 	if (j.contains("maxValue")) maxValue = j.at("maxValue").get<int>();
-	if (j.contains("regexPattern")) regexPattern = j.at("regexPattern").get<std::string>();
+	if (j.contains("regexPattern")) {
+		regexPattern = j.at("regexPattern").get<std::string>();
+		// 每次从 JSON 加载新的正则时，重新编译并缓存
+		cachedRegex = std::make_shared<std::regex>(regexPattern.value());
+	}
 }
 
 json FieldSchema::Constraints::toJson() const {
@@ -55,7 +59,8 @@ bool FieldSchema::validate(const Field& field, uint8_t depth) const {
 
 				// 检查正则表达式模式
 				if (constraints_.regexPattern.has_value()) {
-					auto regex = std::regex(constraints_.regexPattern.value());
+					// 使用缓存的正则表达式
+                    auto& regex = *constraints_.cachedRegex;
 					if (!std::regex_match(value, regex)) {
 						throw std::invalid_argument("Field value does not match the required pattern: " + value);
 					}

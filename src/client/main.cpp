@@ -128,12 +128,14 @@ void get_collection(std::string& name) {
                 "path": "id",
                 "op": ">",
                 "value": 300
-            },
-            {
-                "path": "nested.details.created_at",
-                "op": ">=",
-                "value": "${2025-01-29 23:00:00}"
             }
+        ],
+        "sorting": {
+            "path": "id",
+            "ascending": true
+        },
+        "fields": [
+            "nested.details"
         ]
     })";
     
@@ -196,32 +198,31 @@ void insert_collection(std::string& name) {
     // 将字符串解析为 JSON 对象
     //json j = json::parse(rawJson);
     json j = json::array();
-    static int i = 0;
     for (int k=0; k< 30; ++k) {
         // 生成随机数
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(1000, 9999);  // 随机数范围
         int randomValue = dis(gen);
-        i++;
+
         j.push_back({
-            {"id", i},
+            {"id", id++},
             {"title", "cmass"},
             {"version", 1},
             {"nested", {
-                {"title", "neseted Document " + std::to_string(i)},
-                {"value", randomValue*(i+3)},
+                {"title", "neseted Document " + std::to_string(id)},
+                {"value", randomValue*(id+3)},
                 {"details", {
-                    {"created_at", "${2025-01-29 23:00:00}"},
-                    {"author", "anybody " + std::to_string(i)},
-                    {"age", (i+20)%99},
-                    {"email", std::to_string(i) + "xx@yy.zz"},
+                    {"created_at", get_timestamp()},
+                    {"author", "anybody " + std::to_string(id)},
+                    {"age", id%99+16},
+                    {"email", std::to_string(id) + "xx@yy.zz"},
                     {"phone", "+10 123 456-" + std::to_string(randomValue)},
                     {"password", "Sb123456#"},
                     {"stats", {
-                        {"views", randomValue*i},
-                        {"likes", randomValue/(i+1)},
-                        {"shares", randomValue*(i+10)}
+                        {"views", randomValue*id},
+                        {"likes", randomValue/(id+1)},
+                        {"shares", randomValue*(id+10)}
                     }}
                 }}
             }}
@@ -598,14 +599,13 @@ int main(int argc, char* argv[]) {
     } else if (command == "insertc") {
         while (!exiting) {
             insert_collection(param);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     } else if (command == "insert") {
         while (!exiting) {
             insert_tbl(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-       //insert_collection(param);
     } else if (command == "getc") {
         while (!exiting) {
             get_collection(param);

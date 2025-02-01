@@ -7,24 +7,21 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
     if (!j.contains("documents")) {
         throw std::invalid_argument("Invalid JSON format: 'documents' is missing.");
     }
-    // 获取写锁，确保线程安全
+
     std::unique_lock<std::shared_mutex> lock(mutex_);
 
-    // 遍历 JSON 的键值对，将每个键作为 ID，值作为文档内容
-    //for (const auto& [id, value] : j.items()) {
-        //std::cout << "id: " << id << std::endl;
+    std::vector<std::string> failedIds;  // 用于记录失败的文档 ID
     for (const auto& jDoc : j["documents"]) {
         // 如果没有提供 ID，则生成唯一 ID
         std::string docId = (jDoc.contains("_id") && jDoc["_id"].is_string()) ? 
-                            jDoc["_id"].get<std::string>(): 
-                            generateUniqueId();
+                            jDoc["_id"].get<std::string>() : generateUniqueId();
 
-        // 检查文档 ID 是否已存在
-        if (documents_.find(docId) != documents_.end()) {
+        auto it = documents_.find(docId);
+        if (it != documents_.end()) {
+            // 如果文档已存在，记录失败并继续处理下一个文档
             std::cerr << "Duplicate document ID: " << docId << std::endl;
-            throw std::invalid_argument("Duplicate document ID: " + docId);
-            //insertedIds.push_back("Duplicate document ID: "+docId);
-            //continue;  // 跳过该文档
+            failedIds.push_back(docId);
+            continue;
         }
 
         // 创建新的文档并加载 JSON 数据
@@ -32,14 +29,23 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
         try {
             doc->fromJson(jDoc);  // 加载 JSON 数据到文档
             schema_.validateDocument(doc);
-            //std::cout << *doc << std::endl;
-            documents_.emplace(docId, doc);
-            //documents_[docId] = doc;  // 插入到集合
+            
+            // 尝试插入文档
+            documents_.emplace(docId, std::move(doc));
             insertedIds.push_back(docId);  // 将成功插入的文档 ID 添加到返回列表
         } catch (const std::exception& e) {
             std::cerr << "Failed to insert document with ID " << docId << ": " << e.what() << std::endl;
-            throw std::invalid_argument("Failed to insert document with ID " + docId + ": " + e.what());
+            failedIds.push_back(docId);
         }
+    }
+
+    if (!failedIds.empty()) {
+        // 可以选择在插入完成后抛出一个包含所有失败文档 ID 的异常
+        std::string failedMsg = "Failed to insert the following documents: ";
+        for (const auto& failedId : failedIds) {
+            failedMsg += failedId + " ";
+        }
+        throw std::invalid_argument(failedMsg);
     }
 
     return insertedIds;  // 返回插入文档的 ID 列表
@@ -203,56 +209,48 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
     return nullptr;
 }
 
-// 查询文档
 std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryFromJson(const json& j) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
 
     Query query;
     query.fromJson(j);
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
-    if (j.contains("conditions")) {
-        // 提前解析 fields 字段为集合
-        std::unordered_set<std::string> fieldsToProject;
-        bool hasProjection = j.contains("fields");
-        if (hasProjection) {
-            for (const auto& path : j["fields"]) {
-                fieldsToProject.insert(path.get<std::string>());
-            }
-        }
-        // 遍历文档集合
-        for (const auto& [docId, docPtr] : documents_) {
-            if (!query.match(docPtr)) {
-                continue;  // 不符合条件，跳过
-            }
-            if (hasProjection) {
-                // 投影字段逻辑
-                auto projectedDoc = std::make_shared<Document>();
-                for (const auto& path : fieldsToProject) {
-                    auto field = docPtr->getFieldByPath(path);
-                    if (field) {
-                        projectedDoc->setFieldByPath(path, *field);  // 设置投影字段
-                    } else {
-                        std::cerr << "Error: Field " << path << " does not exist in document " << docId << ".\n";
-                        throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
-                    }
-                }
-                results.push_back({docId, projectedDoc});
-            } else {
-                // 返回整个文档
-                results.push_back({docId, docPtr});
-            }
-            
+    
+    // 遍历文档集合并执行条件匹配
+    for (const auto& [docId, docPtr] : documents_) {
+        if (query.match(docPtr)) {
+            results.push_back({docId, docPtr});
         }
     }
 
+    // 处理排序
     if (j.contains("sorting")) {
         query.sort(results);
     }
 
+    // 处理分页
     if (j.contains("pagination")) {
         query.page(results);
     }
 
+    // 如果需要投影字段，进行投影处理
+    if (j.contains("fields")) {
+        std::unordered_set<std::string> fieldsToProject;
+        for (const auto& path : j["fields"]) {
+            fieldsToProject.insert(path.get<std::string>());
+        }
+
+        std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> projectedResults;
+        
+        // 直接通过原始文档的字段创建投影
+        for (const auto& [docId, docPtr] : results) {
+            auto projectedDoc = std::make_shared<ProjectionDocument>(docPtr, fieldsToProject);
+            projectedResults.push_back({docId, projectedDoc});
+        }
+        return projectedResults;
+    }
+
+    // 没有投影字段，直接返回查询结果
     return results;
 }
 

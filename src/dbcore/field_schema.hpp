@@ -20,6 +20,7 @@ public:
 		std::optional<int> minValue;               // 最小值（数值）
 		std::optional<int> maxValue;               // 最大值（数值）
 		std::optional<std::string> regexPattern;    // 字符串格式限制
+        mutable std::shared_ptr<std::regex> cachedRegex; // 缓存的正则表达式
 
 		void fromJson(const json& j);
 

@@ -62,7 +62,14 @@ public:
                 auto results = collection->queryFromJson(task);
                 json j = json::array();
                 for (const auto& [docId, doc] : results) {
-                    j.push_back({docId,doc->toJson()});
+                    // 根据文档类型选择调用正确的 toJson() 方法
+					if (auto projectionDoc = std::dynamic_pointer_cast<ProjectionDocument>(doc)) {
+						// 如果是投影文档
+						j.push_back({docId, projectionDoc->toJson()});
+					} else {
+						// 如果是普通文档
+						j.push_back({docId, doc->toJson()});
+					}
                 }
                 response["results"] = j;
 				response["total"] = results.size();
