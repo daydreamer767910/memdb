@@ -17,6 +17,7 @@ public:
 		try {
             if (container->getType() == "table") {
 				uint32_t limit = task["limit"];
+				uint32_t offset = task["offset"];
 				std::vector<std::string> columnNames = task["columns"].get<std::vector<std::string>>();
 				std::vector<std::string> conditions = task["conditions"].get<std::vector<std::string>>();
 				std::vector<std::string> operators = task["ops"].get<std::vector<std::string>>();
@@ -40,7 +41,7 @@ public:
 					queryValues.push_back(field.getValue());
 				}
 
-				auto ret = tb->query(columnNames,conditions,queryValues,operators,limit);
+				auto ret = tb->query(columnNames,conditions,queryValues,operators,offset,limit);
 				for (auto& fieldValues : ret) { //每一行数据
 					json rowJson;
 					for (size_t i = 0; i < columnNames.size(); ++i) { //每一列

@@ -559,6 +559,7 @@ std::vector<std::vector<FieldValue>> Table::query(
     const std::vector<std::string>& conditions,   // 查询条件列
     const std::vector<FieldValue>& queryValues,        // 查询条件值
     const std::vector<std::string>& operators,     // 比较操作符（对应每个条件）
+    int offset,
     int limit
 ) const
 {
@@ -569,19 +570,32 @@ std::vector<std::vector<FieldValue>> Table::query(
     getColumnTypes(columnNames);
     getColumnTypes(conditions);
 
-    std::cout << std::endl;
     std::vector<size_t> rowSet = search(conditions, queryValues, operators);
 
-    // 遍历 rowSet 中的所有行
-    for (size_t rowIdx : rowSet) {
-        limit--;
-        if (limit<0) break;
+    size_t totalRows = rowSet.size();
+
+    // 如果 offset 超过了总行数，直接返回空结果
+    if (offset >= totalRows) {
+        return result;
+    }
+
+    // 计算实际开始索引，确保在有效范围内
+    size_t startIdx = offset;
+
+    // 限制返回的行数，不超过总行数
+    size_t endIdx = std::min(startIdx + limit, totalRows);
+//std::cout << "from: " << startIdx << " to: " << endIdx << std::endl;
+    // 遍历 rowSet 中的所有行，在 startIdx 和 endIdx 之间
+    for (size_t i = startIdx; i < endIdx; ++i) {
         std::vector<FieldValue> fieldValues;
+        size_t rowIdx = rowSet[i];
+
         // 检查该行是否满足所有条件
-        for (auto& columnName :columnNames) {
+        for (auto& columnName : columnNames) {
             size_t colIdx = getColumnIndex(columnName);
             fieldValues.push_back(rows_[rowIdx][colIdx].getValue());
         }
+
         result.push_back(fieldValues);
     }
 

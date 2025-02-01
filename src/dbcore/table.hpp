@@ -63,6 +63,7 @@ public:
         const std::vector<std::string>& conditions,   // 查询条件列
         const std::vector<FieldValue>& queryValues,        // 查询条件值
         const std::vector<std::string>& operators,     // 比较操作符（对应每个条件）
+        int offset,
         int limit = 100
     ) const;
     size_t update(

@@ -134,11 +134,7 @@ void get_collection(std::string& name) {
                 "op": ">=",
                 "value": "${2025-01-29 23:00:00}"
             }
-        ],
-        "sorting": {
-            "path": "id",
-            "ascending": true
-        }
+        ]
     })";
     
     // 解析 JSON
@@ -494,14 +490,18 @@ void update(std::string& name) {
 
 
 void select(std::string& name) {
+    static int offset = 0;
+    int limit = 20;
     json jsonData;
     std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};
-    std::vector<std::string> conditions = {"age", "created_at"};
+    std::vector<std::string> conditions = {"id", "created_at"};
     std::vector<FieldValue> queryValues = {25, std::string("${2025-01-19 00:16:30}")};
-    std::vector<std::string> operators = {"==", "<"};
+    std::vector<std::string> operators = {">=", ">"};
     jsonData["action"] = "select";
     jsonData["name"] = name;
-    jsonData["limit"] = 5000;
+    jsonData["limit"] = limit;
+    jsonData["offset"] = offset;
+    offset += limit;
     jsonData["columns"] = columnNames;
     jsonData["conditions"] = conditions;
     jsonData["ops"] = operators;
@@ -613,7 +613,7 @@ int main(int argc, char* argv[]) {
         }
     } else if (command == "get") {
         while (!exiting) {
-            get(param);
+            select(param);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     } else {
