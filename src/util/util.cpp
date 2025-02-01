@@ -4,6 +4,7 @@
 #include <sstream>
 #include <thread>
 #include <iomanip>
+#include <malloc.h>
 #include "util.hpp"
 
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -43,6 +44,13 @@ std::vector<uint8_t> decodeBase64(const std::string& encoded_string) {
         }
     }
     return result;
+}
+
+void print_memory_usage() {
+    struct mallinfo info = mallinfo();
+    std::cout << "Total allocated (arena): " << info.arena << " bytes\n";
+    std::cout << "Total allocated (in-use): " << info.uordblks << " bytes\n";
+    std::cout << "Total free (unused): " << info.fordblks << " bytes\n";
 }
 
 void print_packet(const uint8_t* packet, size_t length) {

@@ -15,6 +15,8 @@ void DbTask::on_data_received(int result) {
 }
 
 void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datas) {
+    //std::cout << "handle_task in, the memory info:\n";
+    //print_memory_usage();
     json jsonResp;
 
     auto sendResponse = [&](const json& response) {
@@ -40,4 +42,6 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
 
         sendResponse(jsonResp);
     }
+    //std::cout << "handle_task out, the memory info:\n";
+    //print_memory_usage();
 }

@@ -68,9 +68,9 @@ void delete_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "id",
-                "op": ">=",
-                "value": 1
+                "path": "nested.details.age",
+                "op": "<=",
+                "value": 22
             }
         ]
     })";
@@ -97,11 +97,6 @@ void update_collection(std::string& name) {
                 "path": "nested.details.age",
                 "op": ">",
                 "value": 25
-            },
-            {
-                "path": "nested.details.email",
-                "op": "regex",
-                "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             }
         ]
     })";
@@ -170,7 +165,7 @@ void query_collection(std::string& name) {
         "conditions": [
             {
                 "path": "nested.details.age",
-                "op": ">",
+                "op": "<=",
                 "value": 25
             }
         ],

@@ -104,11 +104,11 @@ void Database::save(const std::string& filePath) {
         for (const auto& container : containers_) {
             std::filesystem::path tableDataPath = dataPath / container.first;
             try {
-                std::cout << get_timestamp() << " Start saving table data: " << container.first << '\n';
+                std::cout << get_timestamp() << " Start saving container data: " << container.first << '\n';
                 container.second->exportToBinaryFile(tableDataPath.string());
-                std::cout << get_timestamp() << " Successfully saved table data: " << container.first << '\n';
+                std::cout << get_timestamp() << " Successfully saved container data: " << container.first << '\n';
             } catch (const std::exception& e) {
-                std::cerr << get_timestamp() << " Failed to save data for table " << container.first 
+                std::cerr << get_timestamp() << " Failed to save data for container " << container.first 
                           << ": " << e.what() << '\n';
             }
         }

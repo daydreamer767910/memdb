@@ -376,7 +376,7 @@ void Collection::exportToBinaryFile(const std::string& filePath) {
     outputFile.write(binaryData.data(), binaryData.size());
     outputFile.close();
 
-    std::cout << "Collection successfully exported to binary file: " << filePath << std::endl;
+    //std::cout << "Collection successfully exported to binary file: " << filePath << std::endl;
 }
 
 // 从二进制文件中导入集合
@@ -395,5 +395,5 @@ void Collection::importFromBinaryFile(const std::string& filePath) {
 
     // 从二进制数据加载集合
     fromBinary(binaryData.data(), binaryData.size());
-    std::cout << "Collection successfully imported from binary file: " << filePath << std::endl;
+    //std::cout << "Collection successfully imported from binary file: " << filePath << std::endl;
 }
