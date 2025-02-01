@@ -47,15 +47,4 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const Document& doc);
 
-class ProjectionDocument:public Document {
-public:
-    ProjectionDocument(const std::shared_ptr<Document>& sourceDoc,
-                       const std::unordered_set<std::string>& fieldsToProject);
-
-    virtual json toJson() const;
-private:
-    // 使用 std::weak_ptr 来避免循环引用
-    std::unordered_map<std::string, std::shared_ptr<const Field>> fields_;
-};
-
 #endif

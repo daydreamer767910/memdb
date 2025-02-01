@@ -1,32 +1,5 @@
 #include "document.hpp"
 
-ProjectionDocument::ProjectionDocument(const std::shared_ptr<Document>& sourceDoc,
-                                       const std::unordered_set<std::string>& fieldsToProject) {
-    for (const auto& fieldName : fieldsToProject) {
-        //std::cout << "project field: " << fieldName << std::endl;
-        auto filed = sourceDoc->getFieldByPath(fieldName);
-        if (filed) {
-            // 保持对原始 Field 对象的引用，确保生命周期管理
-            fields_[fieldName] = std::make_shared<const Field>(*filed);
-            //fields_[fieldName] = std::shared_ptr<const Field>(filed, [](const Field*) {});
-            //std::cout << "project field shared ptr to original field created\n";
-        }
-    }
-}
-
-json ProjectionDocument::toJson() const {
-    json jsonFields;
-    for (const auto& [key, FieldPtr] : fields_) {
-        if (auto field = FieldPtr) { 
-            jsonFields[key] = field->toJson();
-        } else {
-            // 如果字段已经被删除，处理相应的情况
-            std::cerr << "Field " << key << " has been deleted\n";
-        }
-    }
-    return jsonFields;
-}
-
 std::ostream& operator<<(std::ostream& os, const Document& doc) {
 	for (const auto& [name, field] : doc.getFields()) {
 		os << "Field: " << name << " => " << field << "\n";

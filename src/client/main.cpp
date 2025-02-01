@@ -131,6 +131,8 @@ void get_collection(std::string& name) {
             }
         ],
         "fields": [
+            "id",
+            "title",
             "nested.details"
         ]
     })";

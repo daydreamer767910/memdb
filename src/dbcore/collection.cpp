@@ -239,17 +239,25 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
         for (const auto& path : j["fields"]) {
             fieldsToProject.insert(path.get<std::string>());
         }
-
         std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> projectedResults;
         
         // 直接通过原始文档的字段创建投影
         for (const auto& [docId, docPtr] : results) {
-            auto projectedDoc = std::make_shared<ProjectionDocument>(docPtr, fieldsToProject);
+            auto projectedDoc = std::make_shared<Document>();
+            for (const auto& path : fieldsToProject) {
+                auto field = docPtr->getFieldByPath(path);
+                if (field) {
+                    //projectedDoc->setFieldByPath(path, *field);  // 设置投影字段
+                    projectedDoc->setField(path, *field); //不需要构造文档树
+                } else {
+                    std::cerr << "Error: Field " << path << " does not exist in document " << docId << ".\n";
+                    throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
+                }
+            }
             projectedResults.push_back({docId, projectedDoc});
         }
         return projectedResults;
     }
-
     // 没有投影字段，直接返回查询结果
     return results;
 }
