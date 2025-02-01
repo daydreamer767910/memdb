@@ -7,7 +7,8 @@ ProjectionDocument::ProjectionDocument(const std::shared_ptr<Document>& sourceDo
         auto filed = sourceDoc->getFieldByPath(fieldName);
         if (filed) {
             // 保持对原始 Field 对象的引用，确保生命周期管理
-            fields_[fieldName] = std::shared_ptr<const Field>(filed, [](const Field*) {});
+            fields_[fieldName] = std::make_shared<const Field>(*filed);
+            //fields_[fieldName] = std::shared_ptr<const Field>(filed, [](const Field*) {});
             //std::cout << "project field shared ptr to original field created\n";
         }
     }

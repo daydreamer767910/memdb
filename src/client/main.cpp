@@ -130,10 +130,6 @@ void get_collection(std::string& name) {
                 "value": 300
             }
         ],
-        "sorting": {
-            "path": "id",
-            "ascending": true
-        },
         "fields": [
             "nested.details"
         ]
