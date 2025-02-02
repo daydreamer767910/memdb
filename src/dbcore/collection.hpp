@@ -11,7 +11,7 @@
 #include "datacontainer.hpp"
 #include "document.hpp"
 #include "collection_schema.hpp"
-#include "query.hpp"
+
 
 class Collection: public DataContainer {
 public:
@@ -30,7 +30,11 @@ public:
     Collection& operator=(Collection&&) = default;
 
     size_t getTotalDocument() {
+        createIndex("id");
         return documents_.size();
+    }
+    const std::unordered_map<DocumentId, std::shared_ptr<Document>>& getDocuments() const {
+        return documents_;
     }
 
     std::vector<std::string> insertDocumentsFromJson(const json& j);
@@ -54,6 +58,21 @@ public:
     // 查询文档集合，支持过滤
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> queryFromJson(const json& j) const;
 
+    // 创建索引：为指定字段创建索引
+    void createIndex(const std::string& path);
+
+    void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
+    // 删除索引
+    void removeIndex(const std::string& path);
+    void updateIndexForDeletedField(const std::string& path, const DocumentId& docId);
+    void updateIndexForDeletedDoc(const DocumentId& docId);
+
+    // 检查是否有索引
+    bool hasIndex(const std::string& path) const {
+        return indexedFields_.find(path) != indexedFields_.end();
+    }
+
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> getSortedDocuments(const std::string& path, bool ascending) const;
     // 序列化和反序列化
     virtual json toJson() const override;
     virtual void fromJson(const json& j) override;
@@ -68,7 +87,8 @@ public:
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;
+    // 索引映射：用于存储字段路径 -> 字段值 -> 文档ID
+    std::unordered_map<std::string, std::map<FieldValue, std::set<DocumentId>>> indexedFields_;
 };
-
 
 #endif 

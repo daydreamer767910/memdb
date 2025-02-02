@@ -2,6 +2,145 @@
 #include "util/util.hpp"
 #include "query.hpp"
 
+void Collection::createIndex(const std::string& path) {
+    for (const auto& [docId, docPtr] : documents_) {
+        auto field = docPtr->getFieldByPath(path);
+        if (field) {
+            //std::cout << path << " -> value: " << *field << " -> docID: " << docId << std::endl;
+            indexedFields_[path][field->getValue()].insert(docId); // 存储字段值
+        }
+    }
+}
+
+void Collection::updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue) {
+    auto indexIt = indexedFields_.find(path);
+    if (indexIt == indexedFields_.end()) return; // 若索引不存在，直接返回
+
+    auto& fieldMap = indexIt->second;  // 获取当前字段的索引映射
+
+    // 先找到旧值并删除
+    for (auto it = fieldMap.begin(); it != fieldMap.end(); ++it) {
+        auto& docSet = it->second;
+        if (docSet.erase(docId) > 0) {  
+            if (docSet.empty()) {  // 如果该值下没有文档了，移除该值
+                fieldMap.erase(it);
+            }
+            break; // 找到并删除后，退出循环
+        }
+    }
+
+    // 插入新值
+    fieldMap[newValue].insert(docId);
+}
+
+// **更新索引删除字段**
+void Collection::updateIndexForDeletedField(const std::string& path, const DocumentId& docId) {
+    // 确保文档中存在该路径的字段
+    auto it = documents_.find(docId);
+    if (it == documents_.end()) {
+        std::cerr << "document not found in document_: " << docId << std::endl;
+        return; // 文档不存在
+    }
+    auto doc = it->second; // 获取文档 
+    auto field = doc->getFieldByPath(path);
+    if (!field) {
+        std::cerr << "Field not found in document: " << path << std::endl;
+        return;  // 如果找不到字段，直接返回
+    }
+
+    // 获取字段值
+    const FieldValue& valueToDelete = field->getValue();
+    
+    // 查找索引中的条目
+    auto indexIt = indexedFields_.find(path);
+    if (indexIt != indexedFields_.end()) {
+        auto& valueMap = indexIt->second;
+
+        // 查找该字段值是否存在于索引中
+        auto valueIt = valueMap.find(valueToDelete);
+        if (valueIt != valueMap.end()) {
+            auto& docSet = valueIt->second;
+            std::cout << "1erase doc from: k[" << path << "]->v[" << valueToDelete << "]->doc[" << docId << "]\n";
+            // 从索引中删除该文档
+            docSet.erase(docId);
+            // 如果该字段值在索引中没有文档引用，删除该索引条目
+            if (docSet.empty()) {
+                std::cout << "1also erase v: " << valueToDelete << "\n";
+                valueMap.erase(valueIt);
+            }
+        }
+    } else {
+        std::cerr << "Path not found in indexedFields: " << path << std::endl;
+    }
+}
+
+void Collection::updateIndexForDeletedDoc(const DocumentId& docId) {
+    auto it = documents_.find(docId);
+    if (it == documents_.end()) {
+        std::cerr << "document not found in document_: " << docId << std::endl;
+        return; // 文档不存在
+    }
+    auto doc = it->second; // 获取文档 
+    // 从索引中删除
+    for (const auto& [fieldPath, field] : doc->getFields()) {
+        auto fieldIt = indexedFields_.find(fieldPath);
+        if (fieldIt != indexedFields_.end()) {
+            auto valueIt = fieldIt->second.find(field.getValue());
+            if (valueIt != fieldIt->second.end()) {
+                valueIt->second.erase(docId);
+                if (valueIt->second.empty()) {
+                    fieldIt->second.erase(valueIt);
+                }
+            }
+        }
+    }
+}
+
+void Collection::removeIndex(const std::string& path) {
+    indexedFields_.erase(path);
+}
+
+// 根据字段路径获取排序后的文档列表
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> 
+Collection::getSortedDocuments(const std::string& path, bool ascending) const {
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
+    auto indexIt = indexedFields_.find(path);
+    
+    if (indexIt == indexedFields_.end()) {
+        return sortedDocs; // 索引不存在，返回空结果
+    }
+
+    // 预分配空间，避免多次扩容
+    size_t totalDocs = 0;
+    for (const auto& [_, docSet] : indexIt->second) {
+        totalDocs += docSet.size();
+    }
+    sortedDocs.reserve(totalDocs);
+
+    // 遍历索引，获取已排序的 `DocumentId`
+    if (ascending) {
+        for (const auto& [_, docSet] : indexIt->second) {
+            for (const auto& docId : docSet) {
+                auto docIt = documents_.find(docId);
+                if (docIt != documents_.end()) {
+                    sortedDocs.emplace_back(docIt->first, docIt->second);
+                }
+            }
+        }
+    } else {
+        for (auto it = indexIt->second.rbegin(); it != indexIt->second.rend(); ++it) {
+            for (const auto& docId : it->second) {
+                auto docIt = documents_.find(docId);
+                if (docIt != documents_.end()) {
+                    sortedDocs.emplace_back(docIt->first, docIt->second);
+                }
+            }
+        }
+    }
+
+    return sortedDocs;
+}
+
 std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
     std::vector<std::string> insertedIds;
     if (!j.contains("documents")) {
@@ -30,9 +169,14 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
             doc->fromJson(jDoc);  // 加载 JSON 数据到文档
             schema_.validateDocument(doc);
             
-            // 尝试插入文档
-            documents_.emplace(docId, std::move(doc));
-            insertedIds.push_back(docId);  // 将成功插入的文档 ID 添加到返回列表
+            // 插入文档
+            documents_.emplace(docId, doc);
+            insertedIds.push_back(docId);
+
+            // **更新索引**
+            for (const auto& [path, field] : doc->getFields()) {  
+                updateIndex(path, docId, field.getValue());
+            }
         } catch (const std::exception& e) {
             std::cerr << "Failed to insert document with ID " << docId << ": " << e.what() << std::endl;
             failedIds.push_back(docId);
@@ -54,7 +198,12 @@ std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
 // 插入文档
 void Collection::insertDocument(const DocumentId& id, const Document& doc) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
-    documents_[id] = std::make_shared<Document>(doc);
+    auto docPtr = std::make_shared<Document>(doc);
+    documents_[id] = docPtr;
+    // **更新索引**
+    for (const auto& [path, field] : doc.getFields()) {  
+        updateIndex(path, id, field.getValue());
+    }
 }
 
 bool Collection::updateDocument(DocumentId id, const json& updateFields) {
@@ -76,6 +225,7 @@ bool Collection::updateDocument(DocumentId id, const json& updateFields) {
         } else {
             doc->setFieldByPath(path, Field(newValue));//添加新字段
         }
+        updateIndex(path, id, newValue);
     }
 
     return true;
@@ -87,7 +237,7 @@ int Collection::updateFromJson(const json& j) {
     }
 
     // 解析查询条件
-    Query query;
+    Query query(*this);
     query.fromJson(j);
 
     // **Step 1: 解析 "fields" 并校验合法性**
@@ -100,21 +250,14 @@ int Collection::updateFromJson(const json& j) {
         schema_.validateField(path, field);
         parsedFields.emplace(path, std::move(field));
     }
-
-    std::vector<std::shared_ptr<Document>> matchedDocs;
-
-    // **Step 2: 先筛选符合条件的文档**
-    for (auto& [docId, doc] : documents_) {
-        if (query.match(doc)) {
-            matchedDocs.push_back(doc);
-        }
-    }
-
     // **Step 3: 获取写锁，仅更新符合条件的文档**
     std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> matchedDocs;
+    query.match(matchedDocs);
+    
     int updateCount = 0;
 
-    for (auto& doc : matchedDocs) {
+    for (auto& [id, doc] : matchedDocs) {
         bool updated = false;
 
         for (const auto& [path, newValue] : parsedFields) {
@@ -125,6 +268,7 @@ int Collection::updateFromJson(const json& j) {
                 doc->setFieldByPath(path, newValue);
             }
             updated = true;
+            updateIndex(path, id, newValue.getValue());
         }
 
         if (updated) {
@@ -142,9 +286,8 @@ bool Collection::deleteDocument(const DocumentId& id) {
 }
 
 int Collection::deleteFromJson(const json& j) {
-    std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     int deleteCount = 0; // 删除的文档数
-    Query query;
+    Query query(*this);
     query.fromJson(j);
 
     // Step 1: 解析 "fields" 字段为集合
@@ -157,47 +300,44 @@ int Collection::deleteFromJson(const json& j) {
     }
 
     // Step 2: 匹配文档并删除
-    if (j.contains("conditions")) {
-        for (auto it = documents_.begin(); it != documents_.end();) {
-            auto& doc = it->second;
-            bool hasDeletedField = false;
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> matchedDocs;
+    query.match(matchedDocs);
 
-            // 如果文档匹配查询条件
-            if (query.match(doc)) {
-                // 如果有指定字段进行删除
-                if (!deleteFields.empty()) {
-                    for (const auto& path : deleteFields) {
-                        if (doc->removeFieldByPath(path)) {
-                            hasDeletedField = true;
-                        } else {
-                            std::cerr << "Warning: Field " << path << " does not exist in document.\n";
-                        }
-                    }
-
-                    // 如果删除字段后，文档还有字段，则继续迭代
-                    if (hasDeletedField && !doc->getFields().empty()) {
-                        ++it; // 继续处理下一个文档
-                    } else if (hasDeletedField) {
-                        // 如果删除字段后，文档为空，就删除该文档
-                        it = documents_.erase(it);
-                        ++deleteCount;
-                    } else {
-                        ++it; // 如果没有字段被删除，继续迭代
-                    }
+    for (auto& [id, doc]: matchedDocs) {
+        bool hasDeletedField = false;
+        // 如果有指定字段进行删除
+        if (!deleteFields.empty()) {
+            for (const auto& path : deleteFields) {
+                if (doc->removeFieldByPath(path)) {
+                    hasDeletedField = true;
+                    // **删除字段时，也要更新索引**
+                    updateIndexForDeletedField(path, id);
                 } else {
-                    // 没有指定 "fields"，删除整个文档
-                    it = documents_.erase(it);
-                    ++deleteCount;
+                    std::cerr << "Warning: Field " << path << " does not exist in document.\n";
                 }
-            } else {
-                ++it; // 如果没有匹配条件，继续迭代
             }
-        }
-    }
 
+            // 如果删除字段后，文档为空，就删除该文档
+            if (hasDeletedField && doc->getFields().empty()) {
+                // **删除文档时，也要从索引中清除该文档**
+                updateIndexForDeletedDoc(id);
+                // 如果删除字段后，文档为空，就删除该文档
+                documents_.erase(id);
+                ++deleteCount;
+            }
+        } else {
+            // **删除文档时，也要从索引中清除该文档**
+            updateIndexForDeletedDoc(id);
+            // 没有指定 "fields"，删除整个文档
+            documents_.erase(id);
+            ++deleteCount;
+        }
+
+    }
+    
     return deleteCount;
 }
-
 
 // 获取文档
 std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
@@ -211,28 +351,23 @@ std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
 
 std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryFromJson(const json& j) const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
-
-    Query query;
+    Query query(*this);
     query.fromJson(j);
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
-    
-    // 遍历文档集合并执行条件匹配
-    for (const auto& [docId, docPtr] : documents_) {
-        if (query.match(docPtr)) {
-            results.push_back({docId, docPtr});
-        }
-    }
 
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
+std::cout << "before match: " << get_timestamp() << "\n";  
+    bool sorted = query.match(results);
+std::cout << "after match: " << get_timestamp() << "\n"; 
     // 处理排序
-    if (j.contains("sorting")) {
+    if (!sorted && j.contains("sorting")) {
         query.sort(results);
     }
-
+std::cout << "after sort: " << get_timestamp() << "\n"; 
     // 处理分页
     if (j.contains("pagination")) {
         query.page(results);
     }
-
+std::cout << "after page: " << get_timestamp() << "\n"; 
     // 如果需要投影字段，进行投影处理
     if (j.contains("fields")) {
         std::unordered_set<std::string> fieldsToProject;
@@ -259,6 +394,7 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
         return projectedResults;
     }
     // 没有投影字段，直接返回查询结果
+
     return results;
 }
 

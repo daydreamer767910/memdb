@@ -15,19 +15,9 @@
 #include <memory>
 #include "fieldvalue.hpp"
 #include "document.hpp"
-
+#include "collection.hpp"
 
 class Query {
-public:
-    Query& condition(const std::string& path, const FieldValue& value, const std::string& op);
-    Query& orderBy(const std::string& path, bool ascending = true);
-    Query& limit(size_t maxResults);
-    Query& offset(size_t startIndex);
-    bool match(const std::shared_ptr<Document>& document);
-	void sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
-	void page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
-	// 从 JSON 创建 Query 对象
-    Query& fromJson(const json& j);
 private:
     struct Condition {
         std::string op;
@@ -45,6 +35,21 @@ private:
     Sorting sorting;
     size_t maxResults = 0;
     size_t startIndex = 0;
+private:
+    const Collection& collection_;
+public:
+    Query(const Collection& collection) : collection_(collection) {}
+    Query& condition(const std::string& path, const FieldValue& value, const std::string& op);
+    Query& orderBy(const std::string& path, bool ascending = true);
+    Query& limit(size_t maxResults);
+    Query& offset(size_t startIndex);
+    bool matchCondition(const std::shared_ptr<Document>& doc, const Condition& condition) const;
+    bool match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& candidateDocs) const;
+	void sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
+	void page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
+	// 从 JSON 创建 Query 对象
+    Query& fromJson(const json& j);
+
 };
 
 #endif // QUERY_HPP
