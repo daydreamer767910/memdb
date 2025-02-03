@@ -95,6 +95,19 @@ void print_packet(const std::vector<char>& packet) {
     print_packet(packet_unsigned);
 }
 
+std::string get_timestamp_sec() {
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+    std::time_t seconds = millis / 1000;
+    std::tm tm = *std::localtime(&seconds);
+    std::stringstream ss;
+
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    
+    return ss.str();
+}
 
 std::string get_timestamp() {
     auto now = std::chrono::system_clock::now();

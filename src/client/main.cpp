@@ -148,14 +148,10 @@ void get_collection(std::string& name) {
     int limit = 10; 
     std::string json_str = R"({
         "conditions": [
-            {
-                "path": "nested.details.created_at",
-                "op": ">",
-                "value": "2025-01-01 00:00:00"
-            }
+            
         ],
         "sorting": {
-            "path": "id",
+            "path": "nested.details.created_at",
             "ascending": true
         },
         "fields": [
@@ -188,9 +184,9 @@ void query_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.age",
-                "op": "<=",
-                "value": 25
+                "path": "nested.details.created_at",
+                "op": ">",
+                "value": "${2025-01-01 00:00:00}"
             }
         ],
         "sorting": {
@@ -239,7 +235,7 @@ void insert_collection(std::string& name) {
                 {"title", "neseted Document " + std::to_string(id)},
                 {"value", randomValue*(id+3)},
                 {"details", {
-                    {"created_at", get_timestamp()},
+                    {"created_at", "${" + get_timestamp_sec() + "}"},
                     {"author", "anybody " + std::to_string(id)},
                     {"age", id%99+16},
                     {"email", std::to_string(id) + "xx@yy.zz"},

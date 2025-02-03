@@ -354,8 +354,13 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     Query query(*this);
     query.fromJson(j);
 
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results; 
-    bool sorted = query.match(results);
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
+    bool sorted = false;
+    if (j.contains("conditions") && j.at("conditions").size() > 0) {
+        sorted = query.match(results);
+    } else {
+        results = getDocuments();
+    }
     // 处理排序
     if (!sorted && j.contains("sorting")) {
         query.sort(results);
