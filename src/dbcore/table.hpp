@@ -50,6 +50,7 @@ public:
         
     // Indexing methods
     void buildIndex();
+    void createIndex(const std::string& columnName);
     std::vector<Row> getWithLimitAndOffset(int limit, int offset) const;
     
     size_t getColumnIndex(const std::string& columnName) const;

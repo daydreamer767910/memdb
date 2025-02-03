@@ -30,12 +30,18 @@ public:
     Collection& operator=(Collection&&) = default;
 
     size_t getTotalDocument() {
-        createIndex("id");
         return documents_.size();
     }
-    const std::unordered_map<DocumentId, std::shared_ptr<Document>>& getDocuments() const {
-        return documents_;
+    
+    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const {
+        std::vector<std::pair<std::string, std::shared_ptr<Document>>> documentsVec;
+        documentsVec.reserve(documents_.size());  // 预分配空间
+        for (const auto& pair : documents_) {
+            documentsVec.emplace_back(pair.first, pair.second);
+        }
+        return documentsVec;
     }
+
 
     std::vector<std::string> insertDocumentsFromJson(const json& j);
     // 添加一个文档
@@ -83,7 +89,7 @@ public:
 
     std::string toBinary() const;
     void fromBinary(const char* data, size_t size);
-
+    
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;

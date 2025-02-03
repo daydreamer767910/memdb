@@ -3,13 +3,16 @@
 #include "query.hpp"
 
 void Collection::createIndex(const std::string& path) {
+    bool ret = false;
     for (const auto& [docId, docPtr] : documents_) {
         auto field = docPtr->getFieldByPath(path);
         if (field) {
             //std::cout << path << " -> value: " << *field << " -> docID: " << docId << std::endl;
             indexedFields_[path][field->getValue()].insert(docId); // 存储字段值
+            ret = true;
         }
     }
+    if (!ret) throw std::invalid_argument("index path not found: " + path);
 }
 
 void Collection::updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue) {
@@ -110,50 +113,47 @@ Collection::getSortedDocuments(const std::string& path, bool ascending) const {
         return sortedDocs; // 索引不存在，返回空结果
     }
 
-    // 预分配空间，避免多次扩容
-    size_t totalDocs = 0;
-    for (const auto& [_, docSet] : indexIt->second) {
-        totalDocs += docSet.size();
+    const auto& valueMap = indexIt->second;  // 直接引用，减少查找
+    size_t estimatedSize = 0;
+    
+    // 计算需要存储的文档数量，减少后续 push_back 的扩容
+    for (const auto& [_, docSet] : valueMap) {
+        estimatedSize += docSet.size();
     }
-    sortedDocs.reserve(totalDocs);
+    sortedDocs.reserve(estimatedSize);
 
-    // 遍历索引，获取已排序的 `DocumentId`
-    if (ascending) {
-        for (const auto& [_, docSet] : indexIt->second) {
-            for (const auto& docId : docSet) {
-                auto docIt = documents_.find(docId);
-                if (docIt != documents_.end()) {
-                    sortedDocs.emplace_back(docIt->first, docIt->second);
-                }
-            }
-        }
-    } else {
-        for (auto it = indexIt->second.rbegin(); it != indexIt->second.rend(); ++it) {
+    auto processDocuments = [&](auto begin, auto end) {
+        for (auto it = begin; it != end; ++it) {
             for (const auto& docId : it->second) {
-                auto docIt = documents_.find(docId);
-                if (docIt != documents_.end()) {
+                if (auto docIt = documents_.find(docId); docIt != documents_.end()) {
                     sortedDocs.emplace_back(docIt->first, docIt->second);
                 }
             }
         }
+    };
+
+    if (ascending) {
+        processDocuments(valueMap.begin(), valueMap.end());
+    } else {
+        processDocuments(valueMap.rbegin(), valueMap.rend());
     }
 
     return sortedDocs;
 }
 
-std::vector<std::string> Collection::insertDocumentsFromJson(const json& j) {
-    std::vector<std::string> insertedIds;
+std::vector<DocumentId> Collection::insertDocumentsFromJson(const json& j) {
+    std::vector<DocumentId> insertedIds;
     if (!j.contains("documents")) {
         throw std::invalid_argument("Invalid JSON format: 'documents' is missing.");
     }
 
     std::unique_lock<std::shared_mutex> lock(mutex_);
 
-    std::vector<std::string> failedIds;  // 用于记录失败的文档 ID
+    std::vector<DocumentId> failedIds;  // 用于记录失败的文档 ID
     for (const auto& jDoc : j["documents"]) {
         // 如果没有提供 ID，则生成唯一 ID
-        std::string docId = (jDoc.contains("_id") && jDoc["_id"].is_string()) ? 
-                            jDoc["_id"].get<std::string>() : generateUniqueId();
+        DocumentId docId = (jDoc.contains("_id") && jDoc["_id"].is_string()) ? 
+                            jDoc["_id"].get<DocumentId>() : generateUniqueId();
 
         auto it = documents_.find(docId);
         if (it != documents_.end()) {
@@ -354,20 +354,17 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     Query query(*this);
     query.fromJson(j);
 
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
-std::cout << "before match: " << get_timestamp() << "\n";  
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results; 
     bool sorted = query.match(results);
-std::cout << "after match: " << get_timestamp() << "\n"; 
     // 处理排序
     if (!sorted && j.contains("sorting")) {
         query.sort(results);
     }
-std::cout << "after sort: " << get_timestamp() << "\n"; 
     // 处理分页
     if (j.contains("pagination")) {
         query.page(results);
     }
-std::cout << "after page: " << get_timestamp() << "\n"; 
+
     // 如果需要投影字段，进行投影处理
     if (j.contains("fields")) {
         std::unordered_set<std::string> fieldsToProject;

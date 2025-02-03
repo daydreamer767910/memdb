@@ -23,6 +23,7 @@ Query& Query::offset(size_t startIndex) {
 }
 
 bool Query::matchCondition(const std::shared_ptr<Document>& doc, const Condition& condition) const {
+    //100 K times, 130-140 ms
     auto field = doc->getFieldByPath(condition.path);
     if (!field) return false;
 
@@ -43,7 +44,12 @@ bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>&
     // **1. 先遍历 conditions，分类索引和非索引条件**
     for (size_t i = 0; i < conditions.size(); ++i) {
         if (collection_.hasIndex(conditions[i].path)) {
-            indexedConditions.push_back(i);
+            // **如果当前索引字段与排序字段相同，插入 indexedConditions 头部**
+            if (!sorting.path.empty() && sorting.path == conditions[i].path) {
+                indexedConditions.insert(indexedConditions.begin(), i);
+            } else {
+                indexedConditions.push_back(i);
+            }
         } else {
             nonIndexedConditions.push_back(i);
         }
@@ -57,7 +63,7 @@ bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>&
         if (i == 0) { 
             // **首次使用索引，直接从索引获取初始候选集**
             auto docs = collection_.getSortedDocuments(condition.path, sorting.ascending);
-            isSorted = true;  // 索引查询的结果是有序的
+            if (!sorting.path.empty() && sorting.path == condition.path) isSorted = true;  // 索引查询的结果是有序的
             for (const auto& [id, doc] : docs) {
                 if (matchCondition(doc, condition)) {
                     filteredDocs.emplace_back(id, doc);

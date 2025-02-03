@@ -63,6 +63,30 @@ int test(const std::string jsonConfig) {
     
 }
 
+void createidx(std::string& name) {
+    // 示例 JSON
+    std::string json_str = R"({
+        "indexes": [
+            "id",
+            "nested.details.created_at",
+            "nested.details.age"
+        ]
+    })";
+    
+    // 解析 JSON
+    json jsonData = json::parse(json_str);
+    //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
+    jsonData["action"] = "create_idx";
+    jsonData["name"] = name;
+
+
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // Test or use the generated JSON
+    test(jsonConfig);
+}
+
 void delete_collection(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
@@ -125,9 +149,9 @@ void get_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "id",
+                "path": "nested.details.created_at",
                 "op": ">",
-                "value": 300
+                "value": "2025-01-01 00:00:00"
             }
         ],
         "sorting": {
@@ -586,6 +610,8 @@ int main(int argc, char* argv[]) {
         show_tbl(param);
     } else if (command == "count") {
         count(param);
+    } else if (command == "create_idx") {
+        createidx(param);
     } else if (command == "deletec") {
         delete_collection(param);
     } else if (command == "delete") {

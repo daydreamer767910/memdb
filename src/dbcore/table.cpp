@@ -333,6 +333,19 @@ void Table::buildIndex() {
     }
 }
 
+void Table::createIndex(const std::string& columnName) {
+    size_t colIdx = getColumnIndex(columnName);
+    auto& column = columns_[colIdx];
+    column.indexed = true;
+    // 该列需要索引，重新构建索引
+    for (size_t rowIdx = 0; rowIdx < rows_.size(); ++rowIdx) {
+        const auto& field = rows_[rowIdx][colIdx];
+        
+        // 索引映射：字段值 -> 行号
+        indexes_[column.name][field].insert(rowIdx);
+    }
+}
+
 
 // 获取从第 n 行开始的 limit 个数据
 std::vector<Row> Table::getWithLimitAndOffset(int limit, int offset) const {
@@ -448,11 +461,25 @@ std::vector<size_t> Table::matchIndex(
 ) const {
     std::vector<size_t> matchedRows;
 
+    // 检查索引是否存在
+    auto itIndex = indexes_.find(columnName);
+    if (itIndex == indexes_.end()) {
+        throw std::invalid_argument("Column " + columnName + " is not indexed.");
+    }
     // 获取对应列的索引
     const auto& index = indexes_.at(columnName);
 
+    // 复制 rowSet 或者填充所有索引行
+    std::vector<size_t> filteredRowSet = rowSet;
+    if (filteredRowSet.empty()) {
+        filteredRowSet.reserve(index.size());
+        for (const auto& [key, rowList] : index) {
+            filteredRowSet.insert(filteredRowSet.end(), rowList.begin(), rowList.end());
+        }
+    }
+
     // 遍历 rowSet 中的每一行
-    for (size_t rowIndex : rowSet) {
+    for (size_t rowIndex : filteredRowSet) {
         // 获取该行的索引列值
         const auto& fieldValue = rows_[rowIndex][getColumnIndex(columnName)].getValue();
 
@@ -494,14 +521,6 @@ std::vector<size_t> Table::search(
         }
     }
 
-    // 如果没有主键查询结果，再进行索引查询
-    if (rowSet.empty()) {
-        // 填充所有行的索引
-        for (size_t i = 0; i < rows_.size(); ++i) {
-            rowSet.push_back(i);
-        }
-    }
-
     // 使用索引进行查询
     for (size_t i = 0; i < conditions.size(); ++i) {
         const std::string& columnName = conditions[i];
@@ -513,9 +532,12 @@ std::vector<size_t> Table::search(
         }
     }
 
-    // 如果条件包含索引且没有结果，返回空的查询结果
+    // 如果没有主键查询&索引查询,就全文查询
     if (rowSet.empty()) {
-        return result;
+        // 填充所有行的索引
+        for (size_t i = 0; i < rows_.size(); ++i) {
+            rowSet.push_back(i);
+        }
     }
 
     // 遍历 rowSet 中的所有行，检查每行是否满足所有查询条件
