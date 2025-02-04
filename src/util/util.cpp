@@ -47,7 +47,7 @@ std::vector<uint8_t> decodeBase64(const std::string& encoded_string) {
 }
 
 void print_memory_usage() {
-    struct mallinfo info = mallinfo();
+    struct mallinfo2 info = mallinfo2();
     std::cout << "Total allocated (arena): " << info.arena << " bytes\n";
     std::cout << "Total allocated (in-use): " << info.uordblks << " bytes\n";
     std::cout << "Total free (unused): " << info.fordblks << " bytes\n";
