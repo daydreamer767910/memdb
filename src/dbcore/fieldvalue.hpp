@@ -42,7 +42,8 @@ FieldValue getDefault(const FieldType& type);
 FieldValue valuefromJson(const json& value);
 json valuetoJson(const FieldValue& value);
 
-
+bool operator<(const FieldValue& lhs, const FieldValue& rhs);
+bool operator==(const FieldValue& lhs, const FieldValue& rhs);
 
 // 定义输出运算符
 std::ostream& operator<<(std::ostream& os, const FieldType& type);

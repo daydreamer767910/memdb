@@ -35,8 +35,60 @@ bool Query::matchCondition(const std::shared_ptr<Document>& doc, const Condition
     }, fieldValue);
 }
 
-bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& candidateDocs) const {
-    bool isSorted = false;  // 记录最终结果是否已排序
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearchDocuments(
+    const std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& docs,
+    const Condition& condition
+) const {
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> result;
+
+    auto compareWithQuery = [&](const std::pair<DocumentId, std::shared_ptr<Document>>& lhs, const std::pair<DocumentId, std::shared_ptr<Document>>& rhs) {
+        auto lv = lhs.second->getFieldByPath(condition.path)->getValue();
+        auto rv = rhs.second->getFieldByPath(condition.path)->getValue();
+//std::cout << condition.path << " :lhs: " << lv << " rhs: " << rv << " \n";
+        // 确保类型匹配，如果不匹配则返回 false
+        if (lv.index() != rv.index()) {
+            return false;  // 类型不匹配时返回 false
+        }
+        return lv < rv;
+    };
+    auto doc = std::make_shared<Document>();
+    doc->setFieldByPath(condition.path, condition.value);
+    auto cond = std::make_pair(std::string(""),doc);
+    // 执行比较和查找操作
+    if (condition.op == "==") {
+        auto range = std::equal_range(docs.begin(), docs.end(), cond, compareWithQuery);
+        for (auto it = range.first; it != range.second; ++it) {
+            std::cout << condition.value << " == " << it->second->getFieldByPath(condition.path)->getValue() << " \n";
+            result.push_back(*it);  // 将符合条件的文档加入结果
+        }
+    } else if (condition.op == "<") {
+        auto it = std::lower_bound(docs.begin(), docs.end(), cond, compareWithQuery);
+        for (auto i = docs.begin(); i != it; ++i) {
+            result.push_back(*i);
+        }
+    } else if (condition.op == "<=") {
+        auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);
+        for (auto i = docs.begin(); i != it; ++i) {
+            result.push_back(*i);
+        }
+    } else if (condition.op == ">") {
+        auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);
+        for (auto i = it; i != docs.end(); ++i) {
+            result.push_back(*i);
+        }
+    } else if (condition.op == ">=") {
+        auto it = std::lower_bound(docs.begin(), docs.end(), cond, compareWithQuery);
+        for (auto i = it; i != docs.end(); ++i) {
+            result.push_back(*i);
+        }
+    }
+
+    return result;
+}
+
+void Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& candidateDocs) const {
+    bool hasIdx = false;//有索引意味着正序
+    bool sameIdx_sortPath = false; //索引和排序重叠
 
     std::vector<size_t> indexedConditions;
     std::vector<size_t> nonIndexedConditions;
@@ -47,6 +99,7 @@ bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>&
             // **如果当前索引字段与排序字段相同，插入 indexedConditions 头部**
             if (!sorting.path.empty() && sorting.path == conditions[i].path) {
                 indexedConditions.insert(indexedConditions.begin(), i);
+                sameIdx_sortPath = true;
             } else {
                 indexedConditions.push_back(i);
             }
@@ -59,29 +112,22 @@ bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>&
     for (size_t i = 0; i < indexedConditions.size(); ++i) {
         const auto& condition = conditions[indexedConditions[i]];
         std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> filteredDocs;
-
-        if (i == 0) { 
-            // **首次使用索引，直接从索引获取初始候选集**
-            auto docs = collection_.getSortedDocuments(condition.path, sorting.ascending);
-            if (!sorting.path.empty() && sorting.path == condition.path) isSorted = true;  // 索引查询的结果是有序的
-            for (const auto& [id, doc] : docs) {
-                if (matchCondition(doc, condition)) {
-                    filteredDocs.emplace_back(id, doc);
-                }
-            }
+        hasIdx = true;
+        if (i == 0) {
+            // **首次使用索引，获取初始候选集**
+            //std::cout << "use " << condition.path << " as 1st condition\n";
+            auto docs = collection_.getSortedDocuments(condition.path);
+            // **使用二分查找加速匹配**
+            filteredDocs = binarySearchDocuments(docs, condition);
         } else {
-            // **后续条件基于已有候选集进一步筛选**
-            for (const auto& [id, doc] : candidateDocs) {
-                if (matchCondition(doc, condition)) {
-                    filteredDocs.emplace_back(id, doc);
-                }
-            }
+            // **后续条件基于已有候选集筛选**
+            filteredDocs = binarySearchDocuments(candidateDocs, condition);
         }
 
         candidateDocs = std::move(filteredDocs);
 
         if (candidateDocs.empty()) {
-            return isSorted;  // 任何阶段筛选后为空，则返回空
+            return;  // 任何阶段筛选后为空，则提前返回
         }
     }
 
@@ -109,11 +155,15 @@ bool Query::match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>&
         candidateDocs = std::move(filteredDocs);
 
         if (candidateDocs.empty()) {
-            return isSorted;  // 任何阶段筛选后为空，则返回空
+            return;  // 任何阶段筛选后为空，则返回空
         }
     }
 
-    return isSorted;
+    if (!hasIdx || !sameIdx_sortPath) {
+        sort(candidateDocs);
+    } else if (!sorting.ascending) {
+        std::reverse(candidateDocs.begin(), candidateDocs.end());
+    }
 }
 
 void Query::page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
@@ -132,62 +182,54 @@ void Query::page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& 
     }
 }
 
-void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) {
-    if (!sorting.path.empty()) {
-        bool useIndex = collection_.hasIndex(sorting.path);  // 检查是否有索引
+void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) const{
+    if (sorting.path.empty()) return;
 
-        if (useIndex) {
-            // 直接用 map 建立 docId 到原始位置的映射，避免反复查找
-            std::unordered_map<std::shared_ptr<Document>, size_t> docPos;
-            for (size_t i = 0; i < documents.size(); ++i) {
-                //docPos[documents[i].second] = i;
-                docPos.emplace(documents[i].second, i);
+    bool useIndex = collection_.hasIndex(sorting.path);  // 是否有索引
+
+    if (useIndex) {
+        std::unordered_set<DocumentId> docIds;
+        for (const auto& [id, doc] : documents) {
+            docIds.insert(id);
+        }
+
+        auto sortedDocuments = collection_.getSortedDocuments(sorting.path);
+        std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
+        sortedDocs.reserve(documents.size());
+
+        for (const auto& [id, doc] : sortedDocuments) {
+            if (docIds.find(id) != docIds.end()) {
+                sortedDocs.emplace_back(id, doc);
             }
+        }
 
-            // 获取按索引排序的文档
-            auto sortedDocuments = collection_.getSortedDocuments(sorting.path, sorting.ascending);
+        if (!sorting.ascending) {
+            std::reverse(sortedDocs.begin(), sortedDocs.end());
+        }
+        documents.swap(sortedDocs);
+    } else {
+        std::vector<std::pair<std::pair<DocumentId, std::shared_ptr<Document>>, std::pair<FieldValue, bool>>> cache;
+        cache.reserve(documents.size());
 
-            // 重新组织文档顺序
-            std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
-            sortedDocs.reserve(documents.size());
-
-            for (const auto& [id,doc] : sortedDocuments) {
-                auto it = docPos.find(doc);
-                if (it != docPos.end()) {
-                    //sortedDocs.push_back(documents[it->second]);  // 保持原始 pair 结构
-                    sortedDocs.emplace_back(std::move(documents[it->second]));
-                }
+        for (const auto& docPair : documents) {
+            auto field = docPair.second->getFieldByPath(sorting.path);
+            FieldValue fieldValue;
+            bool hasValue = false;
+            if (field) {
+                fieldValue = field->getValue();
+                hasValue = true;
             }
+            cache.emplace_back(docPair, std::make_pair(fieldValue, hasValue));
+        }
 
-            // 更新排序后的文档
-            //documents = std::move(sortedDocs);
-            documents.swap(sortedDocs);
-        } else {
-            // 如果没有索引，执行默认的排序逻辑
-            std::vector<std::pair<std::pair<DocumentId, std::shared_ptr<Document>>, std::optional<FieldValue>>> cache;
-            for (const auto& docPair : documents) {
-                auto field = docPair.second->getFieldByPath(sorting.path);
-                std::optional<FieldValue> fieldValue;
-                if (field) {
-                    fieldValue = field->getValue();
-                }
-                cache.emplace_back(docPair, fieldValue);
-            }
+        std::stable_sort(cache.begin(), cache.end(), [&](const auto& a, const auto& b) {
+            if (!a.second.second) return sorting.ascending;
+            if (!b.second.second) return !sorting.ascending;
+            return sorting.ascending ? (a.second.first < b.second.first) : (a.second.first > b.second.first);
+        });
 
-            std::stable_sort(cache.begin(), cache.end(), [&](const auto& a, const auto& b) {
-                const auto& va = a.second;
-                const auto& vb = b.second;
-
-                if (!va) return sorting.ascending;
-                if (!vb) return !sorting.ascending;
-
-                return sorting.ascending ? (*va < *vb) : (*va > *vb);
-            });
-
-            // 重新排列 documents
-            for (size_t i = 0; i < cache.size(); ++i) {
-                documents[i] = cache[i].first;
-            }
+        for (size_t i = 0; i < cache.size(); ++i) {
+            documents[i] = cache[i].first;
         }
     }
 }

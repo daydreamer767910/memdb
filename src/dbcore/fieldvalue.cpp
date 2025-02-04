@@ -161,3 +161,28 @@ json valuetoJson(const FieldValue& value) {
         }
     }, value);
 }
+
+// 对 FieldValue 类型重载比较操作符
+bool operator<(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+        if constexpr (std::is_same_v<T1, T2>) {
+            return l < r; // 如果类型相同，直接比较
+        } else {
+            return false; // 不同类型返回 false
+        }
+    }, lhs, rhs);
+}
+
+bool operator==(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+        if constexpr (std::is_same_v<T1, T2>) {
+            return l == r; // 如果类型相同，直接比较
+        } else {
+            return false; // 不同类型返回 false
+        }
+    }, lhs, rhs);
+}

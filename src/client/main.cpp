@@ -26,6 +26,7 @@ const char ip[] = "127.0.0.1";
 int port = 7900;
 bool exiting = false;
 static int id = 0;
+static int offset = 0;
 
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
@@ -144,19 +145,26 @@ void update_collection(std::string& name) {
     test(jsonConfig);
 }
 void get_collection(std::string& name) {
-    static int offset = 0;
     int limit = 10; 
     std::string json_str = R"({
         "conditions": [
-            
+            {
+                "path": "nested.details.age",
+                "op": "<",
+                "value": 40
+            },
+            {
+                "path": "nested.details.age",
+                "op": ">",
+                "value": 20
+            }
         ],
         "sorting": {
-            "path": "nested.details.created_at",
+            "path": "nested.details.age",
             "ascending": true
         },
         "fields": [
             "id",
-            "title",
             "nested.details"
         ]
     })";
@@ -164,10 +172,10 @@ void get_collection(std::string& name) {
     // 解析 JSON
     json jsonData = json::parse(json_str);
     // 添加分页信息
-    jsonData.emplace("pagination", json::object({
+    jsonData["pagination"] = {
         {"offset", offset},
         {"limit", limit}
-    }));
+    };
     offset += limit;
     jsonData["action"] = "select";
     jsonData["name"] = name;
@@ -184,13 +192,23 @@ void query_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
+                "path": "id",
+                "op": ">",
+                "value": 5000
+            },
+            {
                 "path": "nested.details.created_at",
                 "op": ">",
                 "value": "${2025-01-01 00:00:00}"
+            },
+            {
+                "path": "nested.details.age",
+                "op": ">",
+                "value": 30
             }
         ],
         "sorting": {
-            "path": "nested.details.age",
+            "path": "id",
             "ascending": true
         },
         "pagination": {
@@ -198,7 +216,7 @@ void query_collection(std::string& name) {
             "limit": 10
         },
         "fields": [
-            "nested.details.age",
+            "id",
             "nested.details"
         ]
     })";
@@ -473,7 +491,6 @@ void insert_tbl(std::string& name) {
 }
 
 void get(std::string& name) {
-    static int offset = 0;
     int limit = 10;
     json jsonData;
     jsonData["action"] = "get";
@@ -513,7 +530,6 @@ void update(std::string& name) {
 
 
 void select(std::string& name) {
-    static int offset = 0;
     int limit = 20;
     json jsonData;
     std::vector<std::string> columnNames = {"id", "name", "age", "created_at"};

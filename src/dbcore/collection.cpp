@@ -104,8 +104,7 @@ void Collection::removeIndex(const std::string& path) {
 }
 
 // 根据字段路径获取排序后的文档列表
-std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> 
-Collection::getSortedDocuments(const std::string& path, bool ascending) const {
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::getSortedDocuments(const std::string& path) const {
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
     auto indexIt = indexedFields_.find(path);
     
@@ -122,22 +121,14 @@ Collection::getSortedDocuments(const std::string& path, bool ascending) const {
     }
     sortedDocs.reserve(estimatedSize);
 
-    auto processDocuments = [&](auto begin, auto end) {
-        for (auto it = begin; it != end; ++it) {
-            for (const auto& docId : it->second) {
-                if (auto docIt = documents_.find(docId); docIt != documents_.end()) {
-                    sortedDocs.emplace_back(docIt->first, docIt->second);
-                }
+    for (auto it = valueMap.begin(); it != valueMap.end(); ++it) {
+        for (const auto& docId : it->second) {
+            if (auto docIt = documents_.find(docId); docIt != documents_.end()) {
+                sortedDocs.emplace_back(docIt->first, docIt->second);
             }
         }
-    };
-
-    if (ascending) {
-        processDocuments(valueMap.begin(), valueMap.end());
-    } else {
-        processDocuments(valueMap.rbegin(), valueMap.rend());
     }
-
+    //std::cout << "size of sortedDocs: " << sortedDocs.size() <<  std::endl;
     return sortedDocs;
 }
 
@@ -355,16 +346,13 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     query.fromJson(j);
 
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
-    bool sorted = false;
     if (j.contains("conditions") && j.at("conditions").size() > 0) {
-        sorted = query.match(results);
+        query.match(results);
     } else {
         results = getDocuments();
-    }
-    // 处理排序
-    if (!sorted && j.contains("sorting")) {
         query.sort(results);
     }
+    
     // 处理分页
     if (j.contains("pagination")) {
         query.page(results);
