@@ -35,7 +35,7 @@ if [ "$1" == "mdbsrv" ]; then
         mdbsrv "$@" &  # 以后台进程方式启动
         child=$!
         echo "mdbsrv started with PID $child"
-        wait "$child"  # 等待子进程结束
+        wait "$child" 2>/dev/null || true  # 等待子进程结束
 
         exit_code=$?
         if [[ $exit_code -eq 0 ]]; then
