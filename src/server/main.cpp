@@ -21,8 +21,8 @@ TransportSrv::ptr tranport_server = TransportSrv::get_instance();
 auto server = TcpServer();
 
 void signal_handler(int signal) {
-    if (signal == SIGINT) {
-        std::cout << "\nSIGINT received. Preparing to exit..." << std::endl;
+    if (signal == SIGINT || signal == SIGTERM) {
+        std::cout << "\nsignal " << signal << " received. Preparing to exit..." << std::endl;
         logger.terminate();
         db_server->terminate();
         tranport_server->stop();
