@@ -95,4 +95,5 @@ COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /mdb/build/lib/ /mdb/lib
 
+ENTRYPOINT ["/bin/bash", "/mdb/entrypoint.sh"]
 CMD ["mdbsrv"]
