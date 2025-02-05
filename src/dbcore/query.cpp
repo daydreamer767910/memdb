@@ -58,26 +58,6 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearc
         if (l) lv = l->getValue();
         if (r) rv = r->getValue();
         
-        // 如果左边是空值，右边不是，空值排在前
-        if (std::holds_alternative<std::monostate>(lv) && !std::holds_alternative<std::monostate>(rv)) {
-            return true;  // 空值排在前
-        }
-        
-        // 如果右边是空值，左边不是，空值排在前
-        if (!std::holds_alternative<std::monostate>(lv) && std::holds_alternative<std::monostate>(rv)) {
-            return false;  // 空值排在后
-        }
-        
-        // 如果左右两者都是空值，继续正常比较
-        if (std::holds_alternative<std::monostate>(lv) && std::holds_alternative<std::monostate>(rv)) {
-            return false;  // 两者相等，不需要交换顺序
-        }
-
-        // 确保类型匹配，如果不匹配则返回 false
-        if (lv.index() != rv.index()) {
-            return false;  // 类型不匹配时返回 false
-        }
-
         return lv < rv;  // 正常比较
     };
 
@@ -95,13 +75,15 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearc
         auto it = std::lower_bound(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto i = docs.begin(); i != it; ++i) {
             // 只加入非空值的文档
-            if (i->second->getFieldByPath(condition.path)) result.push_back(*i);
+            //if (i->second->getFieldByPath(condition.path)) 
+            result.push_back(*i);
         }
     } else if (condition.op == "<=") {
         auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto i = docs.begin(); i != it; ++i) {
             // 只加入非空值的文档
-            if (i->second->getFieldByPath(condition.path)) result.push_back(*i);
+            //if (i->second->getFieldByPath(condition.path)) 
+            result.push_back(*i);
         }
     } else if (condition.op == ">") {
         auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);

@@ -178,7 +178,7 @@ void get_collection(std::string& name) {
             },
             {
                 "path": "nested.details.age",
-                "op": "==",
+                "op": ">=",
                 "value": null
             }
         ],
