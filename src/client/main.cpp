@@ -68,8 +68,6 @@ void createidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
         "indexes": [
-            "id",
-            "nested.details.created_at",
             "nested.details.age"
         ]
     })";
@@ -179,14 +177,14 @@ void get_collection(std::string& name) {
                 "value": 100
             },
             {
-                "path": "nested.details.created_at",
-                "op": ">",
-                "value": "${2025-01-01 00:00:00}"
+                "path": "nested.details.age",
+                "op": "==",
+                "value": null
             }
         ],
         "sorting": {
             "path": "nested.details.age",
-            "ascending": false
+            "ascending": true
         },
         "fields": [
             "id",

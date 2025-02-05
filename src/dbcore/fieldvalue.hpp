@@ -57,6 +57,8 @@ bool compare(const T& value, const FieldValue& queryValue, const std::string& op
     // 处理具体的比较操作符
     if (op == "==") {
         return value == std::get<T>(queryValue);
+    } else if (op == "!=") {
+        return value != std::get<T>(queryValue);
     } else if (op == "<") {
         return value < std::get<T>(queryValue);
     } else if (op == ">") {

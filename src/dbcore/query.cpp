@@ -24,8 +24,15 @@ Query& Query::offset(size_t startIndex) {
 
 bool Query::matchCondition(const std::shared_ptr<Document>& doc, const Condition& condition) const {
     //100 K times, 130-140 ms
+    auto defaultV = Field(getDefault(condition.type));
     auto field = doc->getFieldByPath(condition.path);
-    if (!field) return false;
+    if (!field) {
+        field = &defaultV;
+    }
+
+    if (condition.op == "!=" && condition.type == FieldType::NONE) {
+        return field->getType() != FieldType::NONE; // 如果字段不是 NULL，则匹配
+    }
 
     const FieldValue& fieldValue = field->getValue();
     if (condition.type != field->getType()) return false;
@@ -44,35 +51,57 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearc
     auto compareWithQuery = [&](const std::pair<DocumentId, std::shared_ptr<Document>>& lhs, const std::pair<DocumentId, std::shared_ptr<Document>>& rhs) {
         auto l = lhs.second->getFieldByPath(condition.path);
         auto r = rhs.second->getFieldByPath(condition.path);
-        if (!l || !r) return false;
-        auto lv = l->getValue();
-        auto rv = r->getValue();
-//std::cout << condition.path << " :lhs: " << lv << " rhs: " << rv << " \n";
+        
+        FieldValue lv = std::monostate{};
+        FieldValue rv = std::monostate{};
+        
+        if (l) lv = l->getValue();
+        if (r) rv = r->getValue();
+        
+        // 如果左边是空值，右边不是，空值排在前
+        if (std::holds_alternative<std::monostate>(lv) && !std::holds_alternative<std::monostate>(rv)) {
+            return true;  // 空值排在前
+        }
+        
+        // 如果右边是空值，左边不是，空值排在前
+        if (!std::holds_alternative<std::monostate>(lv) && std::holds_alternative<std::monostate>(rv)) {
+            return false;  // 空值排在后
+        }
+        
+        // 如果左右两者都是空值，继续正常比较
+        if (std::holds_alternative<std::monostate>(lv) && std::holds_alternative<std::monostate>(rv)) {
+            return false;  // 两者相等，不需要交换顺序
+        }
+
         // 确保类型匹配，如果不匹配则返回 false
         if (lv.index() != rv.index()) {
             return false;  // 类型不匹配时返回 false
         }
-        return lv < rv;
+
+        return lv < rv;  // 正常比较
     };
+
     auto doc = std::make_shared<Document>();
     doc->setFieldByPath(condition.path, condition.value);
-    auto cond = std::make_pair(std::string(""),doc);
+    auto cond = std::make_pair(std::string(""), doc);
+
     // 执行比较和查找操作
     if (condition.op == "==") {
         auto range = std::equal_range(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto it = range.first; it != range.second; ++it) {
-            std::cout << condition.value << " == " << it->second->getFieldByPath(condition.path)->getValue() << " \n";
             result.push_back(*it);  // 将符合条件的文档加入结果
         }
     } else if (condition.op == "<") {
         auto it = std::lower_bound(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto i = docs.begin(); i != it; ++i) {
-            result.push_back(*i);
+            // 只加入非空值的文档
+            if (i->second->getFieldByPath(condition.path)) result.push_back(*i);
         }
     } else if (condition.op == "<=") {
         auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto i = docs.begin(); i != it; ++i) {
-            result.push_back(*i);
+            // 只加入非空值的文档
+            if (i->second->getFieldByPath(condition.path)) result.push_back(*i);
         }
     } else if (condition.op == ">") {
         auto it = std::upper_bound(docs.begin(), docs.end(), cond, compareWithQuery);
@@ -83,6 +112,17 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearc
         auto it = std::lower_bound(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto i = it; i != docs.end(); ++i) {
             result.push_back(*i);
+        }
+    } else if (condition.op == "!=") {
+        // 对于 !=，我们需要先找到等于给定值的文档范围，再排除这些文档
+        auto range = std::equal_range(docs.begin(), docs.end(), cond, compareWithQuery);
+        
+        // 排除相等的文档范围内的文档
+        for (auto it = docs.begin(); it != docs.end(); ++it) {
+            // 如果文档不在范围内，即不等于给定值，则加入结果
+            if (it < range.first || it >= range.second) {
+                result.push_back(*it);
+            }
         }
     }
 

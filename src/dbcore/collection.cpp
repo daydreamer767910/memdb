@@ -13,16 +13,35 @@ std::vector<std::pair<std::string, std::shared_ptr<Document>>> Collection::getDo
 
 void Collection::createIndex(const std::string& path) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    bool ret = false;
+    //bool ret = false;
     for (const auto& [docId, docPtr] : documents_) {
         auto field = docPtr->getFieldByPath(path);
         if (field) {
             //std::cout << path << " -> value: " << *field << " -> docID: " << docId << std::endl;
             indexedFields_[path][field->getValue()].insert(docId); // 存储字段值
-            ret = true;
+            //ret = true;
+        } else {
+            // 可以选择不插入空字段的索引，或者标记为空值
+            indexedFields_[path][std::monostate{}].insert(docId);
         }
     }
-    if (!ret) throw std::invalid_argument("index path not found: " + path);
+    // 打印索引内容，查看空值排列情况
+    /*std::cout << "Index for path: " << path << std::endl;
+    for (const auto& [value, docIds] : indexedFields_[path]) {
+        std::cout << "Value: ";
+        std::visit([](const auto& v) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, std::monostate>) {
+                std::cout << "null";
+            } else {
+                std::cout << v;
+            }
+        }, value);
+        std::cout << " -> Doc IDs(" << docIds.size() << "): ";
+        for (const auto& docId : docIds) {
+            std::cout << docId << " ";
+        }
+        std::cout << std::endl;
+    }*/
 }
 
 void Collection::updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue) {
@@ -47,17 +66,14 @@ void Collection::updateIndex(const std::string& path, const DocumentId& docId, c
 }
 
 // **更新索引删除字段**
-void Collection::deleteIndex(const std::string& path, const DocumentId& docId, const Field& field) {
-    // 获取字段值
-    const FieldValue& valueToDelete = field.getValue();
-    
+void Collection::deleteIndex(const std::string& path, const DocumentId& docId, const FieldValue& deleteValue) {
     // 查找索引中的条目
     auto indexIt = indexedFields_.find(path);
     if (indexIt != indexedFields_.end()) {
         auto& valueMap = indexIt->second;
 
         // 查找该字段值是否存在于索引中
-        auto valueIt = valueMap.find(valueToDelete);
+        auto valueIt = valueMap.find(deleteValue);
         if (valueIt != valueMap.end()) {
             auto& docSet = valueIt->second;
             //std::cout << "erase idx from: k[" << path << "]->v[" << valueToDelete << "]->doc[" << docId << "]\n";
@@ -306,7 +322,8 @@ int Collection::deleteFromJson(const json& j) {
                 //if () {
                     hasDeletedField = true;
                     // **删除字段时，也要更新索引**
-                    deleteIndex(path, id, removedField);
+                    //deleteIndex(path, id, removedField.getValue());
+                    updateIndex(path, id, std::monostate{});
                 //} else {
                     //std::cerr << "Warning: Field " << path << " does not exist in document.\n";
                 //}

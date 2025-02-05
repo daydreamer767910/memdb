@@ -71,7 +71,7 @@ public:
     void fromBinary(const char* data, size_t size);
 private:
     void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
-    void deleteIndex(const std::string& path, const DocumentId& docId, const Field& field);
+    void deleteIndex(const std::string& path, const DocumentId& docId, const FieldValue& deleteValue);
     void deleteIndex(const DocumentId& docId);
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
