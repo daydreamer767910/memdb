@@ -33,7 +33,7 @@ public:
 	// 添加新字段!!!不能更新
 	void setFieldByPath(const std::string& path, const Field& field);
 
-	bool removeFieldByPath(const std::string& path);
+	Field removeFieldByPath(const std::string& path);
     
 	virtual json toJson() const;
 	std::string toBinary() const;

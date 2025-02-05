@@ -42,8 +42,11 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Query::binarySearc
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> result;
 
     auto compareWithQuery = [&](const std::pair<DocumentId, std::shared_ptr<Document>>& lhs, const std::pair<DocumentId, std::shared_ptr<Document>>& rhs) {
-        auto lv = lhs.second->getFieldByPath(condition.path)->getValue();
-        auto rv = rhs.second->getFieldByPath(condition.path)->getValue();
+        auto l = lhs.second->getFieldByPath(condition.path);
+        auto r = rhs.second->getFieldByPath(condition.path);
+        if (!l || !r) return false;
+        auto lv = l->getValue();
+        auto rv = r->getValue();
 //std::cout << condition.path << " :lhs: " << lv << " rhs: " << rv << " \n";
         // 确保类型匹配，如果不匹配则返回 false
         if (lv.index() != rv.index()) {
@@ -189,20 +192,34 @@ void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& 
 
     if (useIndex) {
         std::unordered_set<DocumentId> docIds;
+        std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
+        
+        // 预先存储所有文档 ID
         for (const auto& [id, doc] : documents) {
             docIds.insert(id);
         }
 
+        // 获取已排序的文档
         auto sortedDocuments = collection_.getSortedDocuments(sorting.path);
-        std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
-        sortedDocs.reserve(documents.size());
+        sortedDocs.reserve(documents.size());  // 预留合理的空间
 
         for (const auto& [id, doc] : sortedDocuments) {
-            if (docIds.find(id) != docIds.end()) {
+            if (docIds.erase(id)) {  // 只有文档在 docIds 里，才插入 sortedDocs
                 sortedDocs.emplace_back(id, doc);
             }
         }
 
+        // 补回缺失的文档
+        if (!docIds.empty()) {
+            for (const auto& [id, doc] : documents) {
+                if (docIds.find(id) != docIds.end()) {
+                    sortedDocs.emplace_back(id, doc);
+                }
+            }
+        }
+        /*sorting.ascending = true 时，缺失值的文档排在 后面。
+        sorting.ascending = false 时，缺失值的文档排在 前面*/
+        // 逆序排序
         if (!sorting.ascending) {
             std::reverse(sortedDocs.begin(), sortedDocs.end());
         }
@@ -221,10 +238,11 @@ void Query::sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& 
             }
             cache.emplace_back(docPair, std::make_pair(fieldValue, hasValue));
         }
-
+        /*sorting.ascending = true 时，缺失值的文档排在 后面。
+        sorting.ascending = false 时，缺失值的文档排在 前面*/
         std::stable_sort(cache.begin(), cache.end(), [&](const auto& a, const auto& b) {
-            if (!a.second.second) return sorting.ascending;
-            if (!b.second.second) return !sorting.ascending;
+            if (!a.second.second) return !sorting.ascending;
+            if (!b.second.second) return sorting.ascending;
             return sorting.ascending ? (a.second.first < b.second.first) : (a.second.first > b.second.first);
         });
 

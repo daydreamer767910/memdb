@@ -47,22 +47,9 @@ void Collection::updateIndex(const std::string& path, const DocumentId& docId, c
 }
 
 // **更新索引删除字段**
-void Collection::updateIndexForDeletedField(const std::string& path, const DocumentId& docId) {
-    // 确保文档中存在该路径的字段
-    auto it = documents_.find(docId);
-    if (it == documents_.end()) {
-        std::cerr << "document not found in document_: " << docId << std::endl;
-        return; // 文档不存在
-    }
-    auto doc = it->second; // 获取文档 
-    auto field = doc->getFieldByPath(path);
-    if (!field) {
-        std::cerr << "Field not found in document: " << path << std::endl;
-        return;  // 如果找不到字段，直接返回
-    }
-
+void Collection::deleteIndex(const std::string& path, const DocumentId& docId, const Field& field) {
     // 获取字段值
-    const FieldValue& valueToDelete = field->getValue();
+    const FieldValue& valueToDelete = field.getValue();
     
     // 查找索引中的条目
     auto indexIt = indexedFields_.find(path);
@@ -73,12 +60,12 @@ void Collection::updateIndexForDeletedField(const std::string& path, const Docum
         auto valueIt = valueMap.find(valueToDelete);
         if (valueIt != valueMap.end()) {
             auto& docSet = valueIt->second;
-            std::cout << "1erase doc from: k[" << path << "]->v[" << valueToDelete << "]->doc[" << docId << "]\n";
+            //std::cout << "erase idx from: k[" << path << "]->v[" << valueToDelete << "]->doc[" << docId << "]\n";
             // 从索引中删除该文档
             docSet.erase(docId);
             // 如果该字段值在索引中没有文档引用，删除该索引条目
             if (docSet.empty()) {
-                std::cout << "1also erase v: " << valueToDelete << "\n";
+                //std::cout << "also erase set for key: " << valueToDelete << "\n";
                 valueMap.erase(valueIt);
             }
         }
@@ -87,7 +74,7 @@ void Collection::updateIndexForDeletedField(const std::string& path, const Docum
     }
 }
 
-void Collection::updateIndexForDeletedDoc(const DocumentId& docId) {
+void Collection::deleteIndex(const DocumentId& docId) {
     auto it = documents_.find(docId);
     if (it == documents_.end()) {
         std::cerr << "document not found in document_: " << docId << std::endl;
@@ -315,26 +302,27 @@ int Collection::deleteFromJson(const json& j) {
         // 如果有指定字段进行删除
         if (!deleteFields.empty()) {
             for (const auto& path : deleteFields) {
-                if (doc->removeFieldByPath(path)) {
+                Field removedField = doc->removeFieldByPath(path);
+                //if () {
                     hasDeletedField = true;
                     // **删除字段时，也要更新索引**
-                    updateIndexForDeletedField(path, id);
-                } else {
-                    std::cerr << "Warning: Field " << path << " does not exist in document.\n";
-                }
+                    deleteIndex(path, id, removedField);
+                //} else {
+                    //std::cerr << "Warning: Field " << path << " does not exist in document.\n";
+                //}
             }
 
             // 如果删除字段后，文档为空，就删除该文档
             if (hasDeletedField && doc->getFields().empty()) {
                 // **删除文档时，也要从索引中清除该文档**
-                updateIndexForDeletedDoc(id);
+                deleteIndex(id);
                 // 如果删除字段后，文档为空，就删除该文档
                 documents_.erase(id);
                 ++deleteCount;
             }
         } else {
             // **删除文档时，也要从索引中清除该文档**
-            updateIndexForDeletedDoc(id);
+            deleteIndex(id);
             // 没有指定 "fields"，删除整个文档
             documents_.erase(id);
             ++deleteCount;

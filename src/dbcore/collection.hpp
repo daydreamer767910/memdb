@@ -71,8 +71,8 @@ public:
     void fromBinary(const char* data, size_t size);
 private:
     void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
-    void updateIndexForDeletedField(const std::string& path, const DocumentId& docId);
-    void updateIndexForDeletedDoc(const DocumentId& docId);
+    void deleteIndex(const std::string& path, const DocumentId& docId, const Field& field);
+    void deleteIndex(const DocumentId& docId);
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;

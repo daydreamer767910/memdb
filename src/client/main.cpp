@@ -119,6 +119,9 @@ void delete_collection(std::string& name) {
                 "op": "<=",
                 "value": 22
             }
+        ],
+        "fields": [
+            "nested.details.age"
         ]
     })";
     
@@ -171,19 +174,19 @@ void get_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.age",
+                "path": "id",
                 "op": "<",
-                "value": 40
+                "value": 100
             },
             {
-                "path": "nested.details.age",
+                "path": "nested.details.created_at",
                 "op": ">",
-                "value": 20
+                "value": "${2025-01-01 00:00:00}"
             }
         ],
         "sorting": {
             "path": "nested.details.age",
-            "ascending": true
+            "ascending": false
         },
         "fields": [
             "id",
@@ -215,23 +218,18 @@ void query_collection(std::string& name) {
         "conditions": [
             {
                 "path": "id",
-                "op": ">",
-                "value": 5000
+                "op": "<",
+                "value": 100
             },
             {
                 "path": "nested.details.created_at",
                 "op": ">",
                 "value": "${2025-01-01 00:00:00}"
-            },
-            {
-                "path": "nested.details.age",
-                "op": ">",
-                "value": 30
             }
         ],
         "sorting": {
-            "path": "id",
-            "ascending": true
+            "path": "nested.details.age",
+            "ascending": false
         },
         "pagination": {
             "offset": 0,

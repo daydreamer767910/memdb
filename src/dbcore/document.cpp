@@ -154,16 +154,19 @@ Field* Document::getFieldByPath(const std::string& path) {
     return nullptr;
 }
 
-bool Document::removeFieldByPath(const std::string& path) {
+Field Document::removeFieldByPath(const std::string& path) {
+    Field ret = Field(std::monostate{});
     size_t pos = path.find('.');
     if (pos == std::string::npos) {
         // 删除顶层字段
         auto it = fields_.find(path);
         if (it != fields_.end()) {
+            ret = it->second;
+            //std::cout << "delete path:" << path << " value: " << it->second << " ok\n";
             fields_.erase(it);
-            return true; // 删除成功
+            return ret; // 删除成功
         }
-        return false; // 字段不存在
+        return ret; // 字段不存在
     } else {
         // 解析嵌套字段
         std::string currentField = path.substr(0, pos);
@@ -174,6 +177,6 @@ bool Document::removeFieldByPath(const std::string& path) {
                 return nestedDoc->removeFieldByPath(path.substr(pos + 1));
             }
         }
-        return false; // 嵌套字段不存在
+        return ret; // 嵌套字段不存在
     }
 }
