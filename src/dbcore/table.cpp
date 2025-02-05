@@ -334,6 +334,7 @@ void Table::buildIndex() {
 }
 
 void Table::createIndex(const std::string& columnName) {
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 使用写锁，确保线程安全
     size_t colIdx = getColumnIndex(columnName);
     auto& column = columns_[colIdx];
     column.indexed = true;
@@ -346,6 +347,21 @@ void Table::createIndex(const std::string& columnName) {
     }
 }
 
+void Table::dropIndex(const std::string& columnName) {
+    std::unique_lock<std::shared_mutex> lock(mutex_); // 使用写锁，确保线程安全
+    size_t colIdx = getColumnIndex(columnName);
+    auto& column = columns_[colIdx];
+
+    if (!column.indexed) return;  // 如果索引不存在，直接返回
+
+    column.indexed = false;
+
+    // 使用 swap() 释放内存
+    Index().swap(indexes_[column.name]);
+
+    // 删除索引映射
+    indexes_.erase(column.name);
+}
 
 // 获取从第 n 行开始的 limit 个数据
 std::vector<Row> Table::getWithLimitAndOffset(int limit, int offset) const {

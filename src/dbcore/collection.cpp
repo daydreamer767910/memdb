@@ -2,7 +2,17 @@
 #include "util/util.hpp"
 #include "query.hpp"
 
+std::vector<std::pair<std::string, std::shared_ptr<Document>>> Collection::getDocuments() const {
+    std::vector<std::pair<std::string, std::shared_ptr<Document>>> documentsVec;
+    documentsVec.reserve(documents_.size());  // 预分配空间
+    for (const auto& pair : documents_) {
+        documentsVec.emplace_back(pair.first, pair.second);
+    }
+    return documentsVec;
+}
+
 void Collection::createIndex(const std::string& path) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     bool ret = false;
     for (const auto& [docId, docPtr] : documents_) {
         auto field = docPtr->getFieldByPath(path);
@@ -99,8 +109,13 @@ void Collection::updateIndexForDeletedDoc(const DocumentId& docId) {
     }
 }
 
-void Collection::removeIndex(const std::string& path) {
-    indexedFields_.erase(path);
+void Collection::dropIndex(const std::string& path) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    auto it = indexedFields_.find(path);
+    if (it != indexedFields_.end()) {
+        std::map<FieldValue, std::set<DocumentId>>().swap(it->second);  // 释放内存
+        indexedFields_.erase(it);
+    }
 }
 
 // 根据字段路径获取排序后的文档列表

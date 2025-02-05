@@ -32,47 +32,27 @@ public:
     size_t getTotalDocument() {
         return documents_.size();
     }
-    
-    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const {
-        std::vector<std::pair<std::string, std::shared_ptr<Document>>> documentsVec;
-        documentsVec.reserve(documents_.size());  // 预分配空间
-        for (const auto& pair : documents_) {
-            documentsVec.emplace_back(pair.first, pair.second);
-        }
-        return documentsVec;
-    }
-
-
-    std::vector<std::string> insertDocumentsFromJson(const json& j);
-    // 添加一个文档
-    void insertDocument(const DocumentId& id, const Document& doc);
-
-    // 单文档更新
-    bool updateDocument(DocumentId id, const json& updateFields);
-
-    // 根据查询条件批量更新文档
-    int updateFromJson(const json& j);
-
-    // 删除一个文档（通过 ID）
-    bool deleteDocument(const DocumentId& id);
-
-    int deleteFromJson(const json& j);
-
+    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const;
     // 根据 ID 获取文档
     std::shared_ptr<Document> getDocument(const DocumentId& id) const;
 
     // 查询文档集合，支持过滤
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> queryFromJson(const json& j) const;
+    std::vector<std::string> insertDocumentsFromJson(const json& j);
+    int updateFromJson(const json& j);
+    int deleteFromJson(const json& j);
+
+    // 添加一个文档
+    void insertDocument(const DocumentId& id, const Document& doc);
+    // 单文档更新
+    bool updateDocument(DocumentId id, const json& updateFields);
+    // 删除一个文档（通过 ID）
+    bool deleteDocument(const DocumentId& id);
 
     // 创建索引：为指定字段创建索引
     void createIndex(const std::string& path);
-
-    void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
     // 删除索引
-    void removeIndex(const std::string& path);
-    void updateIndexForDeletedField(const std::string& path, const DocumentId& docId);
-    void updateIndexForDeletedDoc(const DocumentId& docId);
-
+    void dropIndex(const std::string& path);
     // 检查是否有索引
     bool hasIndex(const std::string& path) const {
         return indexedFields_.find(path) != indexedFields_.end();
@@ -89,7 +69,10 @@ public:
 
     std::string toBinary() const;
     void fromBinary(const char* data, size_t size);
-    
+private:
+    void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
+    void updateIndexForDeletedField(const std::string& path, const DocumentId& docId);
+    void updateIndexForDeletedDoc(const DocumentId& docId);
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;
