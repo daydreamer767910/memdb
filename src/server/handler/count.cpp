@@ -12,7 +12,8 @@ public:
             auto collection = std::dynamic_pointer_cast<Collection>(container);
 			response["total"] = collection->getTotalDocument();
         }
-		response[tableName] = tableName;
+		response["container"] = tableName;
+        response["type"] = container->getType();
     }
 };
 

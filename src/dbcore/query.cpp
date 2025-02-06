@@ -28,24 +28,8 @@ bool Query::matchCondition(const std::shared_ptr<Document>& doc, const Condition
     if (!field) {
         field = &defaultV;
     }
-    
-    auto fieldVal = field->getValue();
-    
-    if (condition.op == "!=" && condition.type == FieldType::NONE) {
-        // 如果字段类型是非 NULL，才匹配
-        if (field->getType() != FieldType::NONE) {
-            return true;
-        }
-    }
 
-    // 如果字段类型匹配，则继续比较
-    if (condition.type == field->getType()) {
-        return std::visit([&](const auto& value) -> bool {
-            return compare(value, condition.value, condition.op);
-        }, fieldVal);
-    }
-
-    return false;
+    return compare(field->getValue(), condition.value, condition.op);
 }
 
 std::vector<DocumentId> Query::binarySearchDocuments(

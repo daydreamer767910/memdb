@@ -447,9 +447,7 @@ std::vector<size_t> Table::matchPrimaryKey(
             auto it = primaryKeyIndex_.find(rows_[rowIndex][getColumnIndex(columnName)]);
             if (it != primaryKeyIndex_.end()) {
                 // 检查主键值是否符合条件
-                if (std::visit([&](const auto& value) {
-                    return compare(value, queryValue, op);
-                }, it->first.getValue())) {
+                if (compare(it->first.getValue(), queryValue, op)) {
                     matchedRows.push_back(rowIndex);
                 }
             }
@@ -458,9 +456,7 @@ std::vector<size_t> Table::matchPrimaryKey(
         // 遍历主键索引，查找符合条件的主键
         for (const auto& [key, rowIndex] : primaryKeyIndex_) {
             // 使用 compare 来判断主键值是否符合条件
-            if (std::visit([&](const auto& value) {
-                return compare(value, queryValue, op);
-            }, key.getValue())) {
+            if (compare(key.getValue(), queryValue, op)) {
                 matchedRows.push_back(rowIndex);  // 将符合条件的行索引添加到结果
             }
         }
@@ -500,9 +496,7 @@ std::vector<size_t> Table::matchIndex(
         const auto& fieldValue = rows_[rowIndex][getColumnIndex(columnName)].getValue();
 
         // 使用模板比较函数，判断查询值与索引值是否匹配
-        bool conditionMatch = std::visit([&](const auto& value) {
-            return compare(value, queryValue, op);
-        }, fieldValue);
+        bool conditionMatch = compare(fieldValue, queryValue, op);
 
         // 如果匹配，将行索引加入结果
         if (conditionMatch) {
@@ -572,10 +566,7 @@ std::vector<size_t> Table::search(
             const auto& op = operators[condIdx];
 
             // 使用模板比较函数，判断查询值与索引值是否匹配
-            bool conditionMatch = std::visit([&](const auto& value) {
-                //std::cout << "v: " << value << " qv: " << queryValue << std::endl;
-                return compare(value, queryValue, op);
-            }, fieldValue);
+            bool conditionMatch = compare(fieldValue, queryValue, op);
 
             // 使用 std::visit 比较字段值
             if (!conditionMatch) {

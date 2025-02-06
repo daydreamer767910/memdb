@@ -42,53 +42,23 @@ FieldValue getDefault(const FieldType& type);
 FieldValue valuefromJson(const json& value);
 json valuetoJson(const FieldValue& value);
 
-bool operator<(const FieldValue& lhs, const FieldValue& rhs);
-bool operator==(const FieldValue& lhs, const FieldValue& rhs);
+namespace field_ns {
+    bool operator<(const FieldValue& lhs, const FieldValue& rhs);
+    bool operator<=(const FieldValue& lhs, const FieldValue& rhs);
+    bool operator>=(const FieldValue& lhs, const FieldValue& rhs);
+    bool operator>(const FieldValue& lhs, const FieldValue& rhs);
+    bool operator==(const FieldValue& lhs, const FieldValue& rhs);
+    bool operator!=(const FieldValue& lhs, const FieldValue& rhs);
+}
+
+bool compare(const FieldValue& lhs, const FieldValue& rhs, const std::string& op);
 
 // 定义输出运算符
 std::ostream& operator<<(std::ostream& os, const FieldType& type);
 std::ostream& operator<<(std::ostream& os, const FieldValue& value);
-
 template <typename T>
 struct always_false : std::false_type {};
 
-template <typename T>
-bool compare(const T& value, const FieldValue& queryValue, const std::string& op) {
-    // 处理具体的比较操作符
-    if (op == "==") {
-        return value == std::get<T>(queryValue);
-    } else if (op == "!=") {
-        return value != std::get<T>(queryValue);
-    } else if (op == "<") {
-        return value < std::get<T>(queryValue);
-    } else if (op == ">") {
-        return value > std::get<T>(queryValue);
-    } else if (op == "<=") {
-        return value <= std::get<T>(queryValue);
-    } else if (op == ">=") {
-        return value >= std::get<T>(queryValue);
-    } else {
-        throw std::invalid_argument("Unsupported comparison operator: " + op);
-    }
-}
 
-template <typename T>
-std::function<bool(const FieldValue&)> createPredicate(const T& queryValue, const std::string& op) {
-    return [queryValue, op](const FieldValue& fieldValue) -> bool {
-        const auto& value = std::get<T>(fieldValue);  // 取出FieldValue中的实际值
-        if (op == "==") {
-            return value == queryValue;
-        } else if (op == "<") {
-            return value < queryValue;
-        } else if (op == ">") {
-            return value > queryValue;
-        } else if (op == "<=") {
-            return value <= queryValue;
-        } else if (op == ">=") {
-            return value >= queryValue;
-        }
-        return false;
-    };
-}
 
 #endif

@@ -161,7 +161,7 @@ json valuetoJson(const FieldValue& value) {
         }
     }, value);
 }
-
+namespace field_ns {
 // 对 FieldValue 类型重载比较操作符
 bool operator<(const FieldValue& lhs, const FieldValue& rhs) {
     return std::visit([](const auto& l, const auto& r) -> bool {
@@ -192,6 +192,92 @@ bool operator<(const FieldValue& lhs, const FieldValue& rhs) {
     }, lhs, rhs);
 }
 
+bool operator<=(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+
+        // 如果两者都是空值，则返回 false
+        if constexpr (std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return true;  // 两者都是空值时，认为它们相等
+        }
+
+        // 如果左边是空值，右边不是空值，空值排在后
+        if constexpr (std::is_same_v<T1, std::monostate> && !std::is_same_v<T2, std::monostate>) {
+            return true;  // 空值排在前
+        }
+
+        // 如果右边是空值，左边不是空值，空值排在后
+        if constexpr (!std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return false;  // 空值排在前
+        }
+
+        // 如果类型相同，直接比较
+        if constexpr (std::is_same_v<T1, T2>) {
+            return l < r;
+        } else {
+            return false;  // 不同类型的值，不能比较大小
+        }
+    }, lhs, rhs);
+}
+
+bool operator>(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+
+        // 如果两者都是空值，则返回 false
+        if constexpr (std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return false;  // 两者都是空值时，认为它们相等
+        }
+
+        // 如果左边是空值，右边不是空值
+        if constexpr (std::is_same_v<T1, std::monostate> && !std::is_same_v<T2, std::monostate>) {
+            return false;  
+        }
+
+        // 如果右边是空值，左边不是空值
+        if constexpr (!std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return true;  
+        }
+
+        // 如果类型相同，直接比较
+        if constexpr (std::is_same_v<T1, T2>) {
+            return l > r;
+        } else {
+            return false;  // 不同类型的值，不能比较大小
+        }
+    }, lhs, rhs);
+}
+
+bool operator>=(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+
+        // 如果两者都是空值，则返回 false
+        if constexpr (std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return true;  // 两者都是空值时，认为它们相等
+        }
+
+        // 如果左边是空值，右边不是空值
+        if constexpr (std::is_same_v<T1, std::monostate> && !std::is_same_v<T2, std::monostate>) {
+            return false;  
+        }
+
+        // 如果右边是空值，左边不是空值
+        if constexpr (!std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            return true;  
+        }
+
+        // 如果类型相同，直接比较
+        if constexpr (std::is_same_v<T1, T2>) {
+            return l > r;
+        } else {
+            return false;  // 不同类型的值，不能比较大小
+        }
+    }, lhs, rhs);
+}
 
 bool operator==(const FieldValue& lhs, const FieldValue& rhs) {
     return std::visit([](const auto& l, const auto& r) -> bool {
@@ -210,3 +296,37 @@ bool operator==(const FieldValue& lhs, const FieldValue& rhs) {
     }, lhs, rhs);
 }
 
+bool operator!=(const FieldValue& lhs, const FieldValue& rhs) {
+    return std::visit([](const auto& l, const auto& r) -> bool {
+        using T1 = std::decay_t<decltype(l)>;
+        using T2 = std::decay_t<decltype(r)>;
+        
+        if constexpr (std::is_same_v<T1, std::monostate> && std::is_same_v<T2, std::monostate>) {
+            // 如果两个都是 std::monostate，认为相等
+            return true;
+        } else if constexpr (std::is_same_v<T1, T2>) {
+            // 如果类型相同，直接比较
+            return l == r;
+        } else {
+            return true; // 不同类型返回 true
+        }
+    }, lhs, rhs);
+}
+}
+
+const std::unordered_map<std::string, std::function<bool(const FieldValue&, const FieldValue&)>> opMap = {
+    {"==", [](const FieldValue& lhs, const FieldValue& rhs) { return lhs == rhs; }},
+    {"!=", [](const FieldValue& lhs, const FieldValue& rhs) { return lhs != rhs; }},
+    {"<",  [](const FieldValue& lhs, const FieldValue& rhs) { return lhs < rhs; }},
+    {">",  [](const FieldValue& lhs, const FieldValue& rhs) { return lhs > rhs; }},
+    {"<=", [](const FieldValue& lhs, const FieldValue& rhs) { return lhs <= rhs; }},
+    {">=", [](const FieldValue& lhs, const FieldValue& rhs) { return lhs >= rhs; }}
+};
+
+bool compare(const FieldValue& lhs, const FieldValue& rhs, const std::string& op) {
+    auto it = opMap.find(op);
+    if (it != opMap.end()) {
+        return it->second(lhs, rhs);
+    }
+    throw std::invalid_argument("Unsupported comparison operator: " + op);
+}
