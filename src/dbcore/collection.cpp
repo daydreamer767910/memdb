@@ -122,8 +122,9 @@ void Collection::dropIndex(const std::string& path) {
 }
 
 // 根据字段路径获取排序后的文档列表
-std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::getSortedDocuments(const std::string& path) const {
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> sortedDocs;
+std::vector<std::pair<DocumentId, FieldValue>> Collection::getSortedDocuments(const std::string& path,
+    const std::vector<DocumentId>& candidateDocs) const {
+    std::vector<std::pair<DocumentId, FieldValue>> sortedDocs;
     auto indexIt = indexedFields_.find(path);
     
     if (indexIt == indexedFields_.end()) {
@@ -131,18 +132,32 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::getSor
     }
 
     const auto& valueMap = indexIt->second;  // 直接引用，减少查找
-    size_t estimatedSize = 0;
-    
-    // 计算需要存储的文档数量，减少后续 push_back 的扩容
-    for (const auto& [_, docSet] : valueMap) {
-        estimatedSize += docSet.size();
-    }
-    sortedDocs.reserve(estimatedSize);
+    if (candidateDocs.empty()) {
+        // **没有候选文档，直接返回所有索引中的文档**
+        size_t estimatedSize = 0;
+        
+        // 计算需要存储的文档数量，减少后续 push_back 的扩容
+        for (const auto& [_, docSet] : valueMap) {
+            estimatedSize += docSet.size();
+        }
+        sortedDocs.reserve(estimatedSize);
 
-    for (auto it = valueMap.begin(); it != valueMap.end(); ++it) {
-        for (const auto& docId : it->second) {
-            if (auto docIt = documents_.find(docId); docIt != documents_.end()) {
-                sortedDocs.emplace_back(docIt->first, docIt->second);
+        // 遍历所有字段值对应的文档集
+        for (const auto& [fieldValue, docSet] : valueMap) {
+            for (const auto& docId : docSet) {
+                sortedDocs.emplace_back(docId, fieldValue);
+            }
+        }
+    } else {
+        // **有候选文档，只保留 candidateDocs 里存在于索引的文档**
+        std::unordered_set<DocumentId> candidateSet(candidateDocs.begin(), candidateDocs.end());
+        sortedDocs.reserve(candidateSet.size());
+
+        for (const auto& [fieldValue, docSet] : valueMap) {
+            for (const auto& docId : docSet) {
+                if (candidateSet.find(docId) != candidateSet.end()) {
+                    sortedDocs.emplace_back(docId, fieldValue);
+                }
             }
         }
     }
@@ -261,14 +276,15 @@ int Collection::updateFromJson(const json& j) {
     }
     // **Step 3: 获取写锁，仅更新符合条件的文档**
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> matchedDocs;
+    std::vector<DocumentId> matchedDocs;
     query.match(matchedDocs);
     
     int updateCount = 0;
 
-    for (auto& [id, doc] : matchedDocs) {
+    for (auto& id : matchedDocs) {
         bool updated = false;
-
+        auto doc = this->getDocument(id);
+        if (!doc) continue;
         for (const auto& [path, newValue] : parsedFields) {
             auto field = doc->getFieldByPath(path);
             if (field) {
@@ -310,23 +326,21 @@ int Collection::deleteFromJson(const json& j) {
 
     // Step 2: 匹配文档并删除
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> matchedDocs;
+    std::vector<DocumentId> matchedDocs;
     query.match(matchedDocs);
 
-    for (auto& [id, doc]: matchedDocs) {
+    for (auto& id: matchedDocs) {
+        auto doc = this->getDocument(id);
+        if (!doc) continue;
         bool hasDeletedField = false;
         // 如果有指定字段进行删除
         if (!deleteFields.empty()) {
             for (const auto& path : deleteFields) {
                 Field removedField = doc->removeFieldByPath(path);
-                //if () {
-                    hasDeletedField = true;
-                    // **删除字段时，也要更新索引**
-                    //deleteIndex(path, id, removedField.getValue());
-                    updateIndex(path, id, std::monostate{});
-                //} else {
-                    //std::cerr << "Warning: Field " << path << " does not exist in document.\n";
-                //}
+
+                hasDeletedField = true;
+                updateIndex(path, id, std::monostate{});
+                ++deleteCount;
             }
 
             // 如果删除字段后，文档为空，就删除该文档
@@ -335,7 +349,6 @@ int Collection::deleteFromJson(const json& j) {
                 deleteIndex(id);
                 // 如果删除字段后，文档为空，就删除该文档
                 documents_.erase(id);
-                ++deleteCount;
             }
         } else {
             // **删除文档时，也要从索引中清除该文档**
@@ -352,7 +365,6 @@ int Collection::deleteFromJson(const json& j) {
 
 // 获取文档
 std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     auto it = documents_.find(id);
     if (it != documents_.end()) {
         return it->second;
@@ -365,11 +377,13 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     Query query(*this);
     query.fromJson(j);
 
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> results;
+    std::vector<DocumentId> results;
     if (j.contains("conditions") && j.at("conditions").size() > 0) {
         query.match(results);
     } else {
-        results = getDocuments();
+        for (const auto& docPair : getDocuments()) {
+            results.emplace_back(docPair.first);
+        }
         query.sort(results);
     }
     
@@ -380,14 +394,17 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
 
     // 如果需要投影字段，进行投影处理
     if (j.contains("fields")) {
-        std::unordered_set<std::string> fieldsToProject;
+        std::vector<std::string> fieldsToProject;
         for (const auto& path : j["fields"]) {
-            fieldsToProject.insert(path.get<std::string>());
+            fieldsToProject.push_back(path.get<std::string>());
         }
+
         std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> projectedResults;
         
         // 直接通过原始文档的字段创建投影
-        for (const auto& [docId, docPtr] : results) {
+        for (const auto& docId : results) {
+            auto docPtr = this->getDocument(docId);
+            if (!docPtr) continue;
             auto projectedDoc = std::make_shared<Document>();
             for (const auto& path : fieldsToProject) {
                 auto field = docPtr->getFieldByPath(path);
@@ -402,10 +419,15 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
             projectedResults.push_back({docId, projectedDoc});
         }
         return projectedResults;
+    } else {
+        std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> ret;
+        for (const auto& docId : results) {
+            auto docPtr = this->getDocument(docId);
+            if (!docPtr) continue;
+            ret.emplace_back(docId,docPtr);
+        }
+        return ret;
     }
-    // 没有投影字段，直接返回查询结果
-
-    return results;
 }
 
 json Collection::showDocs() const {

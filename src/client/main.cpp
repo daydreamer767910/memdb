@@ -68,6 +68,7 @@ void createidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
         "indexes": [
+            "id",
             "nested.details.age"
         ]
     })";
@@ -90,7 +91,7 @@ void dropidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
         "indexes": [
-            "nested.details.created_at",
+            "id",
             "nested.details.age"
         ]
     })";
@@ -114,8 +115,8 @@ void delete_collection(std::string& name) {
         "conditions": [
             {
                 "path": "nested.details.age",
-                "op": "<=",
-                "value": 22
+                "op": "==",
+                "value": 30
             }
         ],
         "fields": [
@@ -143,7 +144,7 @@ void update_collection(std::string& name) {
         "conditions": [
             {
                 "path": "nested.details.age",
-                "op": ">",
+                "op": "<",
                 "value": 25
             }
         ]
@@ -172,18 +173,18 @@ void get_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "id",
-                "op": "<",
-                "value": 100
+                "path": "nested.details.created_at",
+                "op": ">",
+                "value": "${2025-01-01 00:00:00}"
             },
             {
                 "path": "nested.details.age",
-                "op": ">=",
-                "value": null
+                "op": "<",
+                "value": 30
             }
         ],
         "sorting": {
-            "path": "nested.details.age",
+            "path": "id",
             "ascending": true
         },
         "fields": [

@@ -44,13 +44,13 @@ public:
     Query& limit(size_t maxResults);
     Query& offset(size_t startIndex);
     bool matchCondition(const std::shared_ptr<Document>& doc, const Condition& condition) const;
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> binarySearchDocuments(
-        const std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& docs,
+    std::vector<DocumentId> binarySearchDocuments(
+        const std::vector<std::pair<DocumentId, FieldValue>>& docs,
         const Condition& condition
     ) const;
-    void match(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& candidateDocs) const;
-	void sort(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents) const;
-	void page(std::vector<std::pair<DocumentId, std::shared_ptr<Document>>>& documents);
+    void match(std::vector<DocumentId>& candidateDocs) const;
+	void sort(std::vector<DocumentId>& documents) const;
+	void page(std::vector<DocumentId>& documents);
 	// 从 JSON 创建 Query 对象
     Query& fromJson(const json& j);
 

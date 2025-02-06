@@ -57,8 +57,8 @@ public:
     bool hasIndex(const std::string& path) const {
         return indexedFields_.find(path) != indexedFields_.end();
     }
-
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> getSortedDocuments(const std::string& path) const;
+    std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
+        const std::vector<DocumentId>& candidateDocs) const;
     // 序列化和反序列化
     virtual json toJson() const override;
     virtual void fromJson(const json& j) override;
