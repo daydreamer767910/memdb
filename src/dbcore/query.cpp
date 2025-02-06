@@ -1,7 +1,7 @@
 #include "query.hpp"
 
 Query& Query::condition(const std::string& path, const FieldValue& value, const std::string& op) {
-	conditions.push_back({op, path, value, Field(value).getType()});
+	conditions.push_back({op, path, value, getValueType(value)});
     return *this;
 }
 // 排序方法
@@ -28,7 +28,13 @@ bool Query::matchCondition(const std::shared_ptr<Document>& doc, const Condition
     if (!field) {
         field = &defaultV;
     }
-
+    // 针对 LIKE 操作符的特殊处理
+    if (condition.op == "LIKE" ) {
+        if (field->getType() == FieldType::STRING && condition.type == FieldType::STRING)
+            return likeMatch(field->getValue(), condition.value, condition.op);
+        else
+            return false;
+    }
     return compare(field->getValue(), condition.value, condition.op);
 }
 
@@ -76,6 +82,15 @@ std::vector<DocumentId> Query::binarySearchDocuments(
         auto range = std::equal_range(docs.begin(), docs.end(), cond, compareWithQuery);
         for (auto& doc : docs) {
             if (doc < *range.first || doc >= *range.second) {
+                result.push_back(doc.first);
+            }
+        }
+    } else if (condition.op == "LIKE" && condition.type == FieldType::STRING) {
+        // 对于 LIKE 的处理，这里假设字段是字符串类型
+        for (const auto& doc : docs) {
+            auto fieldValue = doc.second;  // 获取字段值
+            if (getValueType(fieldValue) == FieldType::STRING && 
+                likeMatch(fieldValue, condition.value, condition.op)) {
                 result.push_back(doc.first);
             }
         }

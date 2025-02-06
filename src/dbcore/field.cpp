@@ -141,6 +141,7 @@ bool Field::typeMatches(const FieldType& type) const{
 
 // 获取字段类型
 FieldType Field::getType() const {
+    /*
 	return std::visit([](const auto& val) -> FieldType {
 		using T = std::decay_t<decltype(val)>;
 		if constexpr (std::is_same_v<T, std::monostate>) {
@@ -162,5 +163,6 @@ FieldType Field::getType() const {
 		} else {
 			static_assert(always_false<T>::value, "Unknown FieldValue type");
 		}
-	}, value_);
+	}, value_);*/
+    return getValueType(value_);
 }

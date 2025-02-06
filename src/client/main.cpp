@@ -69,7 +69,7 @@ void createidx(std::string& name) {
     std::string json_str = R"({
         "indexes": [
             "id",
-            "nested.details.age"
+            "nested.details.password"
         ]
     })";
     
@@ -92,7 +92,7 @@ void dropidx(std::string& name) {
     std::string json_str = R"({
         "indexes": [
             "id",
-            "nested.details.age"
+            "nested.details.password"
         ]
     })";
     
@@ -173,14 +173,9 @@ void get_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.created_at",
-                "op": ">",
-                "value": "${2025-01-01 00:00:00}"
-            },
-            {
-                "path": "nested.details.age",
-                "op": "==",
-                "value": null
+                "path": "nested.details.password",
+                "op": "LIKE",
+                "value": "%b123%"
             }
         ],
         "sorting": {
@@ -189,7 +184,7 @@ void get_collection(std::string& name) {
         },
         "fields": [
             "id",
-            "nested.details"
+            "nested.details.password"
         ]
     })";
     

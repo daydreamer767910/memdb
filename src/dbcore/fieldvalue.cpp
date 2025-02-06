@@ -1,3 +1,5 @@
+#include <stdexcept>
+#include <type_traits>
 #include "fieldvalue.hpp"
 #include "document.hpp"
 // 定义输出运算符
@@ -160,6 +162,21 @@ json valuetoJson(const FieldValue& value) {
             return v; // 其他类型直接转换
         }
     }, value);
+}
+
+FieldType getValueType(const FieldValue& value) {
+    static constexpr FieldType typeMap[] = {
+        FieldType::NONE,    // index 0: std::monostate
+        FieldType::INT,     // index 1: int
+        FieldType::DOUBLE,  // index 2: double
+        FieldType::BOOL,    // index 3: bool
+        FieldType::STRING,  // index 4: std::string
+        FieldType::TIME,    // index 5: std::time_t
+        FieldType::BINARY,  // index 6: std::vector<uint8_t>
+        FieldType::DOCUMENT // index 7: std::shared_ptr<Document>
+    };
+
+    return typeMap[value.index()];
 }
 namespace field_ns {
 // 对 FieldValue 类型重载比较操作符
@@ -329,4 +346,60 @@ bool compare(const FieldValue& lhs, const FieldValue& rhs, const std::string& op
         return it->second(lhs, rhs);
     }
     throw std::invalid_argument("Unsupported comparison operator: " + op);
+}
+// 直接返回查询模式以及索引范围，避免 `substr()`
+struct MatchResult {
+    MatchType type;
+    size_t start; // 查询字符串开始索引
+    size_t length; // 查询字符串长度
+};
+
+MatchResult determineMatchType(const std::string& query) {
+    size_t len = query.size();
+    if (len == 0) return {MatchType::Invalid, 0, 0};
+
+    if (query.front() == '%' && query.back() == '%')
+        return {MatchType::Contains, 1, len - 2};  // 去掉首尾的 '%'
+    
+    if (query.front() == '%')
+        return {MatchType::Suffix, 1, len - 1};  // 去掉前缀 '%'
+    
+    if (query.back() == '%')
+        return {MatchType::Prefix, 0, len - 1};  // 去掉后缀 '%'
+    
+    return {MatchType::Exact, 0, len};  // 直接精确匹配
+}
+
+bool likeMatch(const FieldValue& fieldValue, const FieldValue& queryValue, const std::string& op) {
+    if (op != "LIKE") {
+        throw std::invalid_argument("Only LIKE operator is supported in this function.");
+    }
+
+    // 避免字符串拷贝
+    const std::string& fieldStr = std::get<std::string>(fieldValue);
+    const std::string& query = std::get<std::string>(queryValue);
+
+    // 获取匹配模式及查询字符串范围
+    auto [matchType, start, length] = determineMatchType(query);
+
+    // 边界检查
+    if (length > fieldStr.size()) return false;
+
+    // 执行匹配
+    switch (matchType) {
+        case MatchType::Contains:
+            return fieldStr.find(query.substr(start, length)) != std::string::npos;
+        
+        case MatchType::Prefix:
+            return std::memcmp(fieldStr.data(), query.data() + start, length) == 0;
+
+        case MatchType::Suffix:
+            return std::memcmp(fieldStr.data() + fieldStr.size() - length, query.data() + start, length) == 0;
+
+        case MatchType::Exact:
+            return fieldStr == query;
+
+        default:
+            return false;
+    }
 }

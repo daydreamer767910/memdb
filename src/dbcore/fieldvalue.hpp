@@ -41,6 +41,7 @@ FieldValue getDefault(const FieldType& type);
 //FieldValue valuefromJson(const FieldType& type, const json& value);
 FieldValue valuefromJson(const json& value);
 json valuetoJson(const FieldValue& value);
+FieldType getValueType(const FieldValue& value) ;
 
 namespace field_ns {
     bool operator<(const FieldValue& lhs, const FieldValue& rhs);
@@ -59,6 +60,14 @@ std::ostream& operator<<(std::ostream& os, const FieldValue& value);
 template <typename T>
 struct always_false : std::false_type {};
 
+enum class MatchType {
+    Contains,
+    Prefix,
+    Suffix,
+    Exact,
+    Invalid
+};
 
+bool likeMatch(const FieldValue& fieldValue, const FieldValue& queryValue, const std::string& op);
 
 #endif
