@@ -2,8 +2,8 @@ interface to use for mdb client:
 
 ## 接口文档
 
-1. **创建集合接口**:用于创建一个新的数据集合，并定义数据结构及字段约束。
-### 参数说明
+1. ### 创建集合接口:用于创建一个新的数据集合，并定义数据结构及字段约束。
+#### 参数说明
 - **action**: `string`，必须为 "create"，表示创建操作。
 - **name**: `string`，集合的名称。
 - **type**: `string`，必须为 "collection"。
@@ -17,7 +17,7 @@ interface to use for mdb client:
       - **regexPattern**: `string`，适用于 `string` 类型，正则表达式约束。
       - **minValue**/**maxValue**: `int`，适用于 `int` 类型，定义最小/最大值。
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "create",
@@ -78,8 +78,8 @@ interface to use for mdb client:
     }
 }
 ```
-2. **插入数据接口**:用于将数据插入到指定的集合中。
-### 参数说明
+2. ### 插入数据接口:用于将数据插入到指定的集合中。
+#### 参数说明
 - **action**: `string`，必须为 "insert"，表示插入操作。
 - **name**: `string`，集合的名称。
 - **document**: `array`，包含多个文档的数组，每个文档为一个对象，支持嵌套文档。
@@ -88,7 +88,7 @@ interface to use for mdb client:
   - **xxxxxx**: `any`，键值对or嵌入文档
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "insert",
@@ -131,8 +131,8 @@ interface to use for mdb client:
 }
 ```
 
-3. **查询数据接口**:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
-### 参数说明
+3. ### 查询数据接口:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
+#### 参数说明
 - **action**: `string`，必须为 "select"，表示插入操作。
 - **name**: `string`，集合的名称。
 - **conditions**: `array`，定义查询条件数组,可以不填表示无条件选择所有数据。
@@ -150,7 +150,7 @@ interface to use for mdb client:
   - **xxx**: `string`，字段名（例如 "nested.details.created_at"）
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "select",
@@ -182,8 +182,8 @@ interface to use for mdb client:
 }
 ```
 
-4. **更新数据接口**:用于更新指定集合中的数据，支持条件筛选、字段更新等操作。
-### 参数说明
+4. ### 更新数据接口:用于更新指定集合中的数据，支持条件筛选、字段更新等操作。
+#### 参数说明
 - **action**: `string`，必须为 "update"，表示更新操作。
 - **name**: `string`，集合的名称。
 - **conditions**: `array`，定义查询条件数组,可以不填表示无条件选择所有数据。
@@ -195,7 +195,7 @@ interface to use for mdb client:
   - **xxx**: `any`，字段名及其值（例如 "name": "Neo"）
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "update",
@@ -215,8 +215,8 @@ interface to use for mdb client:
 }
 ```
 
-5. **删除数据接口**:用于从指定集合中删除符合条件的数据。
-### 参数说明
+5. ### 删除数据接口:用于从指定集合中删除符合条件的数据。
+#### 参数说明
 - **action**: `string`，必须为 "delete"，表示删除操作。
 - **name**: `string`，集合的名称。
 - **conditions**: `array`，定义查询条件数组,可以不填表示无条件选择所有数据。
@@ -228,7 +228,7 @@ interface to use for mdb client:
   - **xxx**: `string`，字段名（例如 "name"）
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "delete",
@@ -246,8 +246,8 @@ interface to use for mdb client:
 }
 ```
 
-6. **创建索引接口**: 用于在指定集合中创建索引，以提高查询效率。
-### 参数说明
+6. ### 创建索引接口: 用于在指定集合中创建索引，以提高查询效率。
+#### 参数说明
 - **action**: `string`，必须为 "create_idx"，表示创建索引操作。
 - **name**: `string`，集合的名称。
 - **indexes**: `array`，指定需要创建索引的字段路径列表。每个字段路径用于创建索引，可以使用点表示法访问嵌套字段。
@@ -255,7 +255,7 @@ interface to use for mdb client:
   - **xxx**: `string`，字段名（例如 "name"）
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "create_idx",
@@ -267,8 +267,8 @@ interface to use for mdb client:
 }
 ```
 
-7. **删除索引接口** : 用于删除指定集合中的索引，以释放存储空间并减少索引维护开销。
-### 参数说明
+7. ### 删除索引接口: 用于删除指定集合中的索引，以释放存储空间并减少索引维护开销。
+#### 参数说明
 - **action**: `string`，必须为 "drop_idx"，表示删除索引操作。
 - **name**: `string`，集合的名称。
 - **indexes**: `array`，指定需要删除索引的字段路径列表。每个字段路径用于删除索引，可以使用点表示法访问嵌套字段。
@@ -276,7 +276,7 @@ interface to use for mdb client:
   - **xxx**: `string`，字段名（例如 "name"）
   ......
 
-### 示例请求
+#### 示例请求
 ```
 {
     "action": "drop_idx",
