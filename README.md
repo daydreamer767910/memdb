@@ -1,7 +1,55 @@
-interface to use for mdb client:
+# guide for mdb client:
 
-## 接口文档
+## server端安装说明
+1. ### docker 安装
+#### 直接clone到本地后执行：
+```
+docker compose up
+```
 
+2. ### 非docker 安装
+#### 直接clone到本地后执行：
+```
+cd src
+mkdir build
+cd build
+cmake ..
+make install
+cd $HOME
+mkdir log
+mdbsrv 或者运行 entrypoint.sh
+```
+## client端使用说明
+### 从安装好的server端的/usr/local/lib目录下,获取libmdb.so放在自己的客户端调用
+#### 对于c/c++：
+```
+extern "C" {
+    void mdb_init();
+    void mdb_stop();
+    void mdb_quit();
+    int mdb_start(const char* ip, int port);
+    int mdb_reconnect(const char* ip, int port);
+    int mdb_recv(char* buffer, int size, int timeout);
+    int mdb_send(const char* json_strdata, int msg_id, int timeout);
+}
+```
+#### 对于js/typescript:
+```
+const fileName = path.resolve(__dirname, "../lib/libmdb.so");
+// 定义库接口
+const mdbLib = ffi.Library(fileName, {
+mdb_init: ["void", []],
+mdb_stop: ["void", []],
+mdb_start: ["int", ["string", "int"]],
+mdb_reconnect: ["int", ["string", "int"]],
+mdb_recv: ["int", ["pointer", "int", "int"]],
+mdb_send: ["int", ["string", "int", "int"]],
+});
+```
+
+
+## client接口说明
+### 调用mdb_init，mdb_start连接上server之后，既可以通过mdb_send发送以下接口指令，然后通过mdb_recv获取指令结果：
 1. ### 创建集合接口:用于创建一个新的数据集合，并定义数据结构及字段约束。
 #### 参数说明
 - **action**: `string`，必须为 "create"，表示创建操作。
