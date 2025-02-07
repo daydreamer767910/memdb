@@ -19,6 +19,7 @@ interface to use for mdb client:
       - **minValue**/**maxValue**: `int`，适用于 `int` 类型，定义最小/最大值。
 
 ### 示例请求
+```
 {
     "action": "create",
     "name": "user",
@@ -77,7 +78,7 @@ interface to use for mdb client:
         }
     }
 }
-
+```
 ### 描述
 2. insert:用于将数据插入到指定的集合中。
 ### 参数说明
