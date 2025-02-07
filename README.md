@@ -2,8 +2,7 @@ interface to use for mdb client:
 
 ## 接口文档
 
-### 描述
-1. create:用于创建一个新的数据集合，并定义数据结构及字段约束。
+1. **创建集合接口**:用于创建一个新的数据集合，并定义数据结构及字段约束。
 ### 参数说明
 - **action**: `string`，必须为 "create"，表示创建操作。
 - **name**: `string`，集合的名称。
@@ -79,8 +78,7 @@ interface to use for mdb client:
     }
 }
 ```
-### 描述
-2. insert:用于将数据插入到指定的集合中。
+2. **插入数据接口**:用于将数据插入到指定的集合中。
 ### 参数说明
 - **action**: `string`，必须为 "insert"，表示插入操作。
 - **name**: `string`，集合的名称。
@@ -133,8 +131,7 @@ interface to use for mdb client:
 }
 ```
 
-### 描述
-3. select:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
+3. **查询数据接口**:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
 ### 参数说明
 - **action**: `string`，必须为 "select"，表示插入操作。
 - **name**: `string`，集合的名称。
@@ -185,8 +182,7 @@ interface to use for mdb client:
 }
 ```
 
-### 描述
-4. update:用于更新指定集合中的数据，支持条件筛选、字段更新等操作。
+4. **更新数据接口**:用于更新指定集合中的数据，支持条件筛选、字段更新等操作。
 ### 参数说明
 - **action**: `string`，必须为 "update"，表示更新操作。
 - **name**: `string`，集合的名称。
@@ -219,8 +215,7 @@ interface to use for mdb client:
 }
 ```
 
-### 描述
-5. delete:用于从指定集合中删除符合条件的数据。
+5. **删除数据接口**:用于从指定集合中删除符合条件的数据。
 ### 参数说明
 - **action**: `string`，必须为 "delete"，表示删除操作。
 - **name**: `string`，集合的名称。
@@ -251,8 +246,7 @@ interface to use for mdb client:
 }
 ```
 
-### 描述
-6. create_idx: 用于在指定集合中创建索引，以提高查询效率。
+6. **创建索引接口**: 用于在指定集合中创建索引，以提高查询效率。
 ### 参数说明
 - **action**: `string`，必须为 "create_idx"，表示创建索引操作。
 - **name**: `string`，集合的名称。
@@ -273,8 +267,7 @@ interface to use for mdb client:
 }
 ```
 
-### 描述
-7. drop_idx: 用于删除指定集合中的索引，以释放存储空间并减少索引维护开销。
+7. **删除索引接口** : 用于删除指定集合中的索引，以释放存储空间并减少索引维护开销。
 ### 参数说明
 - **action**: `string`，必须为 "drop_idx"，表示删除索引操作。
 - **name**: `string`，集合的名称。
