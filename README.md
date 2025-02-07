@@ -50,7 +50,9 @@ mdb_send: ["int", ["string", "int", "int"]],
 
 ## client接口说明
 ### 调用mdb_init，mdb_start连接上server之后，既可以通过mdb_send发送以下接口指令，然后通过mdb_recv获取指令结果：
-1. ### 创建集合接口:用于创建一个新的数据集合，并定义数据结构及字段约束。
+
+1. ### 创建集合接口:用于创建一个新的数据集合，并定义数据结构及字段约束。字段值数据类型目前支持包括int, double, bool, string, time, binary, document（嵌入文档），使用time的时候需要用${date time stamp}格式（例如：${2025-01-01 00:00:00}）。
+
 #### 参数说明
 - **action**: `string`，必须为 "create"，表示创建操作。
 - **name**: `string`，集合的名称。
@@ -141,7 +143,6 @@ mdb_send: ["int", ["string", "int", "int"]],
 {
     "action": "insert",
     "name": "customer_data",
-    "type": "collection",
     "documents": [
         {
             "id": 1,
@@ -167,7 +168,7 @@ mdb_send: ["int", ["string", "int", "int"]],
         {
             "id": 2,
             "title": "matrix",
-			"author": "Neo",
+            "author": "Neo",
             "version": 1,
             "detail": {
                 "power": 999999999,
@@ -181,7 +182,7 @@ mdb_send: ["int", ["string", "int", "int"]],
 
 3. ### 查询数据接口:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
 #### 参数说明
-- **action**: `string`，必须为 "select"，表示插入操作。
+- **action**: `string`，必须为 "select"，表示查询操作。
 - **name**: `string`，集合的名称。
 - **conditions**: `array`，定义查询条件数组,可以不填表示无条件选择所有数据。
   - **path**: `string`，要查询的字段路径，可以使用点表示法来访问嵌套字段（例如 "nested.details.created_at"）
