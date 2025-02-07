@@ -91,6 +91,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "insert",
     "name": "customer_data",
@@ -130,6 +131,7 @@ interface to use for mdb client:
         }
     ]
 }
+```
 
 ### 描述
 3. select:用于从指定的集合中查询数据，支持条件筛选、排序、分页及字段选择。
@@ -152,6 +154,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "select",
     "name": "customer_data",
@@ -180,7 +183,7 @@ interface to use for mdb client:
         "nested.details"
     ]
 }
-
+```
 
 ### 描述
 4. update:用于更新指定集合中的数据，支持条件筛选、字段更新等操作。
@@ -197,6 +200,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "update",
     "name": "customer_data",
@@ -213,6 +217,7 @@ interface to use for mdb client:
         "nested.details.email": "oumss@ou.mass"
     }
 }
+```
 
 ### 描述
 5. delete:用于从指定集合中删除符合条件的数据。
@@ -229,6 +234,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "delete",
     "name": "customer_data",
@@ -243,6 +249,7 @@ interface to use for mdb client:
         "nested.details.age"
     ]
 }
+```
 
 ### 描述
 6. create_idx: 用于在指定集合中创建索引，以提高查询效率。
@@ -255,6 +262,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "create_idx",
     "name": "customer_data",
@@ -263,6 +271,7 @@ interface to use for mdb client:
         "nested.details.password"
     ]
 }
+```
 
 ### 描述
 7. drop_idx: 用于删除指定集合中的索引，以释放存储空间并减少索引维护开销。
@@ -275,6 +284,7 @@ interface to use for mdb client:
   ......
 
 ### 示例请求
+```
 {
     "action": "drop_idx",
     "name": "customer_data",
@@ -283,3 +293,4 @@ interface to use for mdb client:
         "nested.details.password"
     ]
 }
+```
