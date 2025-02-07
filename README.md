@@ -186,7 +186,7 @@ mdb_send: ["int", ["string", "int", "int"]],
 - **name**: `string`，集合的名称。
 - **conditions**: `array`，定义查询条件数组,可以不填表示无条件选择所有数据。
   - **path**: `string`，要查询的字段路径，可以使用点表示法来访问嵌套字段（例如 "nested.details.created_at"）
-  - **op**: `string`，操作符，用于比较字段值
+  - **op**: `string`，操作符，用于比较字段值。支持：==, !=, >, >=, <, <=, LIKE（例如: LIKE %xxx%）
   - **value**: `any`，用于比较的值(支持null表示不存在)
 - **sorting**: `object`，设置查询结果的排序规则，不填表示不排序。
   - **path**: `string`，排序的字段（例如 "nested.details.created_at"）
