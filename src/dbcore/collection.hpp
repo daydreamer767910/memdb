@@ -36,7 +36,7 @@ public:
     
     // 查询文档集合，支持过滤
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> queryFromJson(const json& j) const;
-    std::vector<std::string> insertDocumentsFromJson(const json& j);
+    std::vector<DocumentId> insertDocumentsFromJson(const json& j);
     int updateFromJson(const json& j);
     int deleteFromJson(const json& j);
 
@@ -72,7 +72,7 @@ private:
     void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
     void deleteIndex(const std::string& path, const DocumentId& docId, const FieldValue& deleteValue);
     void deleteIndex(const DocumentId& docId);
-    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const;
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> getDocuments() const;
     std::shared_ptr<Document> getDocumentNoLock(const DocumentId& id) const;
     std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
         const std::vector<DocumentId>& candidateDocs) const;
@@ -80,7 +80,7 @@ private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;
     // 索引映射：用于存储字段路径 -> 字段值 -> 文档ID
-    std::unordered_map<std::string, std::map<FieldValue, std::set<DocumentId>>> indexedFields_;
+    std::unordered_map<std::string, std::map<FieldValue, std::unordered_set<DocumentId>>> indexedFields_;
 };
 
 #endif 

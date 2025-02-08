@@ -49,7 +49,7 @@ std::vector<DocumentId> Query::binarySearchDocuments(
         return lhs.second < rhs.second;  // 正常比较
     };
 
-    auto cond = std::make_pair(std::string(""), condition.value);
+    auto cond = std::make_pair(0, condition.value);
 
     // 执行比较和查找操作
     if (condition.op == "==") {

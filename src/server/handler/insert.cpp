@@ -31,10 +31,10 @@ public:
                     throw std::runtime_error("Failed to cast to Collection");
                 }
                 
-                std::vector<std::string> insertedIds = collection->insertDocumentsFromJson(task);
+                std::vector<DocumentId> insertedIds = collection->insertDocumentsFromJson(task);
                 json ids = json::array();
                 for (const auto& id : insertedIds) {
-                    ids.push_back({{"id", id}});
+                    ids.push_back({{"_id", id}});
                 }
                 response["rows_inserted"] = ids;
             } else {

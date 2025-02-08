@@ -2,8 +2,8 @@
 #include "util/util.hpp"
 #include "query.hpp"
 
-std::vector<std::pair<std::string, std::shared_ptr<Document>>> Collection::getDocuments() const {
-    std::vector<std::pair<std::string, std::shared_ptr<Document>>> documentsVec;
+std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::getDocuments() const {
+    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> documentsVec;
     documentsVec.reserve(documents_.size());  // 预分配空间
     for (const auto& pair : documents_) {
         documentsVec.emplace_back(pair.first, pair.second);
@@ -116,7 +116,7 @@ void Collection::dropIndex(const std::string& path) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
     auto it = indexedFields_.find(path);
     if (it != indexedFields_.end()) {
-        std::map<FieldValue, std::set<DocumentId>>().swap(it->second);  // 释放内存
+        std::map<FieldValue, std::unordered_set<DocumentId>>().swap(it->second);  // 释放内存
         indexedFields_.erase(it);
     }
 }
@@ -176,9 +176,13 @@ std::vector<DocumentId> Collection::insertDocumentsFromJson(const json& j) {
     std::vector<DocumentId> failedIds;  // 用于记录失败的文档 ID
     for (const auto& jDoc : j["documents"]) {
         // 如果没有提供 ID，则生成唯一 ID
-        DocumentId docId = (jDoc.contains("_id") && jDoc["_id"].is_string()) ? 
-                            jDoc["_id"].get<DocumentId>() : generateUniqueId();
-
+        DocumentId docId;
+        if (jDoc.contains("_id") && jDoc["_id"].is_number_integer()) {
+            docId = jDoc["_id"].get<DocumentId>();
+        } else {
+            docId = std::hash<std::string>{}(generateUniqueId());
+        }
+        
         auto it = documents_.find(docId);
         if (it != documents_.end()) {
             // 如果文档已存在，记录失败并继续处理下一个文档
@@ -211,7 +215,7 @@ std::vector<DocumentId> Collection::insertDocumentsFromJson(const json& j) {
         // 可以选择在插入完成后抛出一个包含所有失败文档 ID 的异常
         std::string failedMsg = "Failed to insert the following documents: ";
         for (const auto& failedId : failedIds) {
-            failedMsg += failedId + " ";
+            failedMsg += std::to_string(failedId) + " ";
         }
         throw std::invalid_argument(failedMsg);
     }
@@ -417,8 +421,8 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
                     //projectedDoc->setFieldByPath(path, *field);  // 设置投影字段
                     projectedDoc->setField(path, *field); //不需要构造文档树
                 } else {
-                    std::cerr << "Error: Field " << path << " does not exist in document " << docId << ".\n";
-                    throw std::invalid_argument("Invalid field: " + path + " not exist in " + docId);
+                    std::cerr << "Error: Field " << path << " does not exist in document " << std::to_string(docId) << ".\n";
+                    throw std::invalid_argument("Invalid field: " + path + " not exist in " + std::to_string(docId));
                 }
             }
             projectedResults.push_back({docId, projectedDoc});
@@ -495,10 +499,8 @@ std::string Collection::toBinary() const {
     std::shared_lock<std::shared_mutex> lock(mutex_); // 共享锁
     std::string binary;
     for (const auto& [id, doc] : documents_) {
-        // 文档 ID 的长度和内容
-        uint32_t idLen = id.size();
-        binary.append(reinterpret_cast<const char*>(&idLen), sizeof(idLen));
-        binary.append(id);
+        // 直接使用 uint64_t 类型的 ID，转换为字节流
+        binary.append(reinterpret_cast<const char*>(&id), sizeof(id));
 
         // 文档内容的二进制
         std::string docBinary = doc->toBinary();
@@ -514,14 +516,10 @@ void Collection::fromBinary(const char* data, size_t size) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     size_t offset = 0;
     while (offset < size) {
-        // 读取文档 ID 的长度
-        uint32_t idLen;
-        std::memcpy(&idLen, data + offset, sizeof(idLen));
-        offset += sizeof(idLen);
-
         // 读取文档 ID
-        std::string id(data + offset, idLen);
-        offset += idLen;
+        DocumentId id;
+        std::memcpy(&id, data + offset, sizeof(id));  // 直接读取 uint64_t 类型的 ID
+        offset += sizeof(id);
 
         // 读取文档内容的长度
         uint32_t docLen;

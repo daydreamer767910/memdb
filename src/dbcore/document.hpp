@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include "field.hpp"
 
-using DocumentId = std::string;
+using DocumentId = uint64_t;//std::string;
 using DocumentFields = std::unordered_map<std::string, Field>;
 
 class Document {

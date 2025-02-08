@@ -68,8 +68,9 @@ void createidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
         "indexes": [
+            "_id",
             "id",
-            "nested.details.password"
+            "nested.details.age"
         ]
     })";
     
@@ -91,8 +92,9 @@ void dropidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({
         "indexes": [
+            "_id",
             "id",
-            "nested.details.password"
+            "nested.details.age"
         ]
     })";
     
@@ -173,13 +175,18 @@ void get_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.password",
-                "op": "LIKE",
-                "value": "%b123%"
+                "path": "_id",
+                "op": "<",
+                "value": 5000
+            },
+            {
+                "path": "nested.details.age",
+                "op": ">",
+                "value": 22
             }
         ],
         "sorting": {
-            "path": "id",
+            "path": "_id",
             "ascending": true
         }
     })";
@@ -257,6 +264,7 @@ void insert_collection(std::string& name) {
 
         j.push_back({
             {"id", id++},
+            {"_id", id},
             {"title", "cmass"},
             {"version", 1},
             {"nested", {
