@@ -62,7 +62,9 @@ void Collection::updateIndex(const std::string& path, const DocumentId& docId, c
     }
 
     // 插入新值
-    fieldMap[newValue].insert(docId);
+    // 使用 try_emplace 避免重复查找
+    auto& docSet = fieldMap.try_emplace(newValue).first->second;
+    docSet.insert(docId);
 }
 
 // **更新索引删除字段**
@@ -200,14 +202,17 @@ std::vector<DocumentId> Collection::insertDocumentsFromJson(const json& j) {
             // 插入文档
             documents_.emplace(docId, doc);
             insertedIds.push_back(docId);
-
-            // **更新索引**
-            for (const auto& [path, field] : doc->getFields()) {  
-                updateIndex(path, docId, field.getValue());
-            }
         } catch (const std::exception& e) {
             std::cerr << "Failed to insert document with ID " << docId << ": " << e.what() << std::endl;
             failedIds.push_back(docId);
+        }
+    }
+    //批量更新索引
+    for (const auto& docId: insertedIds ) {
+        auto doc = this->getDocumentNoLock(docId);
+        // **更新索引**
+        for (const auto& [path, field] : doc->getFields()) {  
+            updateIndex(path, docId, field.getValue());
         }
     }
 
