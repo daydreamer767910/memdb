@@ -14,6 +14,7 @@
 
 
 class Collection: public DataContainer {
+    friend class Query;
 public:
     
     explicit Collection(const std::string& name, const std::string& type) : DataContainer(name,type) {}
@@ -32,16 +33,15 @@ public:
     size_t getTotalDocument() {
         return documents_.size();
     }
-    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const;
-    // 根据 ID 获取文档
-    std::shared_ptr<Document> getDocument(const DocumentId& id) const;
-
+    
     // 查询文档集合，支持过滤
     std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> queryFromJson(const json& j) const;
     std::vector<std::string> insertDocumentsFromJson(const json& j);
     int updateFromJson(const json& j);
     int deleteFromJson(const json& j);
 
+    // 根据 ID 获取文档
+    std::shared_ptr<Document> getDocument(const DocumentId& id) const;
     // 添加一个文档
     void insertDocument(const DocumentId& id, const Document& doc);
     // 单文档更新
@@ -57,8 +57,7 @@ public:
     bool hasIndex(const std::string& path) const {
         return indexedFields_.find(path) != indexedFields_.end();
     }
-    std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
-        const std::vector<DocumentId>& candidateDocs) const;
+    
     // 序列化和反序列化
     virtual json toJson() const override;
     virtual void fromJson(const json& j) override;
@@ -66,13 +65,17 @@ public:
     virtual void saveSchema(const std::string& filePath) override;
     virtual void exportToBinaryFile(const std::string& filePath) override;
     virtual void importFromBinaryFile(const std::string& filePath) override;
-
+private:
     std::string toBinary() const;
     void fromBinary(const char* data, size_t size);
-private:
+
     void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
     void deleteIndex(const std::string& path, const DocumentId& docId, const FieldValue& deleteValue);
     void deleteIndex(const DocumentId& docId);
+    std::vector<std::pair<std::string, std::shared_ptr<Document>>> getDocuments() const;
+    std::shared_ptr<Document> getDocumentNoLock(const DocumentId& id) const;
+    std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
+        const std::vector<DocumentId>& candidateDocs) const;
 private:
     std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;

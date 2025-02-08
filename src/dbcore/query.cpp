@@ -150,7 +150,7 @@ void Query::match(std::vector<DocumentId>& candidateDocs) const {
         } else {
             // **基于已有候选集进一步筛选**
             for (const auto& docId : candidateDocs) {
-                auto doc = collection_.getDocument(docId);
+                auto doc = collection_.getDocumentNoLock(docId);
                 if (matchCondition(doc, condition)) {
                     filteredDocs.emplace_back(docId);
                 }
@@ -214,7 +214,7 @@ void Query::sort(std::vector<DocumentId>& documents) const{
         cache.reserve(documents.size());
 
         for (const auto& docID : documents) {
-            auto doc = collection_.getDocument(docID);
+            auto doc = collection_.getDocumentNoLock(docID);
             if (!doc) continue;
             auto field = doc->getFieldByPath(sorting.path);
             FieldValue fieldValue;

@@ -12,12 +12,8 @@ public:
 
     // 从 JSON 配置构建 CollectionSchema
     void fromJson(const json& j) override {
-        if (!j.contains("fields")) {
-            throw std::invalid_argument("Invalid JSON: Missing 'fields' key");
-        }
-
         // Parse fields
-        const auto& fields = j.at("fields");
+        const auto& fields = j.at("schema");
         for (auto it = fields.begin(); it != fields.end(); ++it) {
             const std::string& fieldName = it.key();
             FieldSchema fieldSchema;
@@ -30,7 +26,7 @@ public:
     json toJson() const {
         json j;
         for (const auto& [fieldName, fieldSchema] : fieldSchemas_) {
-            j["fields"][fieldName] = fieldSchema.toJson();
+            j["schema"][fieldName] = fieldSchema.toJson();
         }
         return j;
     }
@@ -38,7 +34,7 @@ public:
     // 获取默认配置
     json getDefault() const override {
         return json{
-            {"fields", {
+            {"schema", {
                 {"name", "string"}
             }}
         };

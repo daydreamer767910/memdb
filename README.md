@@ -57,15 +57,14 @@ mdb_send: ["int", ["string", "int", "int"]],
 - **action**: `string`，必须为 "create"，表示创建操作。
 - **name**: `string`，集合的名称。
 - **type**: `string`，必须为 "collection"。
-- **schema**: `object`，定义集合的字段结构约束,可以不填为空表示无任何约束。
-  - **fields**: `object`，包含多个字段定义，每个字段有以下属性：
-    - **type**: `string`，字段的数据类型。包括:int, double, bool, string, time, binary, document
-    - **constraints**: `object`，字段的约束条件，不填表示无约束。
-      - **required**: `boolean`，是否必须提供该字段。
-      - **depth**: `int`，表示嵌套深度比特位（1：第一层,2：第二层,3：第一和第二层...每层对应一个比特位）。
-      - **minLength**/**maxLength**: `int`，适用于 `string` 类型，定义最小/最大长度。
-      - **regexPattern**: `string`，适用于 `string` 类型，正则表达式约束。
-      - **minValue**/**maxValue**: `int`，适用于 `int` 类型，定义最小/最大值。
+- **schema**: `object`，定义集合的字段结构约束,可以不填,空表示无任何约束。
+  - **type**: `string`，字段的数据类型:int, double, bool, string, time, binary, document
+  - **constraints**: `object`，字段的约束条件，不填表示无约束。
+    - **required**: `boolean`，是否必须提供该字段。
+    - **depth**: `int`，表示约束深度，不填表示所有深度。（例如：1：第一层,2：第二层,3：第一和第二层...每层对应一个比特位）。
+    - **minLength**/**maxLength**: `int`，适用于 `string` 类型，定义最小/最大长度。
+    - **regexPattern**: `string`，适用于 `string` 类型，正则表达式约束。
+    - **minValue**/**maxValue**: `int`，适用于 `int` 类型，定义最小/最大值。
 
 #### 示例请求
 ```
@@ -74,55 +73,53 @@ mdb_send: ["int", ["string", "int", "int"]],
     "name": "user",
     "type": "collection",
     "schema": {
-        "fields": {
-            "id": {
-                "type": "int",
-                "constraints": {
-                    "required": true,
-                    "depth": 1
-                }
-            },
-            "email": {
-                "type": "string",
-                "constraints": {
-                    "required": false,
-                    "minLength": 5,
-                    "maxLength": 100,
-                    "regexPattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-                }
-            },
-            "phone": {
-                "type": "string",
-                "constraints": {
-                    "required": false,
-                    "minLength": 8,
-                    "maxLength": 16,
-                    "regexPattern": "^\\+?[1-9]\\d{0,2}[-\\s]?(\\d{3}[-\\s]?){2}\\d{4}$"
-                }
-            },
-            "password": {
-                "type": "string",
-                "constraints": {
-                    "required": false,
-                    "minLength": 8,
-                    "maxLength": 16,
-                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
-                }
-            },
-			"nested": {
-                "type": "document",
-                "constraints": {
-                    "required": true,
-                    "depth": 1
-                }
-            },
-            "age": {
-                "type": "int",
-                "constraints": {
-                    "required": false,
-                    "minValue": 1,
-                    "maxValue": 120
-                }
+        "id": {
+            "type": "int",
+            "constraints": {
+                "required": true,
+                "depth": 1
+            }
+        },
+        "email": {
+            "type": "string",
+            "constraints": {
+                "required": false,
+                "minLength": 5,
+                "maxLength": 100,
+                "regexPattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            }
+        },
+        "phone": {
+            "type": "string",
+            "constraints": {
+                "required": false,
+                "minLength": 8,
+                "maxLength": 16,
+                "regexPattern": "^\\+?[1-9]\\d{0,2}[-\\s]?(\\d{3}[-\\s]?){2}\\d{4}$"
+            }
+        },
+        "password": {
+            "type": "string",
+            "constraints": {
+                "required": false,
+                "minLength": 8,
+                "maxLength": 16,
+                "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
+            }
+        },
+        "nested": {
+            "type": "document",
+            "constraints": {
+                "required": true,
+                "depth": 1
+            }
+        },
+        "age": {
+            "type": "int",
+            "constraints": {
+                "required": false,
+                "minValue": 1,
+                "maxValue": 120
             }
         }
     }
@@ -173,7 +170,7 @@ mdb_send: ["int", ["string", "int", "int"]],
             "detail": {
                 "power": 999999999,
                 "manner": 99999999,
-				"armor": 99999999
+                "armor": 99999999
             }
         }
     ]

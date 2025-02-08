@@ -23,38 +23,41 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 			io_.run();
 		});
 	}
-	DataContainer::ptr container = db->addContainer("users", "collection");
-	json j = R"({
-	  "schema":{
-        "fields": {
-            "role": {
-                "type": "string",
-                "constraints": {
-                    "required": true,
-                    "depth": 1
-                }
-            },
-            "password": {
-                "type": "string",
-                "constraints": {
-                    "required": false,
-                    "minLength": 8,
-                    "maxLength": 16,
-                    "regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
-                }
-            }
-        }
-	  }
-    })"_json;
-	container->fromJson(j);
-	Document document;
-	document.setFieldByPath(std::string("role"), Field(std::string("admin")));
-	document.setFieldByPath(std::string("password"), Field(std::string("admin")));
-	document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
-	document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
-	auto collection = std::dynamic_pointer_cast<Collection>(container);
-	collection->insertDocument("oumass", document);
 	
+	try {
+		db->getContainer("users");
+	}
+	catch (...) {
+		DataContainer::ptr container = db->addContainer("users", "collection");
+		json j = R"({
+		"schema":{
+			"role": {
+				"type": "string",
+				"constraints": {
+					"required": true,
+					"depth": 1
+				}
+			},
+			"password": {
+				"type": "string",
+				"constraints": {
+					"required": false,
+					"minLength": 8,
+					"maxLength": 16,
+					"regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
+				}
+			}
+		}
+		})"_json;
+		container->fromJson(j);
+		Document document;
+		document.setFieldByPath(std::string("role"), Field(std::string("admin")));
+		document.setFieldByPath(std::string("password"), Field(std::string("admin")));
+		document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
+		document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
+		auto collection = std::dynamic_pointer_cast<Collection>(container);
+		collection->insertDocument("oumass", document);
+	}
 }
 
 DBService::~DBService() {

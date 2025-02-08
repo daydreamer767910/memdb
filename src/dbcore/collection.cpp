@@ -283,7 +283,7 @@ int Collection::updateFromJson(const json& j) {
 
     for (auto& id : matchedDocs) {
         bool updated = false;
-        auto doc = this->getDocument(id);
+        auto doc = this->getDocumentNoLock(id);
         if (!doc) continue;
         for (const auto& [path, newValue] : parsedFields) {
             auto field = doc->getFieldByPath(path);
@@ -330,7 +330,7 @@ int Collection::deleteFromJson(const json& j) {
     query.match(matchedDocs);
 
     for (auto& id: matchedDocs) {
-        auto doc = this->getDocument(id);
+        auto doc = this->getDocumentNoLock(id);
         if (!doc) continue;
         bool hasDeletedField = false;
         // 如果有指定字段进行删除
@@ -363,13 +363,18 @@ int Collection::deleteFromJson(const json& j) {
     return deleteCount;
 }
 
-// 获取文档
-std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
+std::shared_ptr<Document> Collection::getDocumentNoLock(const DocumentId& id) const {
     auto it = documents_.find(id);
     if (it != documents_.end()) {
         return it->second;
     }
     return nullptr;
+}
+
+// 获取文档
+std::shared_ptr<Document> Collection::getDocument(const DocumentId& id) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);  // 共享锁
+    return getDocumentNoLock(id);
 }
 
 std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryFromJson(const json& j) const {
@@ -403,7 +408,7 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
         
         // 直接通过原始文档的字段创建投影
         for (const auto& docId : results) {
-            auto docPtr = this->getDocument(docId);
+            auto docPtr = this->getDocumentNoLock(docId);
             if (!docPtr) continue;
             auto projectedDoc = std::make_shared<Document>();
             for (const auto& path : fieldsToProject) {
@@ -422,7 +427,7 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     } else {
         std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> ret;
         for (const auto& docId : results) {
-            auto docPtr = this->getDocument(docId);
+            auto docPtr = this->getDocumentNoLock(docId);
             if (!docPtr) continue;
             ret.emplace_back(docId,docPtr);
         }
@@ -462,7 +467,7 @@ void Collection::fromJson(const json& j) {
         throw std::invalid_argument("Invalid JSON format: 'schema' is missing.");
     }
     try {
-        schema_.fromJson(j["schema"]);
+        schema_.fromJson(j);
         //std::cout << schema_.toJson().dump(4) << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -472,10 +477,9 @@ void Collection::fromJson(const json& j) {
 void Collection::saveSchema(const std::string& filePath) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
     // 将表信息序列化为 JSON
-    json root;
+    json root = schema_.toJson();
     root["name"] = name_;
     root["type"] = "collection";
-    root["schema"] = schema_.toJson();
 
     // 将 JSON 写入文件
     std::ofstream outputFile(filePath);

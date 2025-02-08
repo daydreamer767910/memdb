@@ -181,11 +181,7 @@ void get_collection(std::string& name) {
         "sorting": {
             "path": "id",
             "ascending": true
-        },
-        "fields": [
-            "id",
-            "nested.details.password"
-        ]
+        }
     })";
     
     // 解析 JSON
@@ -318,7 +314,7 @@ email限制:
 */
     // 原始 JSON 数据
     std::string rawJson = R"({
-        "fields": {
+        "schema": {
             "id": {
                 "type": "int",
                 "constraints": {
@@ -389,13 +385,12 @@ email限制:
 
     // 将字符串解析为 JSON 对象
     json j = json::parse(rawJson);
-    json jsonData;
-    jsonData["action"] = "create";
-    jsonData["name"] = name;
-    jsonData["type"] = "collection";
-    jsonData["schema"] = j;
+    j["action"] = "create";
+    j["name"] = name;
+    j["type"] = "collection";
+
     // Convert JSON to string
-    std::string jsonConfig = jsonData.dump(1);
+    std::string jsonConfig = j.dump(1);
     
     // Test or use the generated JSON
     test(jsonConfig);
@@ -494,24 +489,12 @@ void insert_tbl(std::string& name) {
         row["addr"] = "street " + std::to_string(id);
         std::vector<uint8_t> binaryData = { 55, 20, 108, 2, 1, 100, 200, 22, 17, 84, 23, 9}; 
         row["data"] = binaryData;
-        //row["created_at"] = "${2024-12-22 00:00:00}";
+        row["created_at"] = "${" + get_timestamp_sec() + "}";
         jsonRows.push_back(row);
         id++;
     }
     jsonData["rows"] = jsonRows;
 
-    std::string jsonConfig = jsonData.dump(1);
-    test(jsonConfig);
-}
-
-void get(std::string& name) {
-    int limit = 10;
-    json jsonData;
-    jsonData["action"] = "get";
-    jsonData["name"] = name;
-    jsonData["limit"] = limit;
-    jsonData["offset"] = offset;
-    offset += limit;
     std::string jsonConfig = jsonData.dump(1);
     test(jsonConfig);
 }
