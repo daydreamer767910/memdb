@@ -12,6 +12,8 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	work_guard_(boost::asio::make_work_guard(io_)) {
 	std::cout << "DBService start" << std::endl;
 	load_db();
+	crypt_.init(db,"fuckyou");
+	
 	// 启动定时器
 	timer.start();
 
@@ -24,11 +26,9 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 		});
 	}
 	
-	try {
-		db->getContainer("users");
-	}
-	catch (...) {
-		DataContainer::ptr container = db->addContainer("users", "collection");
+	/*DataContainer::ptr container = db->getContainer("users");
+	if (!container) {
+		container = db->addContainer("users", "collection");
 		json j = R"({
 		"schema":{
 			"role": {
@@ -57,7 +57,7 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 		document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
 		auto collection = std::dynamic_pointer_cast<Collection>(container);
 		collection->insertDocument(std::hash<std::string>{}("oumass"), document);
-	}
+	}*/
 }
 
 DBService::~DBService() {

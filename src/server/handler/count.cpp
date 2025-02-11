@@ -5,6 +5,11 @@ public:
     void handle(const json& task, Database::ptr db , json& response) override {
         std::string tableName = task["name"];
 		auto container = db->getContainer(tableName);
+        if (container == nullptr) {
+            response["response"] = "Container not found";
+            response["status"] = "404";
+            return;
+        }
         if (container->getType() == "table") {
 			auto tb = std::dynamic_pointer_cast<Table>(container);
 			response["total"] = tb->getTotalRows();

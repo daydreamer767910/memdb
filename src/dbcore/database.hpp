@@ -36,7 +36,7 @@ public:
         if (it != containers_.end()) {
             return it->second;
         }
-        throw std::runtime_error("Container not found");
+        return nullptr;
     }
 
     void addContainerFromSchema(const std::string& filePath);

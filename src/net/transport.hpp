@@ -12,7 +12,7 @@
 #include "util/msgbuffer.hpp"
 #include "util/timer.hpp"
 #include "common.hpp"
-
+#include "keymng/crypt.hpp"
 
 
 // Msg 结构定义
@@ -61,6 +61,12 @@ public:
         callbacks_.push_back(callback);
     }
 
+    void setNoiseKeys(const std::vector<unsigned char> &local_secretKey, const std::vector<unsigned char>& remote_publicKey) {
+        local_secretKey_ = local_secretKey;
+        remote_publicKey_ = remote_publicKey;
+        encryptMode_ = true;
+    }
+
     // 1. APP 缓存到下行 CircularBuffer
     int send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout);
     // 2. TCP 读取下行 CircularBuffer
@@ -91,7 +97,9 @@ private:
     boost::asio::io_context* io_context_[2];
     Timer timer_[2];
     uint32_t id_;
-
+    bool encryptMode_;
+    std::vector<unsigned char> local_secretKey_{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
+    std::vector<unsigned char> remote_publicKey_{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
     
     std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
 

@@ -95,6 +95,22 @@ void print_packet(const std::vector<char>& packet) {
     print_packet(packet_unsigned);
 }
 
+// 打印密钥的十六进制表示
+void printHex(const std::vector<unsigned char>& data) {
+    for (unsigned char c : data) {
+        printf("%02X ", c);
+    }
+    printf("\n");
+}
+
+std::string toHexString(const std::vector<unsigned char>& vec) {
+    std::ostringstream oss;
+    for (unsigned char c : vec) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << (int)c;
+    }
+    return oss.str();
+}
+
 std::string get_timestamp_sec() {
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();

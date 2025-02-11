@@ -8,6 +8,9 @@ MdbClient::ptr MdbClient::my_instance = nullptr;
 void MdbClient::set_transport(trans_pair& port_info) {
 	transport_ = port_info.second;
 	transport_id_ = port_info.first;
+	auto srvNKP = crypt_.getServerNKeypair();
+	const Crypt::NoiseKeypair& clntNKP = crypt_.getClientKeypair("memdb").value();
+	transport_->setNoiseKeys(clntNKP.secretKey, srvNKP.publicKey);
 }
 
 uint32_t MdbClient::get_transportid() {

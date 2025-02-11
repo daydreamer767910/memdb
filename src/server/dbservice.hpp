@@ -18,7 +18,10 @@
 #include "net/transport.hpp"
 #include "net/transportsrv.hpp"
 #include "util/timer.hpp"
+#include "keymng/crypt.hpp"
 #include "dbtask.hpp"
+
+using Transport_Crypt::Crypt;
 
 using DBMsg = std::tuple<std::shared_ptr<std::vector<json>>,uint32_t>;
 using DBVariantMsg = std::variant<DBMsg>;
@@ -48,6 +51,9 @@ public:
 		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
+		auto srvNKP = crypt_.getServerNKeypair();
+    	const Crypt::NoiseKeypair& clntNKP = crypt_.getClientKeypair("memdb").value();
+		transport->setNoiseKeys(srvNKP.secretKey, clntNKP.publicKey);
     }
 
 	void on_close_transport(const uint32_t port_id) override {
@@ -75,6 +81,7 @@ private:
 	std::unordered_map<uint32_t, std::shared_ptr<DbTask>> tasks_;
 	static constexpr uint32_t keep_alv_timer = 30000;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
+	Crypt crypt_;
 };
 
 

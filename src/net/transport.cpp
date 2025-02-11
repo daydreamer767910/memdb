@@ -5,6 +5,7 @@
 #include <netinet/in.h> // htons, htonl, ntohs, ntohl
 #include "transport.hpp"
 #include "util/util.hpp"
+#include "dbcore/database.hpp"
 
 Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id)
     : app_to_tcp_(buffer_size),
@@ -12,7 +13,9 @@ Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_conte
       io_context_{io_contexts[0], io_contexts[1]},  // 初始化指针数组
       timer_{ Timer(*io_context_[0], 0, false, [this](int, int, std::thread::id) { this->on_send(); }),
               Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
-      id_(id) {
+      id_(id),
+      encryptMode_(false) {
+    
 }
 
 
@@ -207,20 +210,40 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
 	//std::cout << "app Send:" << data << std::endl;
 	size_t offset = 0;
 	while (offset < total_size) {
-		size_t chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
-
-		Msg msg;
-		msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-		msg.header.msg_id = msg_id;
+        size_t chunk_size;
+        Msg msg;
+        msg.header.msg_id = msg_id;
 		msg.header.segment_id = segment_id++;
-		if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
-			msg.header.flag = 0; //last segment
-		} else {
-			msg.header.flag = 1;
-		}
-		
 
-		msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
+        if (encryptMode_) {
+            chunk_size = std::min(total_size - offset, 
+                segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-crypto_box_NONCEBYTES-crypto_box_MACBYTES);
+            // 创建 segment 数据并加密
+            std::vector<unsigned char> segment_data(data.begin() + offset, data.begin() + offset + chunk_size);
+            std::vector<unsigned char> encrypted_segment;
+            encryptDataWithNoiseKey(local_secretKey_, remote_publicKey_, segment_data, encrypted_segment);
+            // 计算加密后的 segment 长度（包含加密后的数据和 MAC 校验码等）
+            size_t encrypted_size = encrypted_segment.size();
+            msg.header.length = encrypted_size + sizeof(MsgHeader) + sizeof(MsgFooter);
+
+            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-crypto_box_NONCEBYTES-crypto_box_MACBYTES)) {
+                msg.header.flag = 0; //last segment
+            } else {
+                msg.header.flag = 1;
+            }
+            // 将加密后的数据赋值给 msg.payload
+            msg.payload.assign(encrypted_segment.begin(), encrypted_segment.end());
+        } else {
+            chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
+            msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
+            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
+                msg.header.flag = 0; //last segment
+            } else {
+                msg.header.flag = 1;
+            }
+            msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
+        }
+
 		msg.footer.checksum = calculateChecksum(msg.payload);
         // Print CRC in hexadecimal format
         /*std::cout << "CRC32: 0x" << std::hex 
@@ -356,9 +379,21 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             message_cache.erase(msg.header.msg_id); // 丢弃超大消息
             continue;
         }
-
-        // 存储分包
-        buffer.segments[msg.header.segment_id] = msg.payload;
+        if (encryptMode_) {
+            //解密payload
+            std::vector<unsigned char> decrypted_segment;
+            std::vector<unsigned char> encrypted_segment(msg.payload.begin(), msg.payload.end());
+            
+            decryptDataWithNoiseKey(remote_publicKey_, local_secretKey_, encrypted_segment, decrypted_segment);
+            // 将 std::vector<unsigned char> 转换为 std::vector<char>
+            std::vector<char> char_segment(decrypted_segment.begin(), decrypted_segment.end());
+            // 存储分包
+            //
+            buffer.segments[msg.header.segment_id] = char_segment;
+        } else {
+            buffer.segments[msg.header.segment_id] = msg.payload;
+        }
+        
         if (msg.header.flag == 0) {
             buffer.total_segments = msg.header.segment_id + 1;
         }

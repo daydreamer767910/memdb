@@ -24,6 +24,9 @@ public:
 
     // 转换为 JSON 格式
     json toJson() const {
+        if (fieldSchemas_.empty()) {
+            return getDefault();
+        }
         json j;
         for (const auto& [fieldName, fieldSchema] : fieldSchemas_) {
             j["schema"][fieldName] = fieldSchema.toJson();
@@ -35,7 +38,7 @@ public:
     json getDefault() const override {
         return json{
             {"schema", {
-                {"name", "string"}
+                {"_id", {{"type","string"}}}
             }}
         };
     }

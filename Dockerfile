@@ -32,7 +32,7 @@ FROM skeleton AS build
 
 # 安装 C++ 编译工具和 CMake
 RUN apt-get update && apt-get install -y \
-    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev && \
+    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev libsodium-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # 复制项目源代码
@@ -94,6 +94,8 @@ COPY --chown=$DOCKER_USER:$DOCKER_USER \
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /mdb/build/lib/ /mdb/lib
+
+COPY --from=build /usr/lib/x86_64-linux-gnu/libsodium* /usr/lib/
 
 ENTRYPOINT ["/bin/bash", "/mdb/entrypoint.sh"]
 CMD ["mdbsrv"]

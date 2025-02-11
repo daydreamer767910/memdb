@@ -12,7 +12,9 @@
 #include "util/util.hpp"
 #include "util/timer.hpp"
 #include "net/tcpclient.hpp"
+#include "keymng/crypt.hpp"
 
+using Transport_Crypt::Crypt;
 
 class MdbClient:public TcpClient , public IDataCallback {
 private:
@@ -28,6 +30,7 @@ public:
 		TcpClient(io_context)  {
 		transport_srv = TransportSrv::get_instance();
 		std::cout << "MdbClient created" << std::endl;
+		crypt_.init(Database::getInstance(), "fuckyou");
 	}
 
 	~MdbClient() {
@@ -81,6 +84,7 @@ private:
     DataVariant cached_data_;
 	std::thread asio_eventLoopThread;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
+	Crypt crypt_;
 };
 
 #endif
