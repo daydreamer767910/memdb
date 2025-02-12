@@ -27,7 +27,9 @@ Transport::~Transport() {
 
 void Transport::stop() {
     callbacks_.clear();
+    #ifdef DEBUG
     std::cout << "transport " << this->id_ << " stop" << std::endl;
+    #endif
 }
 
 
@@ -256,7 +258,9 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
         triger_event(ChannelType::UP_LOW);
 		if (ret<0) {
             //retry 1 time
+            #ifdef DEBUG
             std::cout << "app -> CircularBuffer fail and retry" << std::endl;
+            #endif
             ret = app_to_tcp_.write(network_data.data(), network_data.size(), timeout);
             if(ret<0) {
                 std::cerr << "app -> CircularBuffer fail" << std::endl;
@@ -288,7 +292,9 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 	int ret = tcp_to_app_.write(buffer, size, timeout);
     triger_event(ChannelType::LOW_UP);
     if (ret < 0) {
+        #ifdef DEBUG
         std::cout << "tcp -> CircularBuffer fail and retry" << std::endl;
+        #endif
         //retry 1 time
         ret = tcp_to_app_.write(buffer, size, timeout);
         if (ret < 0 ) {

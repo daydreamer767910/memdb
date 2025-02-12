@@ -33,7 +33,9 @@ using ptr = std::shared_ptr<TransportSrv>;
 	};
 	TransportSrv() :thread_pool_(2),
 		work_guard_{boost::asio::make_work_guard(io_[0]), boost::asio::make_work_guard(io_[1]) } {
+#ifdef DEBUG
 		std::cout << "TransportSrv start" << std::endl;
+#endif
 	};
     ~TransportSrv();
 

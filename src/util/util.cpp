@@ -111,6 +111,24 @@ std::string toHexString(const std::vector<unsigned char>& vec) {
     return oss.str();
 }
 
+// 将十六进制字符串转换为 `std::vector<uint8_t>`
+std::vector<uint8_t> hexStringToBytes(const std::string& hex) {
+    std::vector<uint8_t> bytes;
+    if (hex.length() % 2 != 0) {
+        std::cerr << "Error: Hex string length is not even!" << std::endl;
+        return bytes;
+    }
+
+    for (size_t i = 0; i < hex.length(); i += 2) {
+        std::stringstream ss;
+        ss << std::hex << hex.substr(i, 2);
+        int byte;
+        ss >> byte;
+        bytes.push_back(static_cast<uint8_t>(byte));
+    }
+    return bytes;
+}
+
 std::string get_timestamp_sec() {
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();

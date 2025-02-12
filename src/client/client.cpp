@@ -13,14 +13,11 @@
 
 boost::asio::io_context io_context;
 MdbClient::ptr client_ptr = nullptr;
-Database::ptr& db = Database::getInstance();
+
 extern "C" {
 
-void mdb_init() {
-	std::string baseDir = std::string(std::getenv("HOME"));
-	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
-	db->upload(fullPath.string());
-	client_ptr = MdbClient::get_instance(io_context);
+void mdb_init(const char* user) {
+	client_ptr = MdbClient::get_instance(io_context,user);
 }
 
 int mdb_start(const char* ip, int port) {

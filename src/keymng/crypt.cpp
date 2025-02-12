@@ -139,10 +139,20 @@ void Crypt::resetKeys(const Database::ptr& db) {
 	srvKeyPair_.publicKey.clear();
 	srvKeyPair_.secretKey.clear();
 	clientKeyPairs_.clear();
-	db->removeContainer("noicekeys");
-	std::string baseDir = std::string(std::getenv("HOME"));
-	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
-	db->remove(fullPath,"noicekeys");
+	try {
+		db->removeContainer("noicekeys");
+		std::string baseDir = std::string(std::getenv("HOME"));
+		std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
+		db->remove(fullPath,"noicekeys");
+	} catch (const std::filesystem::filesystem_error& e) {
+		std::cerr << "Filesystem error: " << e.what() << std::endl;
+	} catch (const std::runtime_error& e) {
+		std::cerr << "Runtime error: " << e.what() << std::endl;
+	} catch (const std::exception& e) {
+		std::cerr << "Exception: " << e.what() << std::endl;
+	} catch (...) {
+		std::cerr << "Unknown error occurred while removing noicekeys." << std::endl;
+	}
 }
 
 // 保存密钥到DB
@@ -340,6 +350,74 @@ void Crypt::toJson(const std::string& filename) const{
     outFile.close();
 
     std::cout << "Exported key information written to " << filename << std::endl;
+}
+
+bool Crypt::saveKeys(const std::string& client_name) {
+    std::string filename = client_name + ".json"; // 生成文件名
+    std::string baseDir = std::string(std::getenv("HOME"));
+	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("etc")/ filename;
+    try {
+        json jsonOutput;
+
+		// 导出 Server Public Key
+		jsonOutput["server_publicKey"] = toHexString(srvKeyPair_.publicKey);
+
+		// 导出 Client Key Pairs（仅 Public Key）
+		for (const auto& [id, keyPair] : clientKeyPairs_) {
+			if (client_name == id) {
+				jsonOutput[id]["publicKey"] = toHexString(keyPair.publicKey);
+				jsonOutput[id]["secretKey"] = toHexString(keyPair.secretKey);
+				break;
+			}
+		}
+
+		// 写入 JSON 文件
+		std::ofstream outFile(fullPath.string());
+		if (!outFile) {
+			std::cerr << "Failed to open file: " << filename << std::endl;
+			return false;
+		}
+
+		outFile << jsonOutput.dump(4); // 美化格式，缩进 4 空格
+		outFile.close();
+
+		std::cout << "Exported key information written to " << filename << std::endl;
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing JSON: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool Crypt::loadKeys(const std::string& client_name, NoiseKeypair& keys) {
+    std::string filename = client_name + ".json"; // 生成文件名
+	std::string baseDir = std::string(std::getenv("HOME"));
+	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("etc")/ filename;
+    std::ifstream file(fullPath.string());
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
+        return false;
+    }
+
+    try {
+        json json_data;
+        file >> json_data; // 解析 JSON
+
+        if (!json_data.contains(client_name)) {
+            std::cerr << "Error: JSON file does not contain expected key: " << client_name << std::endl;
+            return false;
+        }
+
+        // 解析公钥和私钥并转换为 vector<uint8_t>
+        //keys.publicKey = hexStringToBytes(json_data[client_name]["publicKey"].get<std::string>());
+        keys.secretKey = hexStringToBytes(json_data[client_name]["secretKey"].get<std::string>());
+        keys.publicKey = hexStringToBytes(json_data["server_publicKey"].get<std::string>());
+
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing JSON: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 void Crypt::showKeys() const{

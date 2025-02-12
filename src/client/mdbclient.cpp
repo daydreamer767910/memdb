@@ -5,12 +5,14 @@
 
 MdbClient::ptr MdbClient::my_instance = nullptr;
 
+
+
 void MdbClient::set_transport(trans_pair& port_info) {
 	transport_ = port_info.second;
 	transport_id_ = port_info.first;
-	auto srvNKP = crypt_.getServerNKeypair();
-	const Crypt::NoiseKeypair& clntNKP = crypt_.getClientKeypair("memdb").value();
-	transport_->setNoiseKeys(clntNKP.secretKey, srvNKP.publicKey);
+	Crypt::NoiseKeypair clntNKP;
+	crypt_.loadKeys(user_, clntNKP);
+	transport_->setNoiseKeys(clntNKP.secretKey, clntNKP.publicKey);
 }
 
 uint32_t MdbClient::get_transportid() {
@@ -45,7 +47,7 @@ int MdbClient::start(const std::string& host, const std::string& port) {
 		return -1;
 	}
 	set_async_read(this->read_buf,sizeof(this->read_buf));
-	std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
+	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
 	
 	
 	auto port_info = transport_srv->open_port();
@@ -55,14 +57,14 @@ int MdbClient::start(const std::string& host, const std::string& port) {
 	transport_srv->start();
 
 	asio_eventLoopThread = std::thread([this]() {
-        std::cout << "asoi Event loop starting:" << std::this_thread::get_id() << std::endl;
+        //std::cout << "asoi Event loop starting:" << std::this_thread::get_id() << std::endl;
         // Run the loop
         io_context_.run();
         // Clean up
-        std::cout << "asoi Event loop stopped." << std::endl;
+        //std::cout << "asoi Event loop stopped." << std::endl;
     });
 	
-	std::cout << "mdb client started." << std::endl;
+	//std::cout << "mdb client started." << std::endl;
 	return 0;
 }
 

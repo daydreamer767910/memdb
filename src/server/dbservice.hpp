@@ -51,6 +51,9 @@ public:
 		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
+		std::string user, pwd;
+		load_users(user, pwd);
+		crypt_.init(db,pwd);
 		auto srvNKP = crypt_.getServerNKeypair();
     	const Crypt::NoiseKeypair& clntNKP = crypt_.getClientKeypair("memdb").value();
 		transport->setNoiseKeys(srvNKP.secretKey, clntNKP.publicKey);
@@ -60,7 +63,9 @@ public:
 		std::lock_guard<std::mutex> lock(mutex_);
 		auto it = tasks_.find(port_id);
 		if (it != tasks_.end()) {
+			#ifdef DEBUG
 			std::cout << "task[" << port_id << "] erased from list" << std::endl;
+			#endif
 			tasks_.erase(it);  // 从容器中移除
 		}
     }
@@ -71,6 +76,7 @@ private:
 	void on_timer(int tick, int time, std::thread::id id);
 	void save_db();
 	void load_db();
+	void load_users(std::string& admin, std::string& pwd);
 private:
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;

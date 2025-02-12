@@ -12,8 +12,8 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	work_guard_(boost::asio::make_work_guard(io_)) {
 	std::cout << "DBService start" << std::endl;
 	load_db();
-	crypt_.init(db,"fuckyou");
-	
+	std::string user, pwd;
+	load_users(user, pwd);
 	// 启动定时器
 	timer.start();
 
@@ -26,38 +26,7 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 		});
 	}
 	
-	/*DataContainer::ptr container = db->getContainer("users");
-	if (!container) {
-		container = db->addContainer("users", "collection");
-		json j = R"({
-		"schema":{
-			"role": {
-				"type": "string",
-				"constraints": {
-					"required": true,
-					"depth": 1
-				}
-			},
-			"password": {
-				"type": "string",
-				"constraints": {
-					"required": false,
-					"minLength": 8,
-					"maxLength": 16,
-					"regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
-				}
-			}
-		}
-		})"_json;
-		container->fromJson(j);
-		Document document;
-		document.setFieldByPath(std::string("role"), Field(std::string("admin")));
-		document.setFieldByPath(std::string("password"), Field(std::string("admin")));
-		document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
-		document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
-		auto collection = std::dynamic_pointer_cast<Collection>(container);
-		collection->insertDocument(std::hash<std::string>{}("oumass"), document);
-	}*/
+	
 }
 
 DBService::~DBService() {
@@ -70,14 +39,17 @@ DBService::~DBService() {
 	work_guard_.reset();
     // 等待线程池中的所有线程完成任务
     thread_pool_.join();
+	#ifdef DEBUG
 	std::cout << "DBService thread pool joined\n";
+	#endif
     // 清理任务
     {
         std::lock_guard<std::mutex> lock(mutex_);
         tasks_.clear();  // 清空 map
     }
+	#ifdef DEBUG
     std::cout << "DBtasks stopped" << std::endl;
-
+	#endif
     // 保存数据库
     save_db();
     std::cout << "DBService saved" << std::endl;
@@ -117,6 +89,29 @@ void DBService::keep_alive() {
 				std::cout << "APP SEND err:" << ret <<  std::endl;
 			}
 		}
+	}
+}
+
+void DBService::load_users(std::string& admin, std::string& pwd) {
+	admin = "admin";
+	pwd = "admin";
+	DataContainer::ptr container = db->getContainer("users");
+	if (!container) {
+		std::cerr << "user container is missing!!\n";
+		return;
+	} else {
+		auto collection = std::dynamic_pointer_cast<Collection>(container);
+		auto document = collection->getDocument(std::hash<std::string>{}("admin"));
+		if (!document) {
+			std::cerr << "user admin is missing!!\n";
+			return;
+		}
+		Field* field = document->getFieldByPath("password");
+		if (!field) {
+			std::cerr << "fail to get password \n";
+			return;
+		}
+		pwd = std::get<std::string>(field->getValue());
 	}
 }
 

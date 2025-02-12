@@ -36,7 +36,7 @@ public:
 		std::vector<unsigned char> publicKey{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
     	std::vector<unsigned char> secretKey{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
 	};
-	bool init(const Database::ptr& db, const std::string& password);
+	bool init(const Database::ptr& db, const std::string& password = "memdb");
 	
 	void setServerNKeypair(const std::pair<std::vector<unsigned char>, std::vector<unsigned char>>& keyPair) {
 		srvKeyPair_.publicKey = keyPair.first;
@@ -65,6 +65,8 @@ public:
 	void saveKeys(const Database::ptr& db);
 	void resetKeys(const Database::ptr& db);
 	void toJson(const std::string& filename) const;
+	bool saveKeys(const std::string& client_name);
+	bool loadKeys(const std::string& client_name, NoiseKeypair& keys);
 private:
 	std::vector<unsigned char> deriveKeyFromPassword();
 	bool loadMainKey(const Database::ptr& db);

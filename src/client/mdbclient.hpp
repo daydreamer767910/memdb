@@ -24,13 +24,14 @@ private:
 public:
 	using ptr = std::shared_ptr<MdbClient>;
 
-	MdbClient(boost::asio::io_context& io_context )
+	MdbClient(boost::asio::io_context& io_context, const std::string& user)
 		: io_context_(io_context), 
 		work_guard_(boost::asio::make_work_guard(io_context)),
-		TcpClient(io_context)  {
+		TcpClient(io_context),
+		user_(user) {
 		transport_srv = TransportSrv::get_instance();
-		std::cout << "MdbClient created" << std::endl;
-		crypt_.init(Database::getInstance(), "fuckyou");
+		//std::cout << "MdbClient created" << std::endl;
+		//crypt_.init(Database::getInstance(), passwd_);
 	}
 
 	~MdbClient() {
@@ -46,9 +47,9 @@ public:
 		work_guard_.reset();
 	}
 
-	static ptr& get_instance(boost::asio::io_context& io_context) {
+	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user) {
 		if (my_instance == nullptr)
-        	my_instance = std::make_shared<MdbClient>(io_context);
+        	my_instance = std::make_shared<MdbClient>(io_context,user);
 		return my_instance;
     }
 
@@ -85,6 +86,7 @@ private:
 	std::thread asio_eventLoopThread;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
 	Crypt crypt_;
+	std::string user_;
 };
 
 #endif

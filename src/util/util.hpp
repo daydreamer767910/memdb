@@ -15,6 +15,7 @@ void print_packet(const uint8_t* packet, size_t length);
 void print_packet(const std::vector<uint8_t>& packet);
 void print_packet(const std::vector<char>& packet);
 std::string toHexString(const std::vector<unsigned char>& vec);
+std::vector<uint8_t> hexStringToBytes(const std::string& hex);
 bool isDate(const std::string& dateStr);
 std::string get_timestamp();
 std::string get_timestamp_sec();

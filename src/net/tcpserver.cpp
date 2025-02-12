@@ -33,7 +33,9 @@ void TcpServer::stop() {
     timer_.stop();
     io_context_.stop();
     cleanup();
+    #ifdef DEBUG
     std::cout << "TcpServer stopped." << std::endl;
+    #endif
 }
 
 void TcpServer::on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {

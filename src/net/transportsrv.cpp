@@ -9,7 +9,9 @@ TransportSrv::~TransportSrv() {
     // 遍历并清理所有连接
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        #ifdef DEBUG
         std::cout << "TransportSrv destroyed!" << std::endl;
+        #endif
         ports_.clear(); // 清空 map
     }
     //work_guard_.reset();
@@ -42,7 +44,9 @@ void TransportSrv::stop() {
     }
     // 等待线程池中的所有线程完成任务
     thread_pool_.join();
+#ifdef DEBUG
     std::cout << "TransportSrv stopped." << std::endl;
+#endif
 }
 
 std::vector<uint32_t> TransportSrv::get_all_ports() {
@@ -83,7 +87,9 @@ void TransportSrv::close_port(uint32_t port_id) {
     auto it = ports_.find(port_id);
     if (it != ports_.end()) {
         it->second->stop();
+        #ifdef DEBUG
         std::cout << "transport[" << port_id << "] erased from list" << std::endl;
+        #endif
         ports_.erase(it);  // 从容器中移除
         this->notify_close_transport(port_id);
         --ports_count;     // 更新端口计数

@@ -8,11 +8,11 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-#include "dbcore/field.hpp"
+//#include "dbcore/field.hpp"
 #include "mdbclient.hpp"
 
 extern "C" {
-    void mdb_init();
+    void mdb_init(const char* user);
     void mdb_stop();
     void mdb_quit();
     int mdb_start(const char* ip, int port);
@@ -603,7 +603,7 @@ int main(int argc, char* argv[]) {
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
     
-    mdb_init();
+    mdb_init("memdb");
     
     // 如果数据库连接失败，则每隔 3 秒重试
     while (mdb_start(ip, port) < 0) {
