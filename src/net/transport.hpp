@@ -71,6 +71,11 @@ public:
         sessionKey_tx_ = txKey;
     }
 
+    void getSessionKeys(std::vector<uint8_t>& rxKey, std::vector<uint8_t>& txKey) {
+        rxKey = sessionKey_rx_;
+        txKey = sessionKey_tx_;
+    }
+
     // 1. APP 缓存到下行 CircularBuffer
     int send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout);
     // 2. TCP 读取下行 CircularBuffer

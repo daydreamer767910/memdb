@@ -22,6 +22,14 @@ void load_db() {
 	db->upload(fullPath.string());
 }
 
+void show_users() {
+	DataContainer::ptr container = db->getContainer("users");
+	if (container) {
+		auto collection = std::dynamic_pointer_cast<Collection>(container);
+        collection->showDocs();
+	}
+}
+
 bool load_user(const std::string& user, std::string& pwd) {
 	DataContainer::ptr container = db->getContainer("users");
 	if (!container) {
@@ -50,6 +58,15 @@ void set_user(const std::string& user, const std::string& pwd, const std::string
 		container = db->addContainer("users", "collection");
 		json j = R"({
 		"schema":{
+            "name": {
+				"type": "string",
+				"constraints": {
+					"required": true,
+                    "minLength": 3,
+                    "maxLength": 32,
+					"depth": 1
+				}
+			},
 			"role": {
 				"type": "string",
 				"constraints": {
@@ -60,10 +77,8 @@ void set_user(const std::string& user, const std::string& pwd, const std::string
 			"password": {
 				"type": "string",
 				"constraints": {
-					"required": false,
-					"minLength": 8,
-					"maxLength": 16,
-					"regexPattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[#@$!%*?&])[A-Za-z\\d#@$!%*?&]{8,}$"
+					"required": true,
+                    "depth": 1
 				}
 			}
 		}
@@ -71,12 +86,35 @@ void set_user(const std::string& user, const std::string& pwd, const std::string
 		container->fromJson(j);
 	}
     Document document;
+    document.setFieldByPath(std::string("name"), Field(user));
     document.setFieldByPath(std::string("role"), Field(role));
     document.setFieldByPath(std::string("password"), Field(pwd));
     document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
     document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
     auto collection = std::dynamic_pointer_cast<Collection>(container);
     collection->insertDocument(std::hash<std::string>{}(user), document);
+}
+
+void del_user(const std::string& user) {
+	DataContainer::ptr container = db->getContainer("users");
+	if (container) {
+		auto collection = std::dynamic_pointer_cast<Collection>(container);
+        collection->deleteDocument(std::hash<std::string>{}(user));
+	}
+}
+
+void show_user(const std::string& user) {
+	DataContainer::ptr container = db->getContainer("users");
+	if (container) {
+		auto collection = std::dynamic_pointer_cast<Collection>(container);
+        auto doc = collection->getDocument(std::hash<std::string>{}(user));
+        if (doc) {
+            
+            std::cout << doc->toJson().dump(4) << std::endl;
+        } else {
+            std::cout << "user not exist\n";
+        }
+	}
 }
 
 void disableEcho() {
@@ -161,104 +199,91 @@ int main() {
     load_db();
     //testkx();
     //test();
-    std::string username,passwd;
-    username = "admin";
-    if (!load_user(username,passwd)) {
-        std::cout << "users container is not initliazed\nplease create user for admin\n";
+    int choice;
+    std::string username, passwd, hashedPwd, role;
+    
+    if (!load_user("admin",hashedPwd)) {
+        std::cout << "users admin is not initliazed\nplease create user for admin\n";
+        choice = 1;
+        username = "admin";
+        role = "admin";
+    } else {
+        std::cout << "please choose:\n"
+            << "1. create user\n"
+            << "2. delete user\n"
+            << "3. show user\n"
+            << "4. show all users\n";
+            
+        std::cin >> choice;
+        std::cin.ignore();  // 忽略回车符
         // 禁用回显
         disableEcho();
         std::cout << "please enter password for admin:" << std::endl;
         std::getline(std::cin, passwd);
         // 恢复回显
         enableEcho();
-        set_user(username,passwd,"admin");
-        save_db();
-    }
-    std::cout << "please choose:\n"
-          << "0. generate user\n"
-          << "1. generate server keys\n"
-          << "2. generate client keys\n"
-          << "3. show keys\n"
-          << "4. reset keys\n"
-          << "5. reset password(keys will be also reset)\n"
-          << "6. to json\n";
-
-    
-    int choice;
-    std::cin >> choice;
-    std::cin.ignore();  // 忽略回车符
-
-    // 禁用回显
-    disableEcho();
-    std::cout << "please enter password for admin:" << std::endl;
-    std::string password;
-    std::getline(std::cin, password);
-    // 恢复回显
-    enableEcho();
-    if (passwd != password) {
-        std::cerr << "wrong password" << std::endl;
-        return -1;
-    }
-    if (!transport_crypt.init(db, password)) return -1;
-    switch (choice) {
-        case 0: {
-            std::cout << "please enter new username:" << std::endl;
-            std::getline(std::cin, username);
-            // 禁用回显
-            disableEcho();
-            std::cout << "please enter new password:" << std::endl;
-            std::getline(std::cin, password);
-            // 恢复回显
-            enableEcho();
-            set_user(username,password,"admin");
-            save_db();
-            break;
+        
+        if (!verifyPassword(passwd, hashedPwd)) {
+            std::cerr << "wrong password" << std::endl;
+            return -1;
         }
+    }
+    
+    switch (choice) {
         case 1: {
-            // 生成Noise密钥对并加密存储
-            auto keyPair = generateNoiseKeypair();
-            transport_crypt.setServerNKeypair(keyPair);
-            transport_crypt.saveKeys(db);
+            if (username.empty()) {
+                std::cout << "please enter new username:" << std::endl;
+                std::getline(std::cin, username);
+                std::cout << "please enter the role(admin/user/guest):" << std::endl;
+                std::getline(std::cin, role);
+            }
             
-            std::cout << "server keys generated" << std::endl;
+            while (1) {
+                std::string cofirmPwd;
+                // 禁用回显
+                disableEcho();
+                std::cout << "please enter new password for: " << username << std::endl;
+                std::getline(std::cin, passwd);
+                std::cout << "please confirm new password:" << std::endl;
+                std::getline(std::cin, cofirmPwd);
+                // 恢复回显
+                enableEcho();
+                if (passwd == cofirmPwd)
+                    break;
+                else
+                    std::cout << "passwords not match\n";
+            }
+            hashedPwd = hashPassword(passwd);
+            //std::cout << "pwd: " << hashedPwd << std::endl;
+            set_user(username,hashedPwd,role);
+            //std::cout << "user: " << username << " generated" << std::endl;
             save_db();
             break;
         }
         case 2: {
-            std::cout << "please enter the userName:" << std::endl;
-            std::string userName;
-            std::getline(std::cin, userName);
-            auto keyPair = generateNoiseKeypair();
-            transport_crypt.setClientNKeypair(userName, keyPair);
-            transport_crypt.saveKeys(db);
-            transport_crypt.saveKeys(userName);
-            std::cout << "user: " << userName << " keys generated" << std::endl;
+            std::cout << "please enter the userName to be deleted:" << std::endl;
+            std::getline(std::cin, username);
+            if (!load_user(username,hashedPwd)) {
+                std::cerr << "users " << username << " not exist\n";
+                return -1;
+            }
+            del_user(username);
+            
             save_db();
             break;
         }
         case 3: {
-            transport_crypt.showKeys();
+            std::cout << "please enter the userName to show:" << std::endl;
+            std::getline(std::cin, username);
+            if (!load_user(username,hashedPwd)) {
+                std::cerr << "users " << username << " not exist\n";
+                return -1;
+            }
+            show_user(username);
             break;
         }
         case 4: {
-            transport_crypt.resetKeys(db);
-            save_db();
-            break;
-        }
-        case 5: {
-            // 禁用回显
-            disableEcho();
-            std::cout << "please enter new password:" << std::endl;
-            std::getline(std::cin, password);
-            // 恢复回显
-            enableEcho();
-            set_user(username,password,"admin");
-            transport_crypt.resetKeys(db);
-            save_db();
-            break;
-        }
-        case 6: {
-            transport_crypt.toJson("keys.json");
+            show_users();
             break;
         }
         default:

@@ -175,6 +175,25 @@ std::vector<uint8_t> derive_key_with_argon2(
     return derived_key;
 }
 
+std::string hashPassword(const std::string& password) {
+    std::vector<char> hashed_password(crypto_pwhash_STRBYTES);
+
+    if (crypto_pwhash_scryptsalsa208sha256_str(
+            hashed_password.data(), 
+            password.c_str(), 
+            password.size(),
+            crypto_pwhash_OPSLIMIT_INTERACTIVE, 
+            crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
+        throw std::runtime_error("Password hashing failed");
+    }
+
+    return std::string(hashed_password.data());
+}
+
+bool verifyPassword(const std::string& password, const std::string& stored_hash) {
+    return crypto_pwhash_scryptsalsa208sha256_str_verify(stored_hash.c_str(), password.c_str(), password.size()) == 0;
+}
+
 namespace Transport_Crypt {
 
 bool Crypt::init(const Database::ptr& db, const std::string& password) {
@@ -516,5 +535,6 @@ void Crypt::showKeys() const{
         printVector("    Secret Key", keyPair.secretKey);
     }
 }
+
 
 }

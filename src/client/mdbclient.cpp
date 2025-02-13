@@ -24,8 +24,7 @@ int MdbClient::Ecdh() {
     //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
     jsonData["action"] = "ECDH";
     jsonData["primitive"] = "PKE";
-    jsonData["userid"] = this->user_;
-    jsonData["psk"] = toHexString(clientKxPair.first);
+    jsonData["pkc"] = toHexString(clientKxPair.first);
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
     
@@ -51,15 +50,12 @@ int MdbClient::Ecdh() {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -3;
     }
-
-    auto serverPk = hexStringToBytes(jsonData["psk"].get<std::string>());
-    auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
-    auto sessionKc = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
-    
-    auto sessionK_rx = derive_key_with_argon2(sessionKc.first, this->passwd_, salt);
-    auto sessionK_tx = derive_key_with_argon2(sessionKc.second, this->passwd_, salt);
-    transport_->setSessionKeys(sessionK_rx, sessionK_tx);
-
+    auto serverPk = hexStringToBytes(jsonData["pks"].get<std::string>());
+    auto shareKeys = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
+    transport_->setSessionKeys(shareKeys.first, shareKeys.second);
+	
+    //开始KDF请求
+	jsonData.clear();
     jsonData["action"] = "ECDH";
     jsonData["primitive"] = "KDF";
     jsonData["userid"] = this->user_;
@@ -70,7 +66,6 @@ int MdbClient::Ecdh() {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
     }
-    
     // 读操作，支持超时
     json_datas.clear();
     ret = this->recv(json_datas, 1 , 3000);
@@ -85,6 +80,10 @@ int MdbClient::Ecdh() {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -4;
     }
+	auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
+	auto sessionK_rx = derive_key_with_argon2(shareKeys.first, this->user_, salt);
+    auto sessionK_tx = derive_key_with_argon2(shareKeys.second, this->user_, salt);
+    transport_->setSessionKeys(sessionK_rx, sessionK_tx);
 	transport_->setEncryptMode(true);
     return 0;
 }

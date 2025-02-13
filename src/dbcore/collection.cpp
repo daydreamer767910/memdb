@@ -231,11 +231,17 @@ std::vector<DocumentId> Collection::insertDocumentsFromJson(const json& j) {
 // 插入文档
 void Collection::insertDocument(const DocumentId& id, const Document& doc) {
     std::unique_lock<std::shared_mutex> lock(mutex_);  // 使用写锁，确保线程安全
-    auto docPtr = std::make_shared<Document>(doc);
-    documents_[id] = docPtr;
-    // **更新索引**
-    for (const auto& [path, field] : doc.getFields()) {  
-        updateIndex(path, id, field.getValue());
+    
+    try {
+        auto docPtr = std::make_shared<Document>(doc);
+        schema_.validateDocument(docPtr);
+        documents_[id] = docPtr;
+        // **更新索引**
+        for (const auto& [path, field] : doc.getFields()) {  
+            updateIndex(path, id, field.getValue());
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to insert document with ID " << id << ": " << e.what() << std::endl;
     }
 }
 
@@ -444,17 +450,16 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     }
 }
 
-json Collection::showDocs() const {
-    json jsonDocs;
+void Collection::showDocs() const {
     { 
         // 锁定范围仅限于访问共享资源部分
         std::shared_lock<std::shared_mutex> lock(mutex_);
         //std::cout << "there are " << documents_.size() << " docs to show\n";
         for (const auto& [id, doc] : documents_) {
-            jsonDocs[id] = doc->toJson();
+            std::cout << id << " : \n";
+            std::cout << doc->toJson().dump(4) << "\n";
         }
     }
-    return jsonDocs;
 }
 
 // 转换为 JSON

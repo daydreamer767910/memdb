@@ -659,8 +659,9 @@ int main(int argc, char* argv[]) {
 
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
+    std::string passwd = "fuckyou";
     
-    mdb_init("memdb","fuckyou");
+    mdb_init("memdb",passwd.c_str());
     
     // 如果数据库连接失败，则每隔 3 秒重试
     while (mdb_start(ip, port) < 0) {

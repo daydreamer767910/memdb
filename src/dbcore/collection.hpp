@@ -61,7 +61,7 @@ public:
     // 序列化和反序列化
     virtual json toJson() const override;
     virtual void fromJson(const json& j) override;
-    json showDocs() const;
+    void showDocs() const;
     virtual void saveSchema(const std::string& filePath) override;
     virtual void exportToBinaryFile(const std::string& filePath) override;
     virtual void importFromBinaryFile(const std::string& filePath) override;

@@ -43,7 +43,8 @@ bool decryptDataWithNoiseKey(
 	const std::vector<unsigned char>& receiverSecretKey,
 	const std::vector<unsigned char>& ciphertext,
 	std::vector<unsigned char>& decryptedData);
-
+std::string hashPassword(const std::string& password);
+bool verifyPassword(const std::string& password, const std::string& stored_hash);
 namespace Transport_Crypt {
 class Crypt {
 public:
