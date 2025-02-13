@@ -14,8 +14,9 @@
 #include "common.hpp"
 #include "keymng/crypt.hpp"
 
-constexpr uint32_t FLAG_SEGMENTED = 0b01; // 1 << 0 ,标志: 0 end, 1 not end
-constexpr uint32_t FLAG_ENCRYPTED = 0b10; // 1 << 1 ,标志: 0 明文, 1 加密
+constexpr uint32_t FLAG_SEGMENTED   = 0b001; // 1 << 0 , 0: end, 1: not end
+constexpr uint32_t FLAG_ENCRYPTED   = 0b010; // 1 << 1 , 0: 明文, 1: 加密
+constexpr uint32_t FLAG_KEY_UPDATE  = 0b100; // 1 << 2 , 0: 不切换, 1: 需要切换Key
 // Msg 结构定义
 struct MsgHeader {
     uint32_t length;     // 包含 payload 和 footer 的长度
@@ -66,9 +67,13 @@ public:
         encryptMode_ = mode;
     }
 
-    void setSessionKeys(const std::vector<uint8_t>& rxKey, const std::vector<uint8_t>& txKey) {
-        sessionKey_rx_ = rxKey;
-        sessionKey_tx_ = txKey;
+    void setSessionKeys(const std::vector<uint8_t>& rxKey, const std::vector<uint8_t>& txKey, const bool updateImmediately = false) {
+        sessionKey_rx_new_ = rxKey;
+        sessionKey_tx_new_ = txKey;
+        if (updateImmediately) {
+            updateKey_ = true;
+            switchToNewKeys();
+        }
     }
 
     void getSessionKeys(std::vector<uint8_t>& rxKey, std::vector<uint8_t>& txKey) {
@@ -108,10 +113,11 @@ private:
     Timer timer_[2];
     uint32_t id_;
     bool encryptMode_;
+    bool updateKey_;
     //std::vector<unsigned char> local_secretKey_{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
     //std::vector<unsigned char> remote_publicKey_{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
-    std::vector<unsigned char> sessionKey_rx_;
-    std::vector<unsigned char> sessionKey_tx_;
+    std::vector<unsigned char> sessionKey_rx_, sessionKey_rx_new_;
+    std::vector<unsigned char> sessionKey_tx_, sessionKey_tx_new_;
     
     std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
 
@@ -127,5 +133,10 @@ private:
 
     // 反序列化网络字节序为 Msg
     Msg deserializeMsg(const std::vector<char>& buffer);
+
+    void switchToNewKeys() {
+        sessionKey_rx_ = sessionKey_rx_new_;
+        sessionKey_tx_ = sessionKey_tx_new_;
+    }
 };
 #endif

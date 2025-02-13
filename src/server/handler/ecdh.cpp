@@ -11,18 +11,24 @@ public:
         response["response"] = "ECDH ACK";
         response["status"] = "200";
 		
-		if (primitive == "PKE") {//public key exchange
+		if (primitive == "HKDF") {
 			auto pk_C = hexStringToBytes(task["pkc"].get<std::string>());
 			auto serverKxPair = generateKxKeypair();
-			auto shareKeys = generateServerSessionKeys(serverKxPair.first, serverKxPair.second, pk_C);
+			auto sessionKeys = generateServerSessionKeys(serverKxPair.first, serverKxPair.second, pk_C);
 			auto port = TransportSrv::get_instance()->get_port(portId);
 			if (port) {
-				port->setSessionKeys(shareKeys.first, shareKeys.second);
+				port->setSessionKeys(sessionKeys.first, sessionKeys.second);
+				//std::cout << "Rx: ";
+				//printHex(sessionKeys.first);
+				//std::cout << "Tx: ";
+				//printHex(sessionKeys.second);
 			}	
-			response["primitive"] = "PKE";
+			response["primitive"] = "HKDF";
 			response["pks"] = toHexString(serverKxPair.first);
-		} else if (primitive == "KDF") {//Key Derivation Function
+		} else if (primitive == "Argon2") {
 			std::string userId = task["userid"];
+			std::string passWd = task["password"];
+			//std::cout << "usr: " << userId << " pwd: " << passWd << "\n";
 			auto container = db->getContainer("users");
 			if (container == nullptr) {
 				response["response"] = "Container users not found";
@@ -38,18 +44,32 @@ public:
 					response["status"] = "405";
 					return;
 				}
+				auto field = document->getFieldByPath("password");
+				if (!field) {
+					std::cerr << "user " << userId << " password is missing in container!!\n";
+					response["response"] = "password not found";
+					response["status"] = "406";
+					return;
+				}
+				std::string hashedPwd = std::get<std::string>(field->getValue());
+				if (!verifyPassword(passWd, hashedPwd)) {
+					std::cerr << "wrong password" << std::endl;
+					response["response"] = "password verify fail";
+					response["status"] = "406";
+					return;
+				}
 				std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
 				randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
 				std::vector<uint8_t> shareKey_rx, shareKey_tx;
 				auto port = TransportSrv::get_instance()->get_port(portId);
 				if (port) {
 					port->getSessionKeys(shareKey_rx, shareKey_tx);
-					auto sessionK_rx = derive_key_with_argon2(shareKey_rx, userId, salt);
-					auto sessionK_tx = derive_key_with_argon2(shareKey_tx, userId, salt);
+					auto sessionK_rx = derive_key_with_argon2(shareKey_rx, passWd, salt);
+					auto sessionK_tx = derive_key_with_argon2(shareKey_tx, passWd, salt);
 					port->setSessionKeys(sessionK_rx, sessionK_tx);
 				}
 				response["salt"] = toHexString(salt);
-				response["primitive"] = "KDF";
+				response["primitive"] = "Argon2";
 			}
 		}
     }

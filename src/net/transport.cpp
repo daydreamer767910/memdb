@@ -15,7 +15,10 @@ Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_conte
               Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
       id_(id),
       encryptMode_(false) {
-    
+    sessionKey_rx_.resize(crypto_kx_SESSIONKEYBYTES);
+    sessionKey_tx_.resize(crypto_kx_SESSIONKEYBYTES);
+    sessionKey_rx_new_.resize(crypto_kx_SESSIONKEYBYTES);
+    sessionKey_tx_new_.resize(crypto_kx_SESSIONKEYBYTES);
 }
 
 
@@ -217,7 +220,11 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
         std::memset(&msg, 0, sizeof(Msg));
         msg.header.msg_id = msg_id;
 		msg.header.segment_id = segment_id++;
-        
+        if (updateKey_) {
+            //密钥已经更新
+            msg.header.flag |= FLAG_KEY_UPDATE;
+            updateKey_ = false;
+        }
         if (encryptMode_) {
             msg.header.flag |= FLAG_ENCRYPTED;
             chunk_size = std::min(total_size - offset, 
@@ -389,8 +396,14 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             message_cache.erase(msg.header.msg_id); // 丢弃超大消息
             continue;
         }
+        //如果对端切换key
+        if (msg.header.flag & FLAG_KEY_UPDATE) {
+            switchToNewKeys();
+        }
         //如果对端加密，直接把模式改成加密
-        if (msg.header.flag & FLAG_ENCRYPTED) encryptMode_ = true;
+        if (msg.header.flag & FLAG_ENCRYPTED) {
+            setEncryptMode(true);
+        }
         if (encryptMode_ ) {
             //解密payload
             std::vector<unsigned char> decrypted_segment;

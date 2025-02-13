@@ -141,6 +141,24 @@ bool decryptDataWithNoiseKey(
     return true;
 }
 
+std::vector<uint8_t> derive_key_with_hmac(
+    const std::vector<uint8_t> &shared_key,
+    const std::string &password,
+    const std::vector<uint8_t> &salt
+) {
+    std::vector<uint8_t> prk(crypto_auth_hmacsha256_BYTES);
+    crypto_auth_hmacsha256(prk.data(), shared_key.data(), shared_key.size(), salt.data());
+
+    std::vector<uint8_t> final_key(crypto_auth_hmacsha256_BYTES);
+    std::vector<uint8_t> combined_input(password.begin(), password.end());
+    combined_input.insert(combined_input.end(), prk.begin(), prk.end());
+
+    crypto_auth_hmacsha256(final_key.data(), combined_input.data(), combined_input.size(), prk.data());
+
+    return final_key;
+}
+
+
 // 使用 Argon2ID 结合 ECDH 共享密钥 + 用户密码，派生出安全密钥
 std::vector<uint8_t> derive_key_with_argon2(
     const std::vector<uint8_t> &shared_key, // ECDH 共享密钥
@@ -149,10 +167,10 @@ std::vector<uint8_t> derive_key_with_argon2(
     size_t key_size                  // 需要的派生密钥长度（默认 32 bytes）
 ) {
     if (shared_key.size() != crypto_scalarmult_BYTES) {
-        throw std::invalid_argument("共享密钥长度必须是 32 字节");
+        throw std::invalid_argument("share key length must be 32 bytes");
     }
     if (salt.size() != crypto_pwhash_SALTBYTES) {
-        throw std::invalid_argument("Salt 长度必须是 16 字节");
+        throw std::invalid_argument("Salt length must be 16 bytes");
     }
 
     std::vector<uint8_t> derived_key(key_size); // 输出密钥
@@ -163,14 +181,22 @@ std::vector<uint8_t> derive_key_with_argon2(
     memcpy(combined_input.data() + shared_key.size(), password.data(), password.size());
 
     // 2. 使用 Argon2 进行 KDF
-    if (crypto_pwhash(derived_key.data(), key_size, 
+	if (crypto_pwhash(derived_key.data(), key_size, 
+              (const char *)combined_input.data(), combined_input.size(), 
+              salt.data(), 
+              crypto_pwhash_OPSLIMIT_INTERACTIVE,  // 更快的模式
+              crypto_pwhash_MEMLIMIT_INTERACTIVE,  // 更少的内存
+              crypto_pwhash_ALG_ARGON2ID13)) {
+		throw std::runtime_error("Argon2 KDF fail");
+	}
+    /*if (crypto_pwhash(derived_key.data(), key_size, 
                       (const char *)combined_input.data(), combined_input.size(), 
                       salt.data(), 
                       crypto_pwhash_OPSLIMIT_MODERATE, 
                       crypto_pwhash_MEMLIMIT_MODERATE, 
                       crypto_pwhash_ALG_ARGON2ID13) != 0) {
-        throw std::runtime_error("Argon2 KDF 计算失败！");
-    }
+        throw std::runtime_error("Argon2 KDF fail");
+    }*/
 
     return derived_key;
 }

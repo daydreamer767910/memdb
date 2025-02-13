@@ -23,7 +23,7 @@ int MdbClient::Ecdh() {
     json jsonData;
     //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
     jsonData["action"] = "ECDH";
-    jsonData["primitive"] = "PKE";
+    jsonData["primitive"] = "HKDF";
     jsonData["pkc"] = toHexString(clientKxPair.first);
     // Convert JSON to string
     std::string jsonConfig = jsonData.dump(1);
@@ -46,19 +46,26 @@ int MdbClient::Ecdh() {
 
     jsonData = json_datas.at(0);
     std::cout << jsonData.dump(2) << std::endl;
-    if (jsonData["primitive"] != "PKE" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
+    if (jsonData["primitive"] != "HKDF" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -3;
     }
     auto serverPk = hexStringToBytes(jsonData["pks"].get<std::string>());
-    auto shareKeys = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
-    transport_->setSessionKeys(shareKeys.first, shareKeys.second);
+    auto sessionKeys = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
+    transport_->setSessionKeys(sessionKeys.first, sessionKeys.second, true);
+	transport_->setEncryptMode(true);
+	//std::cout << "Rx: ";
+	//printHex(sessionKeys.first);
+	//std::cout << "Tx: ";
+	//printHex(sessionKeys.second);
 	
-    //开始KDF请求
+	
+    //开始PBKDF2请求
 	jsonData.clear();
     jsonData["action"] = "ECDH";
-    jsonData["primitive"] = "KDF";
+    jsonData["primitive"] = "Argon2";
     jsonData["userid"] = this->user_;
+	jsonData["password"] = this->passwd_;
     jsonConfig = jsonData.dump(1);
     
 	ret = this->send(jsonConfig,1, 1000);
@@ -76,15 +83,15 @@ int MdbClient::Ecdh() {
 
     jsonData = json_datas.at(0);
     std::cout << jsonData.dump(2) << std::endl;
-    if (jsonData["primitive"] != "KDF" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
+    if (jsonData["primitive"] != "Argon2" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -4;
     }
 	auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
-	auto sessionK_rx = derive_key_with_argon2(shareKeys.first, this->user_, salt);
-    auto sessionK_tx = derive_key_with_argon2(shareKeys.second, this->user_, salt);
-    transport_->setSessionKeys(sessionK_rx, sessionK_tx);
-	transport_->setEncryptMode(true);
+	auto sessionK_rx = derive_key_with_argon2(sessionKeys.first, this->passwd_, salt);
+    auto sessionK_tx = derive_key_with_argon2(sessionKeys.second, this->passwd_, salt);
+    transport_->setSessionKeys(sessionK_rx, sessionK_tx, true);
+
     return 0;
 }
 

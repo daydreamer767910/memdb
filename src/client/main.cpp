@@ -659,7 +659,7 @@ int main(int argc, char* argv[]) {
 
     // 设置信号处理程序
     std::signal(SIGINT, signal_handler);
-    std::string passwd = "fuckyou";
+    std::string passwd = "11111111";
     
     mdb_init("memdb",passwd.c_str());
     
