@@ -214,24 +214,28 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
 	while (offset < total_size) {
         size_t chunk_size;
         Msg msg;
+        std::memset(&msg, 0, sizeof(Msg));
         msg.header.msg_id = msg_id;
 		msg.header.segment_id = segment_id++;
-
+        
         if (encryptMode_) {
+            msg.header.flag |= FLAG_ENCRYPTED;
             chunk_size = std::min(total_size - offset, 
-                segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-crypto_box_NONCEBYTES-crypto_box_MACBYTES);
+                segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-encrypt_size_increment_);
             // 创建 segment 数据并加密
             std::vector<unsigned char> segment_data(data.begin() + offset, data.begin() + offset + chunk_size);
             std::vector<unsigned char> encrypted_segment;
-            encryptDataWithNoiseKey(local_secretKey_, remote_publicKey_, segment_data, encrypted_segment);
+            //printHex(sessionKey_tx_);
+            encryptData(sessionKey_tx_, segment_data, encrypted_segment);
+            //encryptDataWithNoiseKey(local_secretKey_, remote_publicKey_, segment_data, encrypted_segment);
             // 计算加密后的 segment 长度（包含加密后的数据和 MAC 校验码等）
             size_t encrypted_size = encrypted_segment.size();
             msg.header.length = encrypted_size + sizeof(MsgHeader) + sizeof(MsgFooter);
 
-            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-crypto_box_NONCEBYTES-crypto_box_MACBYTES)) {
-                msg.header.flag = 0; //last segment
+            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-encrypt_size_increment_)) {
+                msg.header.flag &= ~FLAG_SEGMENTED; //last segment
             } else {
-                msg.header.flag = 1;
+                msg.header.flag |= FLAG_SEGMENTED;
             }
             // 将加密后的数据赋值给 msg.payload
             msg.payload.assign(encrypted_segment.begin(), encrypted_segment.end());
@@ -239,9 +243,9 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
             chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
             msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
             if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
-                msg.header.flag = 0; //last segment
+                msg.header.flag &= ~FLAG_SEGMENTED; //last segment
             } else {
-                msg.header.flag = 1;
+                msg.header.flag |= FLAG_SEGMENTED;
             }
             msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
         }
@@ -385,12 +389,15 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             message_cache.erase(msg.header.msg_id); // 丢弃超大消息
             continue;
         }
-        if (encryptMode_) {
+        //如果对端加密，直接把模式改成加密
+        if (msg.header.flag & FLAG_ENCRYPTED) encryptMode_ = true;
+        if (encryptMode_ ) {
             //解密payload
             std::vector<unsigned char> decrypted_segment;
             std::vector<unsigned char> encrypted_segment(msg.payload.begin(), msg.payload.end());
-            
-            decryptDataWithNoiseKey(remote_publicKey_, local_secretKey_, encrypted_segment, decrypted_segment);
+            //printHex(sessionKey_rx_);
+            decryptData(sessionKey_rx_, encrypted_segment, decrypted_segment);
+            //decryptDataWithNoiseKey(remote_publicKey_, local_secretKey_, encrypted_segment, decrypted_segment);
             // 将 std::vector<unsigned char> 转换为 std::vector<char>
             std::vector<char> char_segment(decrypted_segment.begin(), decrypted_segment.end());
             // 存储分包
@@ -400,7 +407,7 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             buffer.segments[msg.header.segment_id] = msg.payload;
         }
         
-        if (msg.header.flag == 0) {
+        if ((msg.header.flag & FLAG_SEGMENTED) == 0) {
             buffer.total_segments = msg.header.segment_id + 1;
         }
 

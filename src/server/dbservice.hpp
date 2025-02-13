@@ -51,12 +51,6 @@ public:
 		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
-		std::string user, pwd;
-		load_users(user, pwd);
-		crypt_.init(db,pwd);
-		auto srvNKP = crypt_.getServerNKeypair();
-    	const Crypt::NoiseKeypair& clntNKP = crypt_.getClientKeypair("memdb").value();
-		transport->setNoiseKeys(srvNKP.secretKey, clntNKP.publicKey);
     }
 
 	void on_close_transport(const uint32_t port_id) override {
@@ -87,7 +81,7 @@ private:
 	std::unordered_map<uint32_t, std::shared_ptr<DbTask>> tasks_;
 	static constexpr uint32_t keep_alv_timer = 30000;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-	Crypt crypt_;
+
 };
 
 

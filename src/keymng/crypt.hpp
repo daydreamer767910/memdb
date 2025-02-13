@@ -11,6 +11,21 @@
 #include <unordered_map>
 #include "dbcore/database.hpp"
 
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair();
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateClientSessionKeys(
+	const std::vector<unsigned char>& client_public_key,
+	const std::vector<unsigned char>& client_secret_key,
+	const std::vector<unsigned char>& server_public_key);
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateServerSessionKeys(
+	const std::vector<unsigned char>& server_public_key,
+	const std::vector<unsigned char>& server_secret_key,
+	const std::vector<unsigned char>& client_public_key);
+std::vector<uint8_t> derive_key_with_argon2(
+		const std::vector<uint8_t> &shared_key, // ECDH 共享密钥
+		const std::string &password,           // 用户密码
+		const std::vector<uint8_t> &salt,      // 随机 Salt
+		size_t key_size = 32                   // 需要的派生密钥长度（默认 32 bytes）
+	);
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateNoiseKeypair();
 void encryptData(const std::vector<unsigned char>& key, 
 	const std::vector<unsigned char>& data, 

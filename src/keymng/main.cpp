@@ -95,8 +95,9 @@ void enableEcho() {
 }
 
 void test() {
+    transport_crypt.init(db,"fuckyou");
     auto srvNKP = transport_crypt.getServerNKeypair();
-    const Crypt::NoiseKeypair& clntNKP = transport_crypt.getClientKeypair("a").value();
+    const Crypt::NoiseKeypair& clntNKP = transport_crypt.getClientKeypair("memdb").value();
     std::string str = "hello mass";
     std::vector<uint8_t> msg(str.begin(), str.end());
     std::vector<uint8_t> ciphermsg, decrymsg;
@@ -107,12 +108,59 @@ void test() {
     std::cout << decrystr << std::endl;
 }
 
+void testkx() {
+    auto clientKxPair = generateKxKeypair();
+    std::cout << "Client Public Key:\n";
+    printHex(clientKxPair.first);
+    std::cout << "Client Secret Key:\n";
+    printHex(clientKxPair.second);
+
+    auto serverKxPair = generateKxKeypair();
+    std::cout << "Server Public Key:\n";
+    printHex(serverKxPair.first);
+    std::cout << "Server Secret Key:\n";
+    printHex(serverKxPair.second);
+
+    auto sessionKc = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverKxPair.first);
+    auto sessionKs = generateServerSessionKeys(serverKxPair.first, serverKxPair.second, clientKxPair.first);
+
+    std::cout << "shared Key (Client Side):\n";
+    printHex(sessionKc.first);
+    printHex(sessionKc.second);
+    std::cout << "shared Key (Server Side):\n";
+    printHex(sessionKs.first);
+    printHex(sessionKs.second);
+    std::string pwd = "oumass";
+    std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
+	randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
+    auto sessionK_rx = derive_key_with_argon2(sessionKc.first, pwd, salt);
+    auto sessionK_tx = derive_key_with_argon2(sessionKc.second, pwd, salt);
+    std::cout << "session Key (Client Side):\n";
+    printHex(sessionK_rx);
+    printHex(sessionK_tx);
+    sessionK_rx = derive_key_with_argon2(sessionKs.first, pwd, salt);
+    sessionK_tx = derive_key_with_argon2(sessionKs.second, pwd, salt);
+    std::cout << "session Key (Server Side):\n";
+    printHex(sessionK_rx);
+    printHex(sessionK_tx);
+
+    std::string str = "hello mass";
+    std::vector<uint8_t> msg(str.begin(), str.end());
+    std::vector<uint8_t> ciphermsg, decrymsg;
+    encryptData(sessionK_rx, msg, ciphermsg);
+    decryptData(sessionK_rx, ciphermsg, decrymsg);
+    std::string decrystr(decrymsg.begin(),decrymsg.end());
+    std::cout << decrystr << std::endl;
+}
+
 int main() {
     if (sodium_init() == -1) {
         std::cerr << "libsodium init fail" << std::endl;
         return -1;
     }
     load_db();
+    //testkx();
+    //test();
     std::string username,passwd;
     username = "admin";
     if (!load_user(username,passwd)) {
@@ -127,6 +175,7 @@ int main() {
         save_db();
     }
     std::cout << "please choose:\n"
+          << "0. generate user\n"
           << "1. generate server keys\n"
           << "2. generate client keys\n"
           << "3. show keys\n"
@@ -141,7 +190,7 @@ int main() {
 
     // 禁用回显
     disableEcho();
-    std::cout << "please enter password:" << std::endl;
+    std::cout << "please enter password for admin:" << std::endl;
     std::string password;
     std::getline(std::cin, password);
     // 恢复回显
@@ -152,6 +201,19 @@ int main() {
     }
     if (!transport_crypt.init(db, password)) return -1;
     switch (choice) {
+        case 0: {
+            std::cout << "please enter new username:" << std::endl;
+            std::getline(std::cin, username);
+            // 禁用回显
+            disableEcho();
+            std::cout << "please enter new password:" << std::endl;
+            std::getline(std::cin, password);
+            // 恢复回显
+            enableEcho();
+            set_user(username,password,"admin");
+            save_db();
+            break;
+        }
         case 1: {
             // 生成Noise密钥对并加密存储
             auto keyPair = generateNoiseKeypair();

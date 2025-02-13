@@ -14,13 +14,14 @@
 #include "common.hpp"
 #include "keymng/crypt.hpp"
 
-
+constexpr uint32_t FLAG_SEGMENTED = 0b01; // 1 << 0 ,标志: 0 end, 1 not end
+constexpr uint32_t FLAG_ENCRYPTED = 0b10; // 1 << 1 ,标志: 0 明文, 1 加密
 // Msg 结构定义
 struct MsgHeader {
     uint32_t length;     // 包含 payload 和 footer 的长度
     uint32_t msg_id;     // 消息 ID
     uint32_t segment_id; // 分段 ID
-    uint32_t flag;       // 分段 标志: 0 end, 1 not end
+    uint32_t flag;       // 分段 
 };
 
 struct MsgFooter {
@@ -61,10 +62,13 @@ public:
         callbacks_.push_back(callback);
     }
 
-    void setNoiseKeys(const std::vector<unsigned char> &local_secretKey, const std::vector<unsigned char>& remote_publicKey) {
-        local_secretKey_ = local_secretKey;
-        remote_publicKey_ = remote_publicKey;
-        encryptMode_ = true;
+    void setEncryptMode(const bool& mode) {
+        encryptMode_ = mode;
+    }
+
+    void setSessionKeys(const std::vector<uint8_t>& rxKey, const std::vector<uint8_t>& txKey) {
+        sessionKey_rx_ = rxKey;
+        sessionKey_tx_ = txKey;
     }
 
     // 1. APP 缓存到下行 CircularBuffer
@@ -90,6 +94,7 @@ public:
 private:
     static constexpr size_t segment_size_ = 1024; // 分段大小
     static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
+    static constexpr size_t encrypt_size_increment_ = crypto_secretbox_NONCEBYTES+crypto_secretbox_MACBYTES;
     
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
@@ -98,8 +103,10 @@ private:
     Timer timer_[2];
     uint32_t id_;
     bool encryptMode_;
-    std::vector<unsigned char> local_secretKey_{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
-    std::vector<unsigned char> remote_publicKey_{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
+    //std::vector<unsigned char> local_secretKey_{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
+    //std::vector<unsigned char> remote_publicKey_{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
+    std::vector<unsigned char> sessionKey_rx_;
+    std::vector<unsigned char> sessionKey_tx_;
     
     std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
 

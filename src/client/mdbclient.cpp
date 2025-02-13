@@ -5,18 +5,88 @@
 
 MdbClient::ptr MdbClient::my_instance = nullptr;
 
-
-
 void MdbClient::set_transport(trans_pair& port_info) {
 	transport_ = port_info.second;
 	transport_id_ = port_info.first;
-	Crypt::NoiseKeypair clntNKP;
-	crypt_.loadKeys(user_, clntNKP);
-	transport_->setNoiseKeys(clntNKP.secretKey, clntNKP.publicKey);
+	//Crypt::NoiseKeypair clntNKP;
+	//crypt_.loadKeys(user_, clntNKP);
+	//transport_->setNoiseKeys(clntNKP.secretKey, clntNKP.publicKey);
 }
 
 uint32_t MdbClient::get_transportid() {
 	return transport_id_;
+}
+
+int MdbClient::Ecdh() {
+    auto clientKxPair = generateKxKeypair();
+
+    json jsonData;
+    //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
+    jsonData["action"] = "ECDH";
+    jsonData["primitive"] = "PKE";
+    jsonData["userid"] = this->user_;
+    jsonData["psk"] = toHexString(clientKxPair.first);
+    // Convert JSON to string
+    std::string jsonConfig = jsonData.dump(1);
+    
+    // 写操作，支持超时
+    int ret = 0;
+    ret = this->send(jsonConfig,1, 1000);
+    if (ret<0) {
+        std::cerr << "Write operation failed:" << ret << std::endl;
+        return ret;
+    }
+    
+    // 读操作，支持超时
+    std::vector<json> json_datas;
+    ret = this->recv(json_datas, 1 , 3000);
+    if (ret<0) {
+        std::cerr << "Read operation failed:" << ret << std::endl;
+        return ret;
+    }
+
+    jsonData = json_datas.at(0);
+    std::cout << jsonData.dump(2) << std::endl;
+    if (jsonData["primitive"] != "PKE" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
+        std::cerr << "server err: " << jsonData["response"] << std::endl;
+        return -3;
+    }
+
+    auto serverPk = hexStringToBytes(jsonData["psk"].get<std::string>());
+    auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
+    auto sessionKc = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
+    
+    auto sessionK_rx = derive_key_with_argon2(sessionKc.first, this->passwd_, salt);
+    auto sessionK_tx = derive_key_with_argon2(sessionKc.second, this->passwd_, salt);
+    transport_->setSessionKeys(sessionK_rx, sessionK_tx);
+
+    jsonData["action"] = "ECDH";
+    jsonData["primitive"] = "KDF";
+    jsonData["userid"] = this->user_;
+    jsonConfig = jsonData.dump(1);
+    
+	ret = this->send(jsonConfig,1, 1000);
+    if (ret<0) {
+        std::cerr << "Write operation failed:" << ret << std::endl;
+        return ret;
+    }
+    
+    // 读操作，支持超时
+    json_datas.clear();
+    ret = this->recv(json_datas, 1 , 3000);
+    if (ret<0) {
+        std::cerr << "Read operation failed:" << ret << std::endl;
+        return ret;
+    }
+
+    jsonData = json_datas.at(0);
+    std::cout << jsonData.dump(2) << std::endl;
+    if (jsonData["primitive"] != "KDF" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
+        std::cerr << "server err: " << jsonData["response"] << std::endl;
+        return -4;
+    }
+	transport_->setEncryptMode(true);
+    return 0;
 }
 
 int MdbClient::reconnect(const std::string& host, const std::string& port) {

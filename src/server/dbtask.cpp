@@ -29,9 +29,10 @@ void DbTask::handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> jso
         }
     };
 
-    for (const auto& jsonTask : *json_datas) {
+    for (auto& jsonTask : *json_datas) {
         try {
 			auto db = DBService::getInstance()->getDb();
+            jsonTask["portId"] = port_id_;
 			auto handler = ActionRegistry::getInstance().getHandler(jsonTask["action"]);
 			handler->handle(jsonTask, db, jsonResp);
         } catch (const std::exception& e) {

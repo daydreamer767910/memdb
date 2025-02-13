@@ -16,16 +16,20 @@ MdbClient::ptr client_ptr = nullptr;
 
 extern "C" {
 
-void mdb_init(const char* user) {
-	client_ptr = MdbClient::get_instance(io_context,user);
+void mdb_init(const char* user, const char* pwd) {
+	client_ptr = MdbClient::get_instance(io_context,user,pwd);
 }
 
 int mdb_start(const char* ip, int port) {
-	return client_ptr->start(std::string(ip), std::to_string(port));
+	int ret = client_ptr->start(std::string(ip), std::to_string(port));
+	if (ret<0) return ret;
+	return client_ptr->Ecdh();
 }
 
 int mdb_reconnect(const char* ip, int port) {
-	return client_ptr->reconnect(std::string(ip), std::to_string(port));
+	int ret = client_ptr->reconnect(std::string(ip), std::to_string(port));
+	if (ret<0) return ret;
+	return client_ptr->Ecdh();
 }
 
 void mdb_stop() {

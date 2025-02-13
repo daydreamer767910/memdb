@@ -24,11 +24,11 @@ private:
 public:
 	using ptr = std::shared_ptr<MdbClient>;
 
-	MdbClient(boost::asio::io_context& io_context, const std::string& user)
+	MdbClient(boost::asio::io_context& io_context, const std::string& user, const std::string& pwd)
 		: io_context_(io_context), 
 		work_guard_(boost::asio::make_work_guard(io_context)),
 		TcpClient(io_context),
-		user_(user) {
+		user_(user), passwd_(pwd) {
 		transport_srv = TransportSrv::get_instance();
 		//std::cout << "MdbClient created" << std::endl;
 		//crypt_.init(Database::getInstance(), passwd_);
@@ -47,18 +47,23 @@ public:
 		work_guard_.reset();
 	}
 
-	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user) {
+	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user, const std::string& pwd) {
 		if (my_instance == nullptr)
-        	my_instance = std::make_shared<MdbClient>(io_context,user);
+        	my_instance = std::make_shared<MdbClient>(io_context,user,pwd);
 		return my_instance;
     }
 
 	void set_transport(trans_pair& port_info);
+	void setMode(const int mode) {
+		transport_->setEncryptMode(mode);
+	}
 
 	uint32_t get_transportid();
 
 	int start(const std::string& host, const std::string& port);
 	void stop();
+	int Ecdh();
+	
 	// 1. APP 缓存到下行 CircularBuffer
     int send(const std::string& data, uint32_t msg_id, uint32_t timeout);
 	// 4. APP 读取上行 CircularBuffer
@@ -71,6 +76,7 @@ public:
     }
 	void on_data_received(int result) override ;
 protected:
+	
 	void handle_read(const boost::system::error_code& error, std::size_t nread) override;
 private:
 	boost::asio::io_context& io_context_;
@@ -85,8 +91,8 @@ private:
     DataVariant cached_data_;
 	std::thread asio_eventLoopThread;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-	Crypt crypt_;
 	std::string user_;
+	std::string passwd_;
 };
 
 #endif

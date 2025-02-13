@@ -1,5 +1,44 @@
 #include "crypt.hpp"
 
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair() {
+    std::vector<unsigned char> publicKey(crypto_kx_PUBLICKEYBYTES);
+    std::vector<unsigned char> secretKey(crypto_kx_SECRETKEYBYTES);
+
+    crypto_kx_keypair(publicKey.data(), secretKey.data());  // 生成密钥对
+    return {publicKey, secretKey};
+}
+
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateClientSessionKeys(const std::vector<unsigned char>& client_public_key,
+	const std::vector<unsigned char>& client_secret_key,
+	const std::vector<unsigned char>& server_public_key) {
+	std::vector<unsigned char> session_rx(crypto_kx_SESSIONKEYBYTES);
+	std::vector<unsigned char> session_tx(crypto_kx_SESSIONKEYBYTES);
+
+	if (crypto_kx_client_session_keys(session_rx.data(),
+		session_tx.data(),
+		client_public_key.data(),
+		client_secret_key.data(),
+		server_public_key.data()) != 0) {
+		std::cerr << "crypto_kx_client_session_keys fail\n";
+	}
+	return {session_rx, session_tx};
+}
+
+std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateServerSessionKeys(const std::vector<unsigned char>& server_public_key,
+	const std::vector<unsigned char>& server_secret_key,
+	const std::vector<unsigned char>& client_public_key) {
+	std::vector<unsigned char> session_rx(crypto_kx_SESSIONKEYBYTES);
+	std::vector<unsigned char> session_tx(crypto_kx_SESSIONKEYBYTES);
+	if (crypto_kx_server_session_keys(session_rx.data(),
+		session_tx.data(),
+		server_public_key.data(),
+		server_secret_key.data(),
+		client_public_key.data()) != 0 ) {
+		std::cerr << "crypto_kx_client_session_keys fail\n";
+	}
+	return {session_rx, session_tx};
+}
+
 // 生成Noise协议密钥对
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateNoiseKeypair() {
     std::vector<unsigned char> publicKey(crypto_box_PUBLICKEYBYTES);
@@ -100,6 +139,40 @@ bool decryptDataWithNoiseKey(
         return false;
     }
     return true;
+}
+
+// 使用 Argon2ID 结合 ECDH 共享密钥 + 用户密码，派生出安全密钥
+std::vector<uint8_t> derive_key_with_argon2(
+    const std::vector<uint8_t> &shared_key, // ECDH 共享密钥
+    const std::string &password,           // 用户密码
+    const std::vector<uint8_t> &salt,      // 随机 Salt
+    size_t key_size                  // 需要的派生密钥长度（默认 32 bytes）
+) {
+    if (shared_key.size() != crypto_scalarmult_BYTES) {
+        throw std::invalid_argument("共享密钥长度必须是 32 字节");
+    }
+    if (salt.size() != crypto_pwhash_SALTBYTES) {
+        throw std::invalid_argument("Salt 长度必须是 16 字节");
+    }
+
+    std::vector<uint8_t> derived_key(key_size); // 输出密钥
+
+    // 1. 组合 shared_key + password
+    std::vector<uint8_t> combined_input(shared_key.size() + password.size());
+    memcpy(combined_input.data(), shared_key.data(), shared_key.size());
+    memcpy(combined_input.data() + shared_key.size(), password.data(), password.size());
+
+    // 2. 使用 Argon2 进行 KDF
+    if (crypto_pwhash(derived_key.data(), key_size, 
+                      (const char *)combined_input.data(), combined_input.size(), 
+                      salt.data(), 
+                      crypto_pwhash_OPSLIMIT_MODERATE, 
+                      crypto_pwhash_MEMLIMIT_MODERATE, 
+                      crypto_pwhash_ALG_ARGON2ID13) != 0) {
+        throw std::runtime_error("Argon2 KDF 计算失败！");
+    }
+
+    return derived_key;
 }
 
 namespace Transport_Crypt {
