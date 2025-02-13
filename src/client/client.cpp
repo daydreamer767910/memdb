@@ -23,12 +23,14 @@ void mdb_init(const char* user, const char* pwd) {
 int mdb_start(const char* ip, int port) {
 	int ret = client_ptr->start(std::string(ip), std::to_string(port));
 	if (ret<0) return ret;
+	client_ptr->setEncryptMode(false);
 	return client_ptr->Ecdh();
 }
 
 int mdb_reconnect(const char* ip, int port) {
 	int ret = client_ptr->reconnect(std::string(ip), std::to_string(port));
 	if (ret<0) return ret;
+	client_ptr->setEncryptMode(false);
 	return client_ptr->Ecdh();
 }
 

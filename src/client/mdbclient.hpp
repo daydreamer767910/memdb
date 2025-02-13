@@ -54,7 +54,7 @@ public:
     }
 
 	void set_transport(trans_pair& port_info);
-	void setMode(const int mode) {
+	void setEncryptMode(const int mode) {
 		transport_->setEncryptMode(mode);
 	}
 
@@ -63,7 +63,7 @@ public:
 	int start(const std::string& host, const std::string& port);
 	void stop();
 	int Ecdh();
-	
+
 	// 1. APP 缓存到下行 CircularBuffer
     int send(const std::string& data, uint32_t msg_id, uint32_t timeout);
 	// 4. APP 读取上行 CircularBuffer
