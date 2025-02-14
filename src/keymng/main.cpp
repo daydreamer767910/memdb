@@ -8,7 +8,7 @@
 #include "crypt.hpp"
 using Transport_Crypt::Crypt;
 Database::ptr& db = Database::getInstance();
-Crypt transport_crypt;
+
 void save_db() {
 	std::string baseDir = std::string(std::getenv("HOME"));
 	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
@@ -133,6 +133,7 @@ void enableEcho() {
 }
 
 void test() {
+    Crypt transport_crypt;
     transport_crypt.init(db,"fuckyou");
     auto srvNKP = transport_crypt.getServerNKeypair();
     const Crypt::NoiseKeypair& clntNKP = transport_crypt.getClientKeypair("memdb").value();

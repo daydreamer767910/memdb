@@ -86,7 +86,7 @@ void Database::save(const std::string& filePath) {
             std::filesystem::path tableConfigPath = configPath / container.first;
             try {
                 container.second->saveSchema(tableConfigPath.string());
-                std::cout << get_timestamp() << " Saved config for container: " << container.first << '\n';
+                //std::cout << get_timestamp() << " Saved config for container: " << container.first << '\n';
             } catch (const std::exception& e) {
                 std::cerr << get_timestamp() << " Failed to save config for container: " << container.first 
                           << ": " << e.what() << '\n';
@@ -170,7 +170,7 @@ void Database::remove(const std::string& filePath, const std::string& name) {
             if (std::filesystem::exists(fullPath)) {
                 if (std::filesystem::is_regular_file(fullPath)) {
                     std::filesystem::remove(fullPath);
-                    std::cout << "Removed file: " << fullPath << '\n';
+                    //std::cout << "Removed file: " << fullPath << '\n';
                 } else {
                     std::cerr << "Error: Path " << fullPath << " is not a regular file.\n";
                 }

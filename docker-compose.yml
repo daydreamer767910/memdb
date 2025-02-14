@@ -11,6 +11,7 @@ services:
       - .env
     environment:
       - TZ=America/Los_Angeles
+    restart: unless-stopped
     ports:
       - "8899:7899"
       - "8900:7900"

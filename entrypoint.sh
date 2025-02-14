@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # Ensure the script exits on errors
 set -e
@@ -9,6 +9,7 @@ if [ -f ".env" ]; then
   export $(grep -v '^#' .env | xargs)
 fi
 
+# 处理 SIGTERM 信号
 _term() {
     echo "Caught SIGTERM, stopping mdbsrv..."
     kill -TERM "$child" 2>/dev/null || true
@@ -17,6 +18,7 @@ _term() {
     exit 0
 }
 
+# 处理 SIGINT 信号
 _int() {
     echo "Caught SIGINT, stopping mdbsrv..."
     kill -INT "$child" 2>/dev/null || true
@@ -25,20 +27,21 @@ _int() {
     sleep 2
 }
 
-trap _term SIGTERM
-trap _int SIGINT
+# POSIX 兼容的 trap
+trap _term TERM
+trap _int INT
 
-if [ "$1" == "mdbsrv" ]; then
+if [ "$1" = "mdbsrv" ]; then
     shift
     while true; do
         echo "Starting mdbsrv..."
-        mdbsrv "$@" &  # 以后台进程方式启动
+        mdbsrv "$@"
         child=$!
         echo "mdbsrv started with PID $child"
         wait "$child" 2>/dev/null || true  # 等待子进程结束
 
         exit_code=$?
-        if [[ $exit_code -eq 0 ]]; then
+        if [ $exit_code -eq 0 ]; then
             echo "mdbsrv exited normally, restarting..."
         else
             echo "mdbsrv crashed with code $exit_code, restarting..."

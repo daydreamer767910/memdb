@@ -18,7 +18,7 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	timer.start();
 
 	// 启动事件循环
-	std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency()/2 << " threads." << std::endl;
+	//std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency()/2 << " threads." << std::endl;
 	// 在线程池中运行 io_context
 	for (std::size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
 		boost::asio::post(thread_pool_, [this]() {
@@ -35,7 +35,7 @@ DBService::~DBService() {
 	
     // 停止线程池
     thread_pool_.stop();
-	std::cout << "DBService thread pool stoped\n";
+	//std::cout << "DBService thread pool stoped\n";
 	work_guard_.reset();
     // 等待线程池中的所有线程完成任务
     thread_pool_.join();
@@ -52,7 +52,7 @@ DBService::~DBService() {
 	#endif
     // 保存数据库
     save_db();
-    std::cout << "DBService saved" << std::endl;
+    //std::cout << "DBService saved" << std::endl;
 
     #ifdef DEBUG
     std::cout << "DB service destroyed!" << std::endl;

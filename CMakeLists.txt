@@ -14,7 +14,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0  -Wall -Wextra")
 
 # 为整个项目添加调试宏
-add_definitions(-DDEBUG)
+#add_definitions(-DDEBUG)
 
 # 添加 src 目录到包含路径
 include_directories(${CMAKE_SOURCE_DIR}/src)

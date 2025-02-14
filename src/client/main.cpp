@@ -64,63 +64,6 @@ int test(const std::string jsonConfig) {
     
 }
 
-int Ecdh(const std::string& user, const std::string& passwd) {
-    auto clientKxPair = generateKxKeypair();
-    std::cout << "Client Public Key:\n";
-    printHex(clientKxPair.first);
-
-    json jsonData;
-    //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
-    jsonData["action"] = "ECDH";
-    jsonData["primitive"] = "PKE";
-    jsonData["userid"] = user;
-    jsonData["psk"] = toHexString(clientKxPair.first);
-    // Convert JSON to string
-    std::string jsonConfig = jsonData.dump(1);
-    
-    // 写操作，支持超时
-    int ret = 0;
-    
-    ret = mdb_send(jsonConfig.c_str(),1, 1000);
-    if (ret<0) {
-        std::cerr << "Write operation failed:" << ret << std::endl;
-        return ret;
-    }
-    
-    // 读操作，支持超时
-    char buffer[1024] = {};
-    ret = mdb_recv(buffer, sizeof(buffer) , 3000);
-    if (ret<0) {
-        std::cerr << "Read operation failed:" << ret << std::endl;
-        return ret;
-    }
-
-    jsonData = json::parse(buffer);
-    std::cout << jsonData.dump(2) << std::endl;
-    if (jsonData["primitive"] != "PKE" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
-        std::cerr << "server err: " << jsonData["response"] << std::endl;
-        return -3;
-    }
-
-    auto serverPk = hexStringToBytes(jsonData["psk"].get<std::string>());
-    auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
-    auto sessionKc = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
-    std::cout << "shared Key (Client Side):\n";
-    printHex(sessionKc.first);
-    printHex(sessionKc.second);
-    auto sessionK_rx = derive_key_with_argon2(sessionKc.first, passwd, salt);
-    auto sessionK_tx = derive_key_with_argon2(sessionKc.second, passwd, salt);
-    std::cout << "session Key (Client Side):\n";
-    printHex(sessionK_rx);
-    printHex(sessionK_tx);
-    jsonData["action"] = "ECDH";
-    jsonData["primitive"] = "KDF";
-    jsonData["userid"] = user;
-    jsonConfig = jsonData.dump(1);
-    test(jsonConfig);
-    return 0;
-}
-
 void createidx(std::string& name) {
     // 示例 JSON
     std::string json_str = R"({

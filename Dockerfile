@@ -85,6 +85,7 @@ ENTRYPOINT ["/usr/bin/env", "bash", "/mdb/entrypoint.sh"]
 FROM runtime AS mdbservice
 LABEL description="Mdb Server"
 
+
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /mdb/build/bin/ /mdb/bin
@@ -98,5 +99,6 @@ COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /usr/lib/x86_64-linux-gnu/libsodium.so* /mdb/lib
 
-ENTRYPOINT ["/bin/bash", "/mdb/entrypoint.sh"]
+#ENTRYPOINT ["/mdb/entrypoint.sh"]
+ENTRYPOINT ["mdbsrv"]
 CMD ["mdbsrv"]
