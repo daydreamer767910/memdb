@@ -104,7 +104,8 @@ public:
 private:
     static constexpr size_t segment_size_ = 1024; // 分段大小
     static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
-    static constexpr size_t encrypt_size_increment_ = crypto_secretbox_NONCEBYTES+crypto_secretbox_MACBYTES;
+    static constexpr size_t encrypt_size_increment_ = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
+                                                        + crypto_aead_xchacha20poly1305_ietf_ABYTES;
     
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据

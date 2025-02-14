@@ -186,7 +186,10 @@ void testkx() {
     std::string str = "hello mass";
     std::vector<uint8_t> msg(str.begin(), str.end());
     std::vector<uint8_t> ciphermsg, decrymsg;
+    std::string associatedStr = std::to_string(time(nullptr));
+    std::vector<uint8_t> associatedData(associatedStr.c_str(), associatedStr.c_str()+associatedStr.size());
     encryptData(sessionK_rx, msg, ciphermsg);
+    printHex(ciphermsg);
     decryptData(sessionK_rx, ciphermsg, decrymsg);
     std::string decrystr(decrymsg.begin(),decrymsg.end());
     std::cout << decrystr << std::endl;
@@ -198,7 +201,7 @@ int main() {
         return -1;
     }
     load_db();
-    //testkx();
+    testkx();
     //test();
     int choice;
     std::string username, passwd, hashedPwd, role;

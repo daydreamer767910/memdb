@@ -50,45 +50,49 @@ std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateNoiseK
 
 // 加密函数，使用指定的密码加密数据
 void encryptData(const std::vector<unsigned char>& key, 
-	const std::vector<unsigned char>& data, 
-	std::vector<unsigned char>& ciphertext) {
+	const std::vector<unsigned char>& plaintext,  
+	std::vector<unsigned char>& ciphertext,
+	const std::vector<unsigned char>& associatedData) {
+	std::vector<unsigned char> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+	randombytes_buf(nonce.data(), nonce.size()); // 生成随机 Nonce
 
-    std::vector<unsigned char> nonce(crypto_secretbox_NONCEBYTES);
-    randombytes_buf(nonce.data(), crypto_secretbox_NONCEBYTES);  // 随机生成nonce
-    
-    ciphertext.resize(crypto_secretbox_MACBYTES + crypto_secretbox_NONCEBYTES + data.size());
-    std::memcpy(ciphertext.data(), nonce.data(), nonce.size()); // 将nonce附加到密文的开头
+	ciphertext.resize(nonce.size() + plaintext.size() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
 
-    if (crypto_secretbox_easy(ciphertext.data() + crypto_secretbox_NONCEBYTES, 
-        data.data(), 
-        data.size(), 
-        nonce.data(), 
-        key.data()) != 0) {
-        std::cerr << "encryptData fail" << std::endl;
-    }
+	unsigned long long ciphertextLen;
+	crypto_aead_xchacha20poly1305_ietf_encrypt(
+	ciphertext.data() + nonce.size(), &ciphertextLen,
+	plaintext.data(), plaintext.size(),
+	associatedData.data(), associatedData.size(), // 附加数据
+	nullptr, nonce.data(), key.data());
+
+	std::memcpy(ciphertext.data(), nonce.data(), nonce.size()); // 将 Nonce 放到密文前面
 }
 
-// 解密函数，使用指定的密码解密数据
 bool decryptData(const std::vector<unsigned char>& key, 
-	const std::vector<unsigned char>& ciphertext, 
-	std::vector<unsigned char>& decryptedData) {
+	const std::vector<unsigned char>& ciphertext,  
+	std::vector<unsigned char>& decryptedData,
+	const std::vector<unsigned char>& associatedData) {
+	if (ciphertext.size() < crypto_aead_xchacha20poly1305_ietf_NPUBBYTES + crypto_aead_xchacha20poly1305_ietf_ABYTES) {
+		return false; // 密文太短，无法解密
+	}
 
-    std::vector<unsigned char> nonce(crypto_secretbox_NONCEBYTES);
-    std::memcpy(nonce.data(), ciphertext.data(), crypto_secretbox_NONCEBYTES); // 从密文中提取nonce
-    auto ciphertextLen = ciphertext.size() - crypto_secretbox_NONCEBYTES;
-    auto decryptedDataLen = ciphertext.size() - crypto_secretbox_MACBYTES - crypto_secretbox_NONCEBYTES;
-    decryptedData.resize(decryptedDataLen);
-    int result = crypto_secretbox_open_easy(decryptedData.data(), 
-        ciphertext.data() + crypto_secretbox_NONCEBYTES, 
-        ciphertextLen,
-        nonce.data(), 
-        key.data());
+	std::vector<unsigned char> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+	std::memcpy(nonce.data(), ciphertext.data(), nonce.size()); // 提取 Nonce
 
-    if (result != 0) {
-        std::cerr << "decryptData fail: " << result << std::endl;
-        return false;
-    }
-    return true;
+	unsigned long long decryptedDataLen;
+	decryptedData.resize(ciphertext.size() - nonce.size() - crypto_aead_xchacha20poly1305_ietf_ABYTES);
+
+	if (crypto_aead_xchacha20poly1305_ietf_decrypt(
+		decryptedData.data(), &decryptedDataLen,
+		nullptr,
+		ciphertext.data() + nonce.size(), ciphertext.size() - nonce.size(),
+		associatedData.data(), associatedData.size(), // 附加数据
+		nonce.data(), key.data()) != 0) {
+		std::cerr << "Decrypt failed: Authentication failed." << std::endl;
+		return false;
+	}
+
+	return true;
 }
 
 void encryptDataWithNoiseKey(

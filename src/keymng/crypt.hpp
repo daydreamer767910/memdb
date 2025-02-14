@@ -28,11 +28,13 @@ std::vector<uint8_t> derive_key_with_argon2(
 	);
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateNoiseKeypair();
 void encryptData(const std::vector<unsigned char>& key, 
-	const std::vector<unsigned char>& data, 
-	std::vector<unsigned char>& ciphertext);
+	const std::vector<unsigned char>& plaintext,  
+	std::vector<unsigned char>& ciphertext,
+	const std::vector<unsigned char>& associatedData = {});
 bool decryptData(const std::vector<unsigned char>& key, 
-	const std::vector<unsigned char>& ciphertext, 
-	std::vector<unsigned char>& decryptedData);
+	const std::vector<unsigned char>& ciphertext,  
+	std::vector<unsigned char>& decryptedData,
+	const std::vector<unsigned char>& associatedData = {});
 void encryptDataWithNoiseKey(
 	const std::vector<unsigned char>& senderSecretKey,
 	const std::vector<unsigned char>& receiverPublicKey,
