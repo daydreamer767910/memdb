@@ -30,7 +30,7 @@ int MdbClient::Ecdh() {
     
     // 写操作，支持超时
     int ret = 0;
-    ret = this->send(jsonConfig,1, 1000);
+    ret = this->send(jsonConfig,0, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
@@ -45,7 +45,9 @@ int MdbClient::Ecdh() {
     }
 
     jsonData = json_datas.at(0);
+	#ifdef DEBUG
     std::cout << jsonData.dump(2) << std::endl;
+	#endif
     if (jsonData["primitive"] != "HKDF" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -3;
@@ -68,7 +70,7 @@ int MdbClient::Ecdh() {
 	jsonData["password"] = this->passwd_;
     jsonConfig = jsonData.dump(1);
     
-	ret = this->send(jsonConfig,1, 1000);
+	ret = this->send(jsonConfig,0, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
@@ -82,7 +84,9 @@ int MdbClient::Ecdh() {
     }
 
     jsonData = json_datas.at(0);
+	#ifdef DEBUG
     std::cout << jsonData.dump(2) << std::endl;
+	#endif
     if (jsonData["primitive"] != "Argon2" || jsonData["response"] != "ECDH ACK" || jsonData["status"] != "200") {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -4;
@@ -157,20 +161,22 @@ void MdbClient::on_data_received(int result) {
 			close();
 			reconnect();
 		}
+		#ifdef DEBUG
 		if(ret>0)
 		print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
+		#endif
 	}
 }
 
 int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) {
 	try {
-        int ret= transport_->send(data,4,std::chrono::milliseconds(timeout));
-		if(ret>0)
-		std::cout << "send to transport:" << ret << std::endl;
+        int ret= transport_->send(data,msg_id,std::chrono::milliseconds(timeout));
+		//if(ret>0)
+		//std::cout << "send to transport:" << ret << std::endl;
 		return ret;
     } catch (const std::exception& e) {
         std::cerr << "Send error: " << e.what() << std::endl;
-        return false;
+        return -1;
     }
 }
 

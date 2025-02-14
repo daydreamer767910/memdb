@@ -27,12 +27,13 @@ int port = 7900;
 bool exiting = false;
 static int id = 0;
 static int offset = 0;
+int msgid = 1;
 
 int test(const std::string jsonConfig) {
     // 写操作，支持超时
     int ret = 0;
     
-    ret = mdb_send(jsonConfig.c_str(),1, 1000);
+    ret = mdb_send(jsonConfig.c_str(),msgid++, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         if (ret == -2) {
@@ -40,6 +41,12 @@ int test(const std::string jsonConfig) {
             return 0;
         }
         return ret;
+    }
+    if (ret>0) {
+        //printf("APP SEND[%d]:\r\n",ret);
+        //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
+        json jsonData = json::parse(jsonConfig.c_str());
+        std::cout << jsonData.dump(2) << std::endl;
     }
     
     // 读操作，支持超时
@@ -610,7 +617,7 @@ int main(int argc, char* argv[]) {
     while (mdb_start(ip, port) < 0) {
         sleep(3);
         if (exiting) {
-            break;
+            return -1;
         }
     }
     //Ecdh("memdb", "fuckyou");

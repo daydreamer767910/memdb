@@ -17,14 +17,28 @@ cmake ..
 make install
 cd $HOME
 mkdir log
-mdbsrv 或者运行 entrypoint.sh
+mdbsrv 或者运行 entrypoint.sh mdbsrv
 ```
+## server端配置说明
+### 运行keymng，创建admin用户，创建其它用户（包括配置密码，用户角色等）。
+### .env文件可以配置COMM_PORT：服务监听端口。
+### 命令行输入可以配置服务ip,端口。例如： mdbsrv 127.0.0.1 7900
+### 重启server服务。
+
 ## client端使用说明
-### 从安装好的server端的/usr/local/lib目录下,获取libmdb.so放在自己的客户端调用
+### 从安装好的server端的/mdb/lib目录下,获取libmdb.so以及libsodium.so*放在自己的客户端调用：
+#### 首先调用mdb_init接口：参数是配置阶段创建的用户名和密码
+#### 然后调用mdb_start接口：参数是server端地址和端口，返回0表示成功连接，<0表示失败。
+#### json指令通过mdb_send发送，msg_id是指令编号必须是唯一，timeout是超时设置，单位ms。返回值>0成功，<0失败。
+#### json指令通过mdb_recv接收，timeout是超时设置，单位ms。返回值>0成功，<0失败。
+#### 发送或者接受失败时，通过mdb_reconnect重新连接server，返回0表示成功连接，<0表示失败。
+#### mdb_stop表示关闭收发通道。
+#### mdb_quit表示结束client端并且释放资源。
+
 #### 对于c/c++：
 ```
 extern "C" {
-    void mdb_init();
+    void mdb_init(const char* user,const char* pwd);
     void mdb_stop();
     void mdb_quit();
     int mdb_start(const char* ip, int port);
@@ -38,7 +52,7 @@ extern "C" {
 const fileName = path.resolve(__dirname, "../lib/libmdb.so");
 // 定义库接口
 const mdbLib = ffi.Library(fileName, {
-mdb_init: ["void", []],
+mdb_init: ["void", ["string","string"]],
 mdb_stop: ["void", []],
 mdb_start: ["int", ["string", "int"]],
 mdb_reconnect: ["int", ["string", "int"]],
@@ -47,9 +61,8 @@ mdb_send: ["int", ["string", "int", "int"]],
 });
 ```
 
-
-## client接口说明
-### 调用mdb_init，mdb_start连接上server之后，既可以通过mdb_send发送以下接口指令，然后通过mdb_recv获取指令结果：
+## json请求指令说明
+### 调用mdb_init，mdb_start连接上server之后，既可以通过mdb_send发送以下json请求指令，然后通过mdb_recv获取指令结果：
 
 1. ### 创建集合接口:用于创建一个新的数据集合，并定义数据结构及字段约束。字段值数据类型目前支持包括int, double, bool, string, time, binary, document（嵌入文档），使用time的时候需要用${date time stamp}格式（例如：${2025-01-01 00:00:00}）。
 
