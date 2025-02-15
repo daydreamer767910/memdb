@@ -29,7 +29,9 @@ public:
 	DbTask(uint32_t port_id, boost::asio::io_context& io_context)
 		: port_id_(port_id), io_context_(io_context){
 			cached_data_ = std::make_tuple(&json_datas_, max_cache_size, port_id_);
+			json_datas_.reserve(max_cache_size);  // 预分配缓存大小
 	}
+	
 	~DbTask() {
 		json_datas_.clear();
 	#ifdef DEBUG
@@ -43,7 +45,7 @@ public:
     }
 	void on_data_received(int result) override;
 
-	void handle_task(uint32_t msg_id, std::shared_ptr<std::vector<json>> json_datas);
+	void handle_task(std::shared_ptr<std::vector<json>> json_datas);
 private:
 	std::vector<json> json_datas_;//the container to read msg from transport layer
 	uint32_t port_id_;

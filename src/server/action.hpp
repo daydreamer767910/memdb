@@ -8,6 +8,7 @@ class ActionHandler {
 public:
     virtual void handle(const json& task, Database::ptr db, json& response) = 0;
     virtual ~ActionHandler() = default;
+    uint32_t port_id_;
 };
 
 #endif

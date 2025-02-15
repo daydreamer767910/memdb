@@ -6,7 +6,7 @@ class EcdhHandler : public ActionHandler {
 public:
     void handle(const json& task, Database::ptr db , json& response) override {
 		std::string primitive = task["primitive"];
-		uint32_t portId = task["portId"];//filled by Task
+		
 		// 准备响应
         response["response"] = "ECDH ACK";
         response["status"] = "200";
@@ -15,7 +15,7 @@ public:
 			auto pk_C = hexStringToBytes(task["pkc"].get<std::string>());
 			auto serverKxPair = generateKxKeypair();
 			auto sessionKeys = generateServerSessionKeys(serverKxPair.first, serverKxPair.second, pk_C);
-			auto port = TransportSrv::get_instance()->get_port(portId);
+			auto port = TransportSrv::get_instance()->get_port(this->port_id_);
 			if (port) {
 				port->setSessionKeys(sessionKeys.first, sessionKeys.second);
 				//std::cout << "Rx: ";
@@ -61,7 +61,7 @@ public:
 				std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
 				randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
 				std::vector<uint8_t> shareKey_rx, shareKey_tx;
-				auto port = TransportSrv::get_instance()->get_port(portId);
+				auto port = TransportSrv::get_instance()->get_port(this->port_id_);
 				if (port) {
 					port->getSessionKeys(shareKey_rx, shareKey_tx);
 					auto sessionK_rx = derive_key_with_argon2(shareKey_rx, passWd, salt);

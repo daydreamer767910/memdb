@@ -91,7 +91,7 @@ void Transport::on_input() {
                         //把传输层数据一次收整 
                         int len = this->read(*json_data, max_cache_size, std::chrono::milliseconds(100));
                         if (len > 0) {
-                            callback_ptr->on_data_received(this->id_);
+                            callback_ptr->on_data_received(len);
                         }
                     }
                 }
@@ -122,7 +122,7 @@ void Transport::triger_event(ChannelType type) {
 }
 
 // 计算校验和
-uint32_t Transport::calculateChecksum(const std::vector<char>& data) {
+uint32_t Transport::calculateChecksum(const std::vector<uint8_t>& data) {
     static const uint32_t polynomial = 0xEDB88320;
     static uint32_t crc_table[256];
     static bool table_generated = false;
@@ -139,8 +139,8 @@ uint32_t Transport::calculateChecksum(const std::vector<char>& data) {
     }
 
     uint32_t crc = 0xFFFFFFFF;
-    for (char c : data) {
-        crc = (crc >> 8) ^ crc_table[(crc & 0xFF) ^ static_cast<uint8_t>(c)];
+    for (uint8_t c : data) {
+        crc = (crc >> 8) ^ crc_table[(crc & 0xFF) ^ c];
     }
 
     return ~crc;
@@ -229,23 +229,19 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
             msg.header.flag |= FLAG_ENCRYPTED;
             chunk_size = std::min(total_size - offset, 
                 segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-encrypt_size_increment_);
-            // 创建 segment 数据并加密
-            std::vector<unsigned char> segment_data(data.begin() + offset, data.begin() + offset + chunk_size);
+            msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
             std::vector<unsigned char> encrypted_segment;
-            //printHex(sessionKey_tx_);
-            encryptData(sessionKey_tx_, segment_data, encrypted_segment);
-            //encryptDataWithNoiseKey(local_secretKey_, remote_publicKey_, segment_data, encrypted_segment);
+            encryptData(sessionKey_tx_, msg.payload, encrypted_segment);
             // 计算加密后的 segment 长度（包含加密后的数据和 MAC 校验码等）
             size_t encrypted_size = encrypted_segment.size();
             msg.header.length = encrypted_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-
             if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-encrypt_size_increment_)) {
                 msg.header.flag &= ~FLAG_SEGMENTED; //last segment
             } else {
                 msg.header.flag |= FLAG_SEGMENTED;
             }
             // 将加密后的数据赋值给 msg.payload
-            msg.payload.assign(encrypted_segment.begin(), encrypted_segment.end());
+            msg.payload = std::move(encrypted_segment);
         } else {
             chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
             msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
@@ -327,12 +323,15 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             if (buffer.is_complete) {
                 // 重组消息
                 std::string reconstructed_data;
+                reconstructed_data.reserve(buffer.total_size);
                 for (const auto& [segment_id, segment_data] : buffer.segments) {
                     reconstructed_data.append(segment_data.begin(),segment_data.end());
                 }
 				try {
 					// 解析 JSON 并加入结果
-                	json_datas.push_back(json::parse(reconstructed_data));
+                    json j = json::parse(reconstructed_data);
+                    j["_msg_id"] = it->first;
+                	json_datas.push_back(j);
 				} catch (...) {
 					std::cout << "json parse fail:\n" << reconstructed_data << std::endl;
 				}
@@ -382,6 +381,21 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
                 << std::setw(8) << crc << std::endl;
             return -3;
         }
+        //如果对端切换key
+        if (msg.header.flag & FLAG_KEY_UPDATE) {
+            switchToNewKeys();
+        }
+        // 如果对端加密，直接把模式改成加密
+        if (msg.header.flag & FLAG_ENCRYPTED) {
+            std::vector<uint8_t> decrypted_segment;
+            if (!decryptData(sessionKey_rx_, msg.payload, decrypted_segment)) {
+                std::cerr << "Warning: Decryption failed for msg: " << msg.header.msg_id << std::endl;
+                return -4;
+            }
+            // 只有解密成功，才设置加密模式，防止错误状态
+            setEncryptMode(true);
+            msg.payload = std::move(decrypted_segment);
+        }
 
         // 查找或创建缓存项
         auto& buffer = message_cache[msg.header.msg_id];
@@ -396,29 +410,8 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             message_cache.erase(msg.header.msg_id); // 丢弃超大消息
             continue;
         }
-        //如果对端切换key
-        if (msg.header.flag & FLAG_KEY_UPDATE) {
-            switchToNewKeys();
-        }
-        //如果对端加密，直接把模式改成加密
-        if (msg.header.flag & FLAG_ENCRYPTED) {
-            setEncryptMode(true);
-        }
-        if (encryptMode_ ) {
-            //解密payload
-            std::vector<unsigned char> decrypted_segment;
-            std::vector<unsigned char> encrypted_segment(msg.payload.begin(), msg.payload.end());
-            //printHex(sessionKey_rx_);
-            decryptData(sessionKey_rx_, encrypted_segment, decrypted_segment);
-            //decryptDataWithNoiseKey(remote_publicKey_, local_secretKey_, encrypted_segment, decrypted_segment);
-            // 将 std::vector<unsigned char> 转换为 std::vector<char>
-            std::vector<char> char_segment(decrypted_segment.begin(), decrypted_segment.end());
-            // 存储分包
-            //
-            buffer.segments[msg.header.segment_id] = char_segment;
-        } else {
-            buffer.segments[msg.header.segment_id] = msg.payload;
-        }
+                
+        buffer.segments[msg.header.segment_id] = msg.payload;
         
         if ((msg.header.flag & FLAG_SEGMENTED) == 0) {
             buffer.total_segments = msg.header.segment_id + 1;

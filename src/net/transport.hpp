@@ -31,12 +31,12 @@ struct MsgFooter {
 
 struct Msg {
     MsgHeader header;
-    std::vector<char> payload;
+    std::vector<uint8_t> payload;
     MsgFooter footer;
 };
 
 struct MessageBuffer {
-    std::map<uint32_t, std::vector<char>> segments; // 按 segment_id 存储分包
+    std::map<uint32_t, std::vector<uint8_t>> segments; // 按 segment_id 存储分包
     uint32_t total_segments = 0;             // 总分包数
     size_t total_size = 0;                   // 当前消息的总大小
     bool is_complete = false;                // 是否已完成
@@ -127,7 +127,7 @@ private:
     void on_input();
 
 	// 计算校验和
-	uint32_t calculateChecksum(const std::vector<char>& data);
+	uint32_t calculateChecksum(const std::vector<uint8_t>& data);
 
     // 序列化 Msg 为网络字节序
     std::vector<char> serializeMsg(const Msg& msg);
