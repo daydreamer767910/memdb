@@ -4,7 +4,7 @@
 #include "field.hpp"
 
 using DocumentId = uint64_t;//std::string;
-using DocumentFields = std::unordered_map<std::string, Field>;
+using DocumentFields = std::map<std::string, Field>;
 
 class Document {
 public:

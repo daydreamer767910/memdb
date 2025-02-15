@@ -271,7 +271,7 @@ void insert_collection(std::string& name) {
 
         j.push_back({
             {"id", id++},
-            {"_id", id},
+            //{"_id", id},
             {"title", "cmass"},
             {"version", 1},
             {"nested", {
