@@ -1,15 +1,7 @@
+#include <malloc.h>
 #include "collection.hpp"
 #include "util/util.hpp"
 #include "query.hpp"
-
-std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::getDocuments() const {
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> documentsVec;
-    documentsVec.reserve(documents_.size());  // 预分配空间
-    for (const auto& pair : documents_) {
-        documentsVec.emplace_back(pair.first, pair.second);
-    }
-    return documentsVec;
-}
 
 void Collection::createIndex(const std::string& path) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
@@ -402,7 +394,7 @@ std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> Collection::queryF
     if (j.contains("conditions") && j.at("conditions").size() > 0) {
         query.match(results);
     } else {
-        for (const auto& docPair : getDocuments()) {
+        for (const auto& docPair : documents_) {
             results.emplace_back(docPair.first);
         }
         query.sort(results);

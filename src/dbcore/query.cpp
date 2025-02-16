@@ -142,7 +142,7 @@ void Query::match(std::vector<DocumentId>& candidateDocs) const {
 
         if (candidateDocs.empty()) {
             // **如果之前没有索引查询，则从 documents_ 遍历所有文档**
-            for (const auto& [docId, doc] : collection_.getDocuments()) {
+            for (const auto& [docId, doc] : collection_.documents_) {
                 if (matchCondition(doc, condition)) {
                     filteredDocs.emplace_back(docId);
                 }

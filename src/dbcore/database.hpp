@@ -1,6 +1,6 @@
 #ifndef DATABASE_HPP
 #define DATABASE_HPP
-
+#include <malloc.h>
 #include "datacontainer.hpp"
 #include "table.hpp"
 #include "collection.hpp"
@@ -47,6 +47,7 @@ public:
         auto it = containers_.find(name);
         if (it != containers_.end()) {
             containers_.erase(it);
+            malloc_trim(0);
         } else {
             throw std::runtime_error("Container not found: " + name);
         }

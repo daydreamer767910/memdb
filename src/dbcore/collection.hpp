@@ -8,7 +8,7 @@
 #include <mutex>
 #include <functional>
 #include <stdexcept>
-#include <malloc.h>
+
 #include "datacontainer.hpp"
 #include "document.hpp"
 #include "collection_schema.hpp"
@@ -28,12 +28,6 @@ public:
     // Move constructor and move assignment operator (optional, if needed)
     Collection(Collection&&) = default;
     Collection& operator=(Collection&&) = default;
-
-    ~Collection() {
-        documents_.clear();
-        indexedFields_.clear();
-        malloc_trim(0);
-    }
 
     size_t getTotalDocument() {
         return documents_.size();
@@ -77,7 +71,7 @@ private:
     void updateIndex(const std::string& path, const DocumentId& docId, const FieldValue& newValue);
     void deleteIndex(const std::string& path, const DocumentId& docId, const FieldValue& deleteValue);
     void deleteIndex(const DocumentId& docId);
-    std::vector<std::pair<DocumentId, std::shared_ptr<Document>>> getDocuments() const;
+
     std::shared_ptr<Document> getDocumentNoLock(const DocumentId& id) const;
     std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
         const std::vector<DocumentId>& candidateDocs) const;
