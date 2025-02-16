@@ -9,7 +9,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <unordered_map>
-#include "dbcore/database.hpp"
+
 
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair();
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateClientSessionKeys(
@@ -47,6 +47,8 @@ bool decryptDataWithNoiseKey(
 	std::vector<unsigned char>& decryptedData);
 std::string hashPassword(const std::string& password);
 bool verifyPassword(const std::string& password, const std::string& stored_hash);
+
+/*
 namespace Transport_Crypt {
 class Crypt {
 public:
@@ -98,5 +100,5 @@ private:
 	std::unordered_map<std::string, NoiseKeypair> clientKeyPairs_;
 };
 }
-
+*/
 #endif

@@ -224,6 +224,7 @@ bool verifyPassword(const std::string& password, const std::string& stored_hash)
     return crypto_pwhash_scryptsalsa208sha256_str_verify(stored_hash.c_str(), password.c_str(), password.size()) == 0;
 }
 
+/*
 namespace Transport_Crypt {
 
 bool Crypt::init(const Database::ptr& db, const std::string& password) {
@@ -566,5 +567,5 @@ void Crypt::showKeys() const{
     }
 }
 
-
 }
+*/

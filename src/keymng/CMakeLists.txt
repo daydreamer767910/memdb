@@ -15,7 +15,7 @@ add_library(crypt STATIC crypt.cpp)
 add_executable(keymng crypt.cpp main.cpp)
 
 # 链接需要的 libsodium 库
-target_link_libraries(crypt PUBLIC dbcore ${SODIUM_LIBRARIES})
+target_link_libraries(crypt PUBLIC ${SODIUM_LIBRARIES})
 target_link_libraries(keymng PRIVATE dbcore ${SODIUM_LIBRARIES})
 
 # 设置目标的输出目录

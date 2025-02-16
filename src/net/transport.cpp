@@ -5,7 +5,6 @@
 #include <netinet/in.h> // htons, htonl, ntohs, ntohl
 #include "transport.hpp"
 #include "util/util.hpp"
-#include "dbcore/database.hpp"
 
 Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id)
     : app_to_tcp_(buffer_size),

@@ -8,7 +8,7 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-//#include "dbcore/field.hpp"
+#include "dbcore/field.hpp"
 #include "mdbclient.hpp"
 
 extern "C" {

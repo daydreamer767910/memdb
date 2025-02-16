@@ -12,9 +12,7 @@
 #include "util/util.hpp"
 #include "util/timer.hpp"
 #include "net/tcpclient.hpp"
-#include "keymng/crypt.hpp"
 
-using Transport_Crypt::Crypt;
 
 class MdbClient:public TcpClient , public IDataCallback {
 private:

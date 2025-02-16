@@ -13,11 +13,9 @@
 #include "document.hpp"
 #include "collection_schema.hpp"
 
-
 class Collection: public DataContainer {
     friend class Query;
 public:
-    
     explicit Collection(const std::string& name, const std::string& type) : DataContainer(name,type) {}
     //Table(const std::string& tableName, const std::vector<Column>& columns);
     // Delete copy constructor and copy assignment operator
@@ -33,10 +31,7 @@ public:
 
     ~Collection() {
         documents_.clear();
-        std::map<DocumentId, std::shared_ptr<Document>>().swap(documents_);  // 释放 map 预分配的内存
-    
         indexedFields_.clear();
-        std::unordered_map<std::string, std::map<FieldValue, std::unordered_set<DocumentId>>>().swap(indexedFields_);
         malloc_trim(0);
     }
 
@@ -87,7 +82,7 @@ private:
     std::vector<std::pair<DocumentId, FieldValue>> getSortedDocuments(const std::string& path,
         const std::vector<DocumentId>& candidateDocs) const;
 private:
-    std::map<DocumentId, std::shared_ptr<Document>> documents_;
+    std::unordered_map<DocumentId, std::shared_ptr<Document>> documents_;
     CollectionSchema schema_;
     // 索引映射：用于存储字段路径 -> 字段值 -> 文档ID
     std::unordered_map<std::string, std::map<FieldValue, std::unordered_set<DocumentId>>> indexedFields_;

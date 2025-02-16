@@ -6,7 +6,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include "crypt.hpp"
-using Transport_Crypt::Crypt;
+#include "dbcore/database.hpp"
+
 Database::ptr& db = Database::getInstance();
 
 void save_db() {
@@ -131,7 +132,7 @@ void enableEcho() {
     oldt.c_lflag |= ECHO;              // 启用回显
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);  // 恢复原设置
 }
-
+/*
 void test() {
     Crypt transport_crypt;
     transport_crypt.init(db,"fuckyou");
@@ -145,7 +146,7 @@ void test() {
     printHex(decrymsg);
     std::string decrystr(decrymsg.begin(),decrymsg.end());
     std::cout << decrystr << std::endl;
-}
+}*/
 
 void testkx() {
     auto clientKxPair = generateKxKeypair();
@@ -201,7 +202,7 @@ int main() {
         return -1;
     }
     load_db();
-    testkx();
+    //testkx();
     //test();
     int choice;
     std::string username, passwd, hashedPwd, role;

@@ -12,7 +12,7 @@ add_executable(client main.cpp)
 
 # 链接需要的库（例如 core、net、util）
 target_link_libraries(mdb PUBLIC net util pthread)
-target_link_libraries(client PRIVATE crypt mdb)
+target_link_libraries(client PRIVATE crypt dbcore mdb)
 
 
 set_target_properties(client PROPERTIES
