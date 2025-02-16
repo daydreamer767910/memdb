@@ -239,7 +239,7 @@ std::string generateUniqueId() {
 
     std::ostringstream oss;
     for (int i = 0; i < 16; ++i) {
-        if (i == 4 || i == 6 || i == 8 || i == 10) oss << "-";
+        //if (i == 4 || i == 6 || i == 8 || i == 10) oss << "-";
         oss << std::hex << std::setw(2) << std::setfill('0') << (int)uuid[i];
     }
     return oss.str();

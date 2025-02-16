@@ -8,6 +8,7 @@
 #include <mutex>
 #include <functional>
 #include <stdexcept>
+#include <malloc.h>
 #include "datacontainer.hpp"
 #include "document.hpp"
 #include "collection_schema.hpp"
@@ -29,6 +30,15 @@ public:
     // Move constructor and move assignment operator (optional, if needed)
     Collection(Collection&&) = default;
     Collection& operator=(Collection&&) = default;
+
+    ~Collection() {
+        documents_.clear();
+        std::map<DocumentId, std::shared_ptr<Document>>().swap(documents_);  // 释放 map 预分配的内存
+    
+        indexedFields_.clear();
+        std::unordered_map<std::string, std::map<FieldValue, std::unordered_set<DocumentId>>>().swap(indexedFields_);
+        malloc_trim(0);
+    }
 
     size_t getTotalDocument() {
         return documents_.size();
