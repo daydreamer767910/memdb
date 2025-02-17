@@ -1,4 +1,4 @@
-#include <malloc.h>
+//#include <malloc.h>
 #include "collection.hpp"
 #include "util/util.hpp"
 #include "query.hpp"
@@ -112,7 +112,7 @@ void Collection::dropIndex(const std::string& path) {
     if (it != indexedFields_.end()) {
         std::map<FieldValue, std::unordered_set<DocumentId>>().swap(it->second);  // 释放内存
         indexedFields_.erase(it);
-        malloc_trim(0);
+        //malloc_trim(0);
     }
 }
 

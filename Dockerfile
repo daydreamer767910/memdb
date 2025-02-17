@@ -38,12 +38,13 @@ RUN apt-get update && apt-get install -y \
 # 复制项目源代码
 COPY src /mdb/src
 COPY CMakeLists.txt /mdb/CMakeLists.txt
-#COPY etc /mdb/etc
+COPY .env /mdb
 
 # 设置工作目录
 WORKDIR /mdb/build
 
 # 构建 C++ 库
+RUN export $(grep -v '^#' /mdb/.env | xargs)
 RUN cmake .. && make && make install
 
 

@@ -11,10 +11,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # 设置调试模式下的编译选项
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0  -Wall -Wextra")
-
-# 为整个项目添加调试宏
-#add_definitions(-DDEBUG)
+if(DEFINED ENV{NODE_ENV} AND "$ENV{NODE_ENV}" STREQUAL "production")
+    message(STATUS "NODE_ENV is production: Using default flags")
+    set(CMAKE_CXX_FLAGS_DEBUG "-O3 -DNDEBUG -Wall -Wextra") 
+else()
+    message(STATUS "NODE_ENV is not production: Enabling debug flags")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -Wextra")
+    # 为整个项目添加调试宏
+    add_definitions(-DDEBUG)
+endif()
 
 # 添加 src 目录到包含路径
 include_directories(${CMAKE_SOURCE_DIR}/src)
