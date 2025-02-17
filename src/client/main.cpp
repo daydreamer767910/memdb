@@ -185,15 +185,10 @@ void get_collection(std::string& name) {
                 "path": "_id",
                 "op": "<",
                 "value": 5000
-            },
-            {
-                "path": "nested.details.age",
-                "op": ">",
-                "value": 22
             }
         ],
         "sorting": {
-            "path": "_id",
+            "path": "details.created_at",
             "ascending": true
         }
     })";
@@ -226,13 +221,13 @@ void query_collection(std::string& name) {
                 "value": 100
             },
             {
-                "path": "nested.details.created_at",
+                "path": "details.created_at",
                 "op": ">",
                 "value": "${2025-01-01 00:00:00}"
             }
         ],
         "sorting": {
-            "path": "nested.details.age",
+            "path": "details.age",
             "ascending": false
         },
         "pagination": {
@@ -241,7 +236,7 @@ void query_collection(std::string& name) {
         },
         "fields": [
             "id",
-            "nested.details"
+            "details"
         ]
     })";
     
@@ -272,23 +267,22 @@ void insert_collection(std::string& name) {
         j.push_back({
             {"id", id++},
             //{"_id", id},
-            {"title", "cmass"},
             {"version", 1},
-            {"nested", {
-                {"title", "neseted Document " + std::to_string(id)},
-                {"value", randomValue*(id+3)},
-                {"details", {
-                    {"created_at", "${" + get_timestamp_sec() + "}"},
-                    {"author", "anybody " + std::to_string(id)},
-                    {"age", id%99+16},
-                    {"email", std::to_string(id) + "xx@yy.zz"},
-                    {"phone", "+10 123 456-" + std::to_string(randomValue)},
-                    {"password", "Sb123456#"},
-                    {"stats", {
-                        {"views", randomValue*id},
-                        {"likes", randomValue/(id+1)},
-                        {"shares", randomValue*(id+10)}
-                    }}
+            {"title", "oumass Document " + std::to_string(id)},
+            {"value", randomValue*(id+3)},
+            {"content", "https://github.com/daydreamer767910/memdb"},
+            {"details", {
+                {"title", "cmass"},
+                {"created_at", "${" + get_timestamp_sec() + "}"},
+                {"author", "anybody " + std::to_string(id)},
+                {"age", id%99+16},
+                {"email", std::to_string(id) + "xx@yy.zz"},
+                {"phone", "+10 123 456-" + std::to_string(randomValue)},
+                //{"password", "Sb123456#"},
+                {"status", {
+                    {"views", randomValue*id},
+                    {"likes", randomValue/(id+1)},
+                    {"shares", randomValue*(id+10)}
                 }}
             }}
         });
@@ -381,17 +375,10 @@ email限制:
                     "maxValue": 120
                 }
             },
-            "nested": {
-                "type": "document",
-                "constraints": {
-                    "depth": 1,
-                    "required": true
-                }
-            },
             "details": {
                 "type": "document",
                 "constraints": {
-                    "depth": 2,
+                    "depth": 1,
                     "required": true
                 }
             }

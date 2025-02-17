@@ -22,7 +22,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # 添加各个子模块
 add_subdirectory(src/keymng ${CMAKE_BINARY_DIR}/keymng)
 add_subdirectory(src/client ${CMAKE_BINARY_DIR}/client)
-add_subdirectory(src/server ${CMAKE_BINARY_DIR}/server)
+add_subdirectory(src/server ${CMAKE_BINARY_DIR}/mdbsrv)
 add_subdirectory(src/dbcore ${CMAKE_BINARY_DIR}/dbcore)
 add_subdirectory(src/log ${CMAKE_BINARY_DIR}/log)
 add_subdirectory(src/net ${CMAKE_BINARY_DIR}/net)

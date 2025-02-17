@@ -9,10 +9,12 @@ set(MDB_SOURCES
 add_library(mdb SHARED ${MDB_SOURCES})
 # 定义可执行文件 client
 add_executable(client main.cpp)
-
+# 查找 jemalloc
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JEMALLOC REQUIRED jemalloc)
 # 链接需要的库（例如 core、net、util）
-target_link_libraries(mdb PUBLIC net util pthread)
-target_link_libraries(client PRIVATE crypt dbcore mdb)
+target_link_libraries(mdb PUBLIC net util pthread ${JEMALLOC_LIBRARIES})
+target_link_libraries(client PRIVATE crypt dbcore mdb ${JEMALLOC_LIBRARIES})
 
 
 set_target_properties(client PROPERTIES
