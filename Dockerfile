@@ -44,9 +44,7 @@ COPY .env /mdb
 WORKDIR /mdb/build
 
 # 构建 C++ 库
-RUN export $(grep -v '^#' /mdb/.env | xargs)
-RUN cmake .. && make && make install
-
+RUN export $(grep -v '^#' /mdb/.env | xargs) && cmake .. && make && make install
 
 #############################
 # Base runtime for services #

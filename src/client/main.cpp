@@ -77,7 +77,7 @@ void createidx(std::string& name) {
         "indexes": [
             "_id",
             "id",
-            "nested.details.age"
+            "details.created_at"
         ]
     })";
     
@@ -101,7 +101,7 @@ void dropidx(std::string& name) {
         "indexes": [
             "_id",
             "id",
-            "nested.details.age"
+            "details.created_at"
         ]
     })";
     
@@ -123,13 +123,13 @@ void delete_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.age",
+                "path": "details.age",
                 "op": "==",
                 "value": 30
             }
         ],
         "fields": [
-            "nested.details.age"
+            "details.age"
         ]
     })";
     
@@ -152,7 +152,7 @@ void update_collection(std::string& name) {
     std::string json_str = R"({
         "conditions": [
             {
-                "path": "nested.details.age",
+                "path": "details.age",
                 "op": "<",
                 "value": 25
             }
@@ -162,9 +162,9 @@ void update_collection(std::string& name) {
     // 解析 JSON
     json jsonData = json::parse(json_str);
     json updateFields = {
-        {"nested.details.author", "nobody"},
-        {"nested.details.age", 30},
-        {"nested.details.email", "oumss@ou.mass"}
+        {"details.author", "nobody"},
+        {"details.age", 30},
+        {"details.email", "oumss@ou.mass"}
     };
     jsonData["fields"] = updateFields;
     jsonData["action"] = "update";
