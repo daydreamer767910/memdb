@@ -5,6 +5,7 @@ FROM ubuntu:$UBUNTU_VERSION AS skeleton
 
 # 设置环境变量
 #ENV TZ=$TZ
+ENV NODE_ENV=production
 ENV DEBIAN_FRONTEND=noninteractive
 
 # 创建必要的目录结构
@@ -38,13 +39,12 @@ RUN apt-get update && apt-get install -y \
 # 复制项目源代码
 COPY src /mdb/src
 COPY CMakeLists.txt /mdb/CMakeLists.txt
-COPY .env /mdb
 
 # 设置工作目录
 WORKDIR /mdb/build
 
 # 构建 C++ 库
-RUN export $(grep -v '^#' /mdb/.env | xargs) && cmake .. && make && make install
+RUN cmake .. && make && make install
 
 #############################
 # Base runtime for services #
