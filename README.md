@@ -8,7 +8,19 @@ docker compose up
 ```
 
 2. ### 非docker 安装
-#### 直接clone到本地后执行：
+#### 先安装依赖库执行：
+```
+sudo apt-get update
+sudo apt-get install -y \
+    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev libsodium-dev libjemalloc-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+```
+#### 设置环境变量：
+NODE_ENV=production，
+MALLOC_CONF="narenas:32,dirty_decay_ms:500,muzzy_decay_ms:10000"
+COMM_PORT=7900
+#### clone到本地后执行：
 ```
 cd src
 mkdir build
@@ -26,7 +38,9 @@ mdbsrv 或者运行 entrypoint.sh mdbsrv
 ### 重启server服务。
 
 ## client端使用说明
-### 从安装好的server端的/mdb/lib目录下,获取libmdb.so以及libsodium.so*放在自己的客户端调用：
+### 从安装好的server端的/mdb/lib目录下,获取libmdb.so以及libsodium.so*，libjemalloc.so*放在自己的客户端目录内，设置环境变量LD_LIBRARY_PATH指向该目录，同时设置LD_PRELOAD指向libjemalloc.so.2。
+
+### 接口调用流程：
 #### 首先调用mdb_init接口：参数是配置阶段创建的用户名和密码
 #### 然后调用mdb_start接口：参数是server端地址和端口，返回0表示成功连接，<0表示失败。
 #### json指令通过mdb_send发送，msg_id是指令编号必须是唯一，timeout是超时设置，单位ms。返回值>0成功，<0失败。
