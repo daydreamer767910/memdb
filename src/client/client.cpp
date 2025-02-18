@@ -55,7 +55,7 @@ int mdb_recv(char* buffer, int size, int timeout) {
 			return -5;
 		}
 		//ret = std::min(size_t(size),json_strdata.size());
-		memcpy(buffer, json_strdata.c_str(), ret);
+		memcpy(buffer, json_strdata.c_str(), json_strdata.size());
 	}
 	return ret;
 }
