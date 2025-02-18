@@ -117,7 +117,6 @@ void Database::save(const std::string& filePath) {
     }
 }
 
-
 void Database::upload(const std::string& filePath) {
     try {
         // 处理 config 目录
@@ -153,6 +152,56 @@ void Database::upload(const std::string& filePath) {
         } else {
             std::cerr << "Warning: No containers available for data import.\n";
         }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Filesystem error: " << e.what() << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << "Standard exception: " << e.what() << '\n';
+    } catch (...) {
+        std::cerr << "Unknown error occurred while uploading files.\n";
+    }
+}
+
+void Database::saveContainer(const std::string& filePath, const std::string& name) {
+    auto container = containers_.find(name);
+    if (container == containers_.end()) {
+        std::cerr << "Error: container " << name << " not exist.\n";
+        return;
+    }
+    try {
+        // 保存配置文件
+        std::string subDir = "config";
+        std::filesystem::path configPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(configPath);
+        std::filesystem::path tableConfigPath = configPath / name;
+        container->second->saveSchema(tableConfigPath.string());
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating config directory: " << e.what() << '\n';
+    }
+
+    try {
+        // 保存数据文件
+        std::string subDir = "data";
+        std::filesystem::path dataPath = std::filesystem::path(filePath) / subDir;
+        std::filesystem::create_directories(dataPath);
+        std::filesystem::path tableDataPath = dataPath / name;
+        container->second->exportToBinaryFile(tableDataPath.string());      
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating data directory: " << e.what() << '\n';
+    }
+}
+
+void Database::uploadContainer(const std::string& filePath, const std::string& name) {
+    try {
+        // 处理 config 目录
+        std::string subDir = "config";
+        std::filesystem::path fullPath = std::filesystem::path(filePath) / subDir /name;
+        this->addContainerFromSchema(fullPath.string());
+
+        // 处理 data 目录
+        subDir = "data";
+        fullPath = std::filesystem::path(filePath) / subDir / name;
+        containers_[name]->importFromBinaryFile(fullPath.string());
+                    
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Filesystem error: " << e.what() << '\n';
     } catch (const std::exception& e) {

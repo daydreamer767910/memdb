@@ -50,7 +50,11 @@ int mdb_recv(char* buffer, int size, int timeout) {
 		for (auto json_data : json_datas) {
 			json_strdata += json_data.dump();
 		}
-		ret = std::min(size_t(size),json_strdata.size());
+		if (size < json_strdata.size()) {
+			std::cerr << "recv buffer size is too small!!\n";
+			return -5;
+		}
+		//ret = std::min(size_t(size),json_strdata.size());
 		memcpy(buffer, json_strdata.c_str(), ret);
 	}
 	return ret;

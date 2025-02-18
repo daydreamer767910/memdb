@@ -14,13 +14,13 @@ void save_db() {
 	std::string baseDir = std::string(std::getenv("HOME"));
 	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
 //std::cout << "DBService::on_timer :save db to" << fullPath.string() << std::endl;
-	db->save(fullPath.string());
+	db->saveContainer(fullPath.string(), "users");
 }
 
 void load_db() {
 	std::string baseDir = std::string(std::getenv("HOME"));
 	std::filesystem::path fullPath = std::filesystem::path(baseDir) / std::string("data");
-	db->upload(fullPath.string());
+	db->uploadContainer(fullPath.string(), "users");
 }
 
 void show_users() {
@@ -90,8 +90,9 @@ void set_user(const std::string& user, const std::string& pwd, const std::string
     document.setFieldByPath(std::string("name"), Field(user));
     document.setFieldByPath(std::string("role"), Field(role));
     document.setFieldByPath(std::string("password"), Field(pwd));
-    document.setFieldByPath(std::string("details.addr"), Field(std::string("12345 street, abcd, efgh")));
+    document.setFieldByPath(std::string("details.info.addr"), Field(std::string("12345 street, abcd, efgh")));
     document.setFieldByPath(std::string("details.info.phone"), Field(std::string("+01-123-4567-8900")));
+    document.setFieldByPath(std::string("details.create_at"), Field(std::time(nullptr)));
     auto collection = std::dynamic_pointer_cast<Collection>(container);
     collection->insertDocument(std::hash<std::string>{}(user), document);
 }
@@ -213,14 +214,6 @@ int main() {
         username = "admin";
         role = "admin";
     } else {
-        std::cout << "please choose:\n"
-            << "1. create user\n"
-            << "2. delete user\n"
-            << "3. show user\n"
-            << "4. show all users\n";
-            
-        std::cin >> choice;
-        std::cin.ignore();  // 忽略回车符
         // 禁用回显
         disableEcho();
         std::cout << "please enter password for admin:" << std::endl;
@@ -232,8 +225,21 @@ int main() {
             std::cerr << "wrong password" << std::endl;
             return -1;
         }
+CHOOSE:
+        username = "";
+        passwd = "";
+        hashedPwd = "";
+        role = "";
+        std::cout << "please choose:\n"
+            << "1. create user\n"
+            << "2. delete user\n"
+            << "3. show user\n"
+            << "4. show all users\n"
+            << "5. exit\n";
+            
+        std::cin >> choice;
+        std::cin.ignore();  // 忽略回车符
     }
-    
     switch (choice) {
         case 1: {
             if (username.empty()) {
@@ -263,37 +269,40 @@ int main() {
             set_user(username,hashedPwd,role);
             //std::cout << "user: " << username << " generated" << std::endl;
             save_db();
-            break;
+            goto CHOOSE;
         }
         case 2: {
             std::cout << "please enter the userName to be deleted:" << std::endl;
             std::getline(std::cin, username);
             if (!load_user(username,hashedPwd)) {
                 std::cerr << "users " << username << " not exist\n";
-                return -1;
+                goto CHOOSE;
             }
             del_user(username);
             
             save_db();
-            break;
+            goto CHOOSE;
         }
         case 3: {
             std::cout << "please enter the userName to show:" << std::endl;
             std::getline(std::cin, username);
             if (!load_user(username,hashedPwd)) {
                 std::cerr << "users " << username << " not exist\n";
-                return -1;
+                goto CHOOSE;
             }
             show_user(username);
-            break;
+            goto CHOOSE;
         }
         case 4: {
             show_users();
+            goto CHOOSE;
+        }
+        case 5: {
             break;
         }
         default:
             std::cerr << "bad choice" << std::endl;
-            break;
+            goto CHOOSE;
     }
     
     return 0;

@@ -27,9 +27,9 @@ public:
     }
 
     DataContainer::ptr addContainer(const std::string& name, const std::string& type);
-
     void addContainer(const json& j);
-
+    void uploadContainer(const std::string& filePath, const std::string& name);
+    void saveContainer(const std::string& filePath, const std::string& name);
     DataContainer::ptr getContainer(const std::string& name) const {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = containers_.find(name);
