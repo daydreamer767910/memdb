@@ -26,6 +26,12 @@ std::vector<uint8_t> derive_key_with_argon2(
 		const std::vector<uint8_t> &salt,      // 随机 Salt
 		size_t key_size = 32                   // 需要的派生密钥长度（默认 32 bytes）
 	);
+std::vector<uint8_t> derive_key_with_password(
+	const std::vector<uint8_t> &master_key, // 共享密钥（必须是 32 字节）
+	uint64_t subkey_id,                     // 子密钥 ID
+	const std::string &password,            // 用户密码
+	size_t key_size = 32					// 需要的派生密钥长度（默认 32 bytes）
+	);
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateNoiseKeypair();
 void encryptData(const std::vector<unsigned char>& key, 
 	const std::vector<unsigned char>& plaintext,  

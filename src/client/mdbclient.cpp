@@ -91,9 +91,12 @@ int MdbClient::Ecdh() {
         std::cerr << "server err: " << jsonData["response"] << std::endl;
         return -4;
     }
-	auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
-	auto sessionK_rx = derive_key_with_argon2(sessionKeys.first, this->passwd_, salt);
-    auto sessionK_tx = derive_key_with_argon2(sessionKeys.second, this->passwd_, salt);
+	//auto salt = hexStringToBytes(jsonData["salt"].get<std::string>());
+	//auto sessionK_rx = derive_key_with_argon2(sessionKeys.first, this->passwd_, salt);
+    //auto sessionK_tx = derive_key_with_argon2(sessionKeys.second, this->passwd_, salt);
+	uint64_t keyid = jsonData["keyid"];
+	auto sessionK_rx = derive_key_with_password(sessionKeys.first, keyid, this->passwd_);
+    auto sessionK_tx = derive_key_with_password(sessionKeys.second, keyid, this->passwd_);
     transport_->setSessionKeys(sessionK_rx, sessionK_tx, true);
 
     return 0;

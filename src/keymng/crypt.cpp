@@ -205,23 +205,59 @@ std::vector<uint8_t> derive_key_with_argon2(
     return derived_key;
 }
 
-std::string hashPassword(const std::string& password) {
-    std::vector<char> hashed_password(crypto_pwhash_STRBYTES);
+std::vector<uint8_t> derive_key_with_password(
+    const std::vector<uint8_t> &master_key, // 共享密钥（必须是 32 字节）
+    uint64_t subkey_id,                     // 子密钥 ID
+    const std::string &password,            // 用户密码
+    size_t key_size) {                      // 目标密钥大小
 
-    if (crypto_pwhash_scryptsalsa208sha256_str(
-            hashed_password.data(), 
-            password.c_str(), 
-            password.size(),
-            crypto_pwhash_OPSLIMIT_INTERACTIVE, 
-            crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
-        throw std::runtime_error("Password hashing failed");
+    // 确保 master_key 长度为 32 字节
+    if (master_key.size() != crypto_kdf_KEYBYTES) {
+        throw std::invalid_argument("master_key must be exactly 32 bytes long.");
     }
 
+    // 确保 context 是 8 字节（不足填充，超出截断）
+    std::string context = password;
+    if (context.size() < crypto_kdf_CONTEXTBYTES) {
+        context.resize(crypto_kdf_CONTEXTBYTES, '0'); // 右侧填充 '0'
+    } else {
+        context = context.substr(0, crypto_kdf_CONTEXTBYTES); // 截断到 8 字节
+    }
+
+    // 目标密钥
+    std::vector<uint8_t> derived_key(key_size);
+
+    // 进行密钥派生
+    int result = crypto_kdf_derive_from_key(
+        derived_key.data(), derived_key.size(),
+        subkey_id,
+        context.c_str(), // 8 字节的 context
+        master_key.data() // 32 字节的主密钥
+    );
+
+    // 错误处理
+    if (result != 0) {
+        throw std::runtime_error("crypto_kdf_derive_from_key failed.");
+    }
+
+    return derived_key;
+}
+
+std::string hashPassword(const std::string& password) {
+    std::vector<char> hashed_password(crypto_pwhash_STRBYTES);
+    if (crypto_pwhash_str(
+			hashed_password.data(), 
+			password.c_str(), 
+			password.size(),
+			crypto_pwhash_OPSLIMIT_INTERACTIVE, //crypto_pwhash_OPSLIMIT_MODERATE,  // 更高的安全性
+			crypto_pwhash_MEMLIMIT_INTERACTIVE ) != 0) { //crypto_pwhash_MEMLIMIT_MODERATE
+		throw std::runtime_error("Password hashing failed");
+	}
     return std::string(hashed_password.data());
 }
 
 bool verifyPassword(const std::string& password, const std::string& stored_hash) {
-    return crypto_pwhash_scryptsalsa208sha256_str_verify(stored_hash.c_str(), password.c_str(), password.size()) == 0;
+    return crypto_pwhash_str_verify(stored_hash.c_str(), password.c_str(), password.size()) == 0;
 }
 
 /*

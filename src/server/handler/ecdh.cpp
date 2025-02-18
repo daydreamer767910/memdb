@@ -58,17 +58,21 @@ public:
 					response["status"] = "406";
 					return;
 				}
-				std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
-				randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
+				//std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
+				//randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
 				std::vector<uint8_t> shareKey_rx, shareKey_tx;
+				uint64_t keyid = std::hash<std::string>{}(userId);
 				auto port = TransportSrv::get_instance()->get_port(this->port_id_);
 				if (port) {
 					port->getSessionKeys(shareKey_rx, shareKey_tx);
-					auto sessionK_rx = derive_key_with_argon2(shareKey_rx, passWd, salt);
-					auto sessionK_tx = derive_key_with_argon2(shareKey_tx, passWd, salt);
+					//auto sessionK_rx = derive_key_with_argon2(shareKey_rx, passWd, salt);
+					//auto sessionK_tx = derive_key_with_argon2(shareKey_tx, passWd, salt);
+					auto sessionK_rx = derive_key_with_password(shareKey_rx, keyid, passWd);
+					auto sessionK_tx = derive_key_with_password(shareKey_tx, keyid, passWd);
 					port->setSessionKeys(sessionK_rx, sessionK_tx);
 				}
-				response["salt"] = toHexString(salt);
+				//response["salt"] = toHexString(salt);
+				response["keyid"] = keyid;
 				response["primitive"] = "Argon2";
 			}
 		}
