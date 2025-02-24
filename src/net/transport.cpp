@@ -14,10 +14,10 @@ Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_conte
               Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
       id_(id),
       encryptMode_(false) {
-    sessionKey_rx_.resize(crypto_kx_SESSIONKEYBYTES);
-    sessionKey_tx_.resize(crypto_kx_SESSIONKEYBYTES);
-    sessionKey_rx_new_.resize(crypto_kx_SESSIONKEYBYTES);
-    sessionKey_tx_new_.resize(crypto_kx_SESSIONKEYBYTES);
+    sessionKey_rx_.resize(SESSION_KEY_SIZE);
+    sessionKey_tx_.resize(SESSION_KEY_SIZE);
+    sessionKey_rx_new_.resize(SESSION_KEY_SIZE);
+    sessionKey_tx_new_.resize(SESSION_KEY_SIZE);
 }
 
 

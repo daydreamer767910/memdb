@@ -1,4 +1,4 @@
-#include <sodium.h>
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -172,15 +172,14 @@ void testkx() {
     printHex(sessionKs.first);
     printHex(sessionKs.second);
     std::string pwd = "oumass";
-    std::vector<uint8_t> salt(crypto_pwhash_SALTBYTES);
-	randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
-    auto sessionK_rx = derive_key_with_argon2(sessionKc.first, pwd, salt);
-    auto sessionK_tx = derive_key_with_argon2(sessionKc.second, pwd, salt);
+
+    auto sessionK_rx = derive_key_with_password(sessionKc.first,1, pwd, 32);
+    auto sessionK_tx = derive_key_with_password(sessionKc.second,1, pwd, 32);
     std::cout << "session Key (Client Side):\n";
     printHex(sessionK_rx);
     printHex(sessionK_tx);
-    sessionK_rx = derive_key_with_argon2(sessionKs.first, pwd, salt);
-    sessionK_tx = derive_key_with_argon2(sessionKs.second, pwd, salt);
+    sessionK_rx = derive_key_with_password(sessionKs.first, 1,pwd, 32);
+    sessionK_tx = derive_key_with_password(sessionKs.second,1, pwd, 32);
     std::cout << "session Key (Server Side):\n";
     printHex(sessionK_rx);
     printHex(sessionK_tx);
@@ -198,10 +197,6 @@ void testkx() {
 }
 
 int main() {
-    if (sodium_init() == -1) {
-        std::cerr << "libsodium init fail" << std::endl;
-        return -1;
-    }
     load_db();
     //testkx();
     //test();
