@@ -14,7 +14,7 @@
 #include <stdexcept>
 
 const unsigned int iterations = 3; // 迭代次数
-const size_t memory = 128; // 128MB 内存
+const size_t memory = 64; // 128MB 内存
 
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair() {
     std::vector<unsigned char> publicKey, secretKey;
