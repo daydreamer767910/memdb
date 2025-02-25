@@ -49,6 +49,7 @@ public:
 		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
+		transport->setCompressFlag(true);
     }
 
 	void on_close_transport(const uint32_t port_id) override {

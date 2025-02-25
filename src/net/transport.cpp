@@ -14,7 +14,8 @@ Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_conte
       timer_{ Timer(*io_context_[0], 0, false, [this](int, int, std::thread::id) { this->on_send(); }),
               Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
       id_(id),
-      encryptMode_(false) {
+      encryptMode_(false),
+      compressFlag_(false) {
     sessionKey_rx_.resize(SESSION_KEY_SIZE);
     sessionKey_tx_.resize(SESSION_KEY_SIZE);
     sessionKey_rx_new_.resize(SESSION_KEY_SIZE);
@@ -213,10 +214,14 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
 int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout) {
     std::vector<unsigned char> originalData(data.begin(), data.end());
     std::vector<unsigned char> compressedData;
-    int compressResult = compressData(originalData, compressedData);
-    if (compressResult != Z_OK) {
-        std::cerr << "Compression failed! Error code: " << compressResult << std::endl;
-        return -2;
+    if (compressFlag_) {
+        int compressResult = compressData(originalData, compressedData);
+        if (compressResult != Z_OK) {
+            std::cerr << "Compression failed! Error code: " << compressResult << std::endl;
+            return -2;
+        }
+    } else {
+        compressedData = std::move(originalData);
     }
 	//size_t total_size = data.size();
     size_t total_size = compressedData.size();
@@ -233,6 +238,9 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
             //密钥已经更新
             msg.header.flag |= FLAG_KEY_UPDATE;
             updateKey_ = false;
+        }
+        if (compressFlag_) {
+            msg.header.flag |= FLAG_COMPRESSED;
         }
         if (encryptMode_) {
             msg.header.flag |= FLAG_ENCRYPTED;
@@ -337,31 +345,37 @@ int Transport::read(std::vector<uint8_t>& data,  // 存储已完成的消息
         // 检查并处理已完成的消息
         for (auto it = message_cache.begin(); it != message_cache.end();) {
             auto& buffer = it->second;
-            if (buffer.is_complete) {
-                // 重组消息
-                std::vector<uint8_t> reconstructed_data;
-                reconstructed_data.reserve(buffer.total_size);
-                for (const auto& [segment_id, segment_data] : buffer.segments) {
-                    reconstructed_data.insert(reconstructed_data.end(), segment_data.begin(), segment_data.end());
-                }
-                std::vector<unsigned char> decompressedData;
-                int decompressResult = decompressData(reconstructed_data, decompressedData);
+            if (!buffer.is_complete) {
+                ++it;
+                continue;
+            }
+        
+            // 重组消息
+            std::vector<uint8_t> reconstructed_data;
+            reconstructed_data.reserve(buffer.total_size);
+            for (const auto& [segment_id, segment_data] : buffer.segments) {
+                reconstructed_data.insert(reconstructed_data.end(), segment_data.begin(), segment_data.end());
+            }
+        
+            msg_id = it->first;  // 记录消息 ID
+            
+            if (buffer.is_compressed) {
+                int decompressResult = decompressData(reconstructed_data, data);
                 if (decompressResult != Z_OK) {
                     std::cerr << "Decompression failed! Error code: " << decompressResult << std::endl;
-                    it = message_cache.erase(it);
-                } else {
-                    msg_id = it->first;  // 记录消息 ID
-                    data = std::move(decompressedData);
-                    // 清理已完成的消息
-                    it = message_cache.erase(it);
-                    // 如果有完成的消息，退出循环
-                    return data.size(); // 返回数据大小
+                    it = message_cache.erase(it);  // 清理损坏的消息
+                    continue; // 继续处理下一个消息
                 }
+                //setCompressFlag(true); // 设置压缩模式
             } else {
-                ++it;
+                data = std::move(reconstructed_data);
+                //setCompressFlag(false);
             }
+            // 清理已完成的消息
+            it = message_cache.erase(it);
+            return data.size(); // 处理完成后返回
         }
-
+        
         // 读取消息长度
         uint32_t dataLen;
         if (tcp_to_app_.peek(reinterpret_cast<char*>(&dataLen), sizeof(uint32_t), timeout) < 0) {
@@ -408,11 +422,14 @@ int Transport::read(std::vector<uint8_t>& data,  // 存储已完成的消息
             // 只有解密成功，才设置加密模式，防止错误状态
             setEncryptMode(true);
             msg.payload = std::move(decrypted_segment);
+        } else {
+            setEncryptMode(false);
         }
 
         // 查找或创建缓存项
         auto& buffer = message_cache[msg.header.msg_id];
         buffer.last_update = std::chrono::steady_clock::now();
+        buffer.is_compressed = msg.header.flag & FLAG_COMPRESSED;
 
         // 累计总大小
         buffer.total_size += msg.payload.size();

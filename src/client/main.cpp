@@ -178,7 +178,7 @@ void update_collection(std::string& name) {
     test(jsonConfig);
 }
 void get_collection(std::string& name) {
-    int limit = 10; 
+    int limit = 80; 
     std::string json_str = R"({
         "conditions": [
             {
@@ -257,7 +257,7 @@ void insert_collection(std::string& name) {
     // 将字符串解析为 JSON 对象
     //json j = json::parse(rawJson);
     json j = json::array();
-    for (int k=0; k< 30; ++k) {
+    for (int k=0; k< 120; ++k) {
         // 生成随机数
         std::random_device rd;
         std::mt19937 gen(rd());

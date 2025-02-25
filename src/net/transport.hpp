@@ -14,9 +14,10 @@
 #include "common.hpp"
 #include "keymng/crypt.hpp"
 
-constexpr uint32_t FLAG_SEGMENTED   = 0b001; // 1 << 0 , 0: end, 1: not end
-constexpr uint32_t FLAG_ENCRYPTED   = 0b010; // 1 << 1 , 0: 明文, 1: 加密
-constexpr uint32_t FLAG_KEY_UPDATE  = 0b100; // 1 << 2 , 0: 不切换, 1: 需要切换Key
+constexpr uint32_t FLAG_SEGMENTED   = 0b0001; // 1 << 0 , 0: end, 1: not end
+constexpr uint32_t FLAG_ENCRYPTED   = 0b0010; // 1 << 1 , 0: 明文, 1: 加密
+constexpr uint32_t FLAG_KEY_UPDATE  = 0b0100; // 1 << 2 , 0: 不切换, 1: 需要切换Key
+constexpr uint32_t FLAG_COMPRESSED  = 0b1000; // 1 << 3 , 0: 不压缩, 1: 压缩
 // Msg 结构定义
 struct MsgHeader {
     uint32_t length;     // 包含 payload 和 footer 的长度
@@ -40,6 +41,7 @@ struct MessageBuffer {
     uint32_t total_segments = 0;             // 总分包数
     size_t total_size = 0;                   // 当前消息的总大小
     bool is_complete = false;                // 是否已完成
+    bool is_compressed = false;              // 是否压缩
     std::chrono::steady_clock::time_point last_update; // 最近更新的时间
 };
 
@@ -65,6 +67,10 @@ public:
 
     void setEncryptMode(const bool& mode) {
         encryptMode_ = mode;
+    }
+
+    void setCompressFlag(const bool& flag) {
+        compressFlag_ = flag;
     }
 
     void setSessionKeys(const std::vector<uint8_t>& rxKey, const std::vector<uint8_t>& txKey, const bool updateImmediately = false) {
@@ -115,6 +121,7 @@ private:
     uint32_t id_;
     bool encryptMode_;
     bool updateKey_;
+    bool compressFlag_;
     //std::vector<unsigned char> local_secretKey_{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
     //std::vector<unsigned char> remote_publicKey_{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
     std::vector<unsigned char> sessionKey_rx_, sessionKey_rx_new_;
