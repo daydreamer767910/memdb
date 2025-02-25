@@ -9,10 +9,13 @@
 #include <unistd.h>
 #include <unordered_map>
 
-inline constexpr size_t AES_GCM_nonce_len = 24;
+inline constexpr size_t AES_GCM_nonce_len = 12; // 标准长度，最优性能，直接用于 CTR 计数器
 inline constexpr size_t AES_GCM_tag_len = 16;
 inline constexpr size_t SHARED_KEY_SIZE = 32;  // X25519 共享密钥长度
 inline constexpr size_t SESSION_KEY_SIZE = 32; // 每个会话密钥长度
+inline constexpr unsigned int iterations_ = 3; // 迭代次数
+inline constexpr size_t memory_ = 64; // 64MB 内存
+inline constexpr unsigned int parallelism_ = 4; // 并行线程数
 
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair();
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateClientSessionKeys(
@@ -44,57 +47,5 @@ std::vector<uint8_t> generateSalt(size_t length = 16);
 std::string hashPassword(const std::string& password);
 bool verifyPassword(const std::string& password, const std::string& stored_hash);
 
-/*
-namespace Transport_Crypt {
-class Crypt {
-public:
-	struct NoiseKeypair {
-		std::vector<unsigned char> publicKey{std::vector<unsigned char>(crypto_box_PUBLICKEYBYTES)};
-    	std::vector<unsigned char> secretKey{std::vector<unsigned char>(crypto_box_SECRETKEYBYTES)};
-	};
-	bool init(const Database::ptr& db, const std::string& password = "memdb");
-	
-	void setServerNKeypair(const std::pair<std::vector<unsigned char>, std::vector<unsigned char>>& keyPair) {
-		srvKeyPair_.publicKey = keyPair.first;
-		srvKeyPair_.secretKey = keyPair.second;
-	}
 
-	const NoiseKeypair& getServerNKeypair() const {
-		return srvKeyPair_;
-	}
-
-	void setClientNKeypair(const std::string& clientId, const std::pair<std::vector<unsigned char>, std::vector<unsigned char>>& keyPair) {
-		NoiseKeypair keypair;
-		keypair.publicKey = keyPair.first;
-		keypair.secretKey = keyPair.second;
-		clientKeyPairs_[clientId] = keypair;
-	}
-
-	const std::optional<std::reference_wrapper<const NoiseKeypair>> getClientKeypair(const std::string& clientId) const {
-		auto it = clientKeyPairs_.find(clientId);
-		if (it != clientKeyPairs_.end()) {
-			return it->second;
-		}
-		return std::nullopt; // 返回空值
-	}	
-	void showKeys() const;
-	void saveKeys(const Database::ptr& db);
-	void resetKeys(const Database::ptr& db);
-	void toJson(const std::string& filename) const;
-	bool saveKeys(const std::string& client_name);
-	bool loadKeys(const std::string& client_name, NoiseKeypair& keys);
-private:
-	std::vector<unsigned char> deriveKeyFromPassword();
-	bool loadMainKey(const Database::ptr& db);
-	bool loadServerKey(const Database::ptr& db);
-	bool loadClientKey(const Database::ptr& db);
-private:
-	std::string password_;
-	std::vector<unsigned char> salt_;
-	std::vector<unsigned char> mainKey_;
-	NoiseKeypair srvKeyPair_;
-	std::unordered_map<std::string, NoiseKeypair> clientKeyPairs_;
-};
-}
-*/
 #endif
