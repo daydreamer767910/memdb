@@ -5,6 +5,7 @@
 #include <cstring>
 #include <termios.h>
 #include <unistd.h>
+#include <zlib.h>
 #include "crypt.hpp"
 #include "dbcore/database.hpp"
 
@@ -111,8 +112,8 @@ void show_user(const std::string& user) {
 		auto collection = std::dynamic_pointer_cast<Collection>(container);
         auto doc = collection->getDocument(std::hash<std::string>{}(user));
         if (doc) {
-            
-            std::cout << doc->toJson().dump(4) << std::endl;
+            std::string userdata = doc->toJson().dump(4);
+            std::cout << userdata << std::endl;
         } else {
             std::cout << "user not exist\n";
         }
@@ -148,6 +149,30 @@ void test() {
     std::string decrystr(decrymsg.begin(),decrymsg.end());
     std::cout << decrystr << std::endl;
 }*/
+
+void testCompression() {
+    // 1. 生成测试数据
+    std::string originalText = "This is a test string for compression. Let's see how well it compresses!";
+    std::vector<unsigned char> originalData(originalText.begin(), originalText.end());
+
+    // 2. 压缩数据
+    std::vector<unsigned char> compressedData;
+    int compressResult = compressData(originalData, compressedData);
+    assert(compressResult == Z_OK);
+    std::cout << "Compression successful! Original size: " << originalData.size()
+              << ", Compressed size: " << compressedData.size() << std::endl;
+
+    // 3. 解压数据
+    std::vector<unsigned char> decompressedData;
+    int decompressResult = decompressData(compressedData, decompressedData);
+    assert(decompressResult == Z_OK);
+
+    // 4. 校验解压后的数据是否与原始数据一致
+    std::string decompressedText(decompressedData.begin(), decompressedData.end());
+    assert(decompressedText == originalText);
+
+    std::cout << "Decompression successful! Decompressed text matches original." << std::endl;
+}
 
 void testkx() {
     auto clientKxPair = generateKxKeypair();
@@ -199,7 +224,7 @@ void testkx() {
 int main() {
     load_db();
     //testkx();
-    //test();
+    //testCompression();
     int choice;
     std::string username, passwd, hashedPwd, role;
     

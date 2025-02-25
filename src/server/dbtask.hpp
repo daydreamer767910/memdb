@@ -28,12 +28,11 @@ class DbTask: public IDataCallback {
 public:
 	DbTask(uint32_t port_id, boost::asio::io_context& io_context)
 		: port_id_(port_id), io_context_(io_context){
-			cached_data_ = std::make_tuple(&json_datas_, max_cache_size, port_id_);
-			json_datas_.reserve(max_cache_size);  // 预分配缓存大小
+			cached_data_ = std::make_tuple(&data_packet_, max_cache_size, port_id_);
+			data_packet_.resize(max_cache_size);  // 预分配缓存大小
 	}
 	
 	~DbTask() {
-		json_datas_.clear();
 	#ifdef DEBUG
 		std::cout << "DB task " << port_id_ << " destoryed" << std::endl;
 	#endif
@@ -43,13 +42,13 @@ public:
 	DataVariant& get_data() override {
         return cached_data_;
     }
-	void on_data_received(int result) override;
+	void on_data_received(int result, int id) override;
 
-	void handle_task(std::shared_ptr<std::vector<json>> json_datas);
+	void handle_task(std::shared_ptr<json> json_data, uint32_t msg_id);
 private:
-	std::vector<json> json_datas_;//the container to read msg from transport layer
+	std::vector<uint8_t> data_packet_;//the container to read msg from transport layer
 	uint32_t port_id_;
-	static constexpr size_t max_cache_size = 8;  // 缓存的最大消息数量
+	static constexpr size_t max_cache_size = 32*1024;  
 	DataVariant cached_data_;
 	boost::asio::io_context& io_context_;
 };

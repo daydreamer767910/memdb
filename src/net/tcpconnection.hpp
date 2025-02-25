@@ -23,7 +23,7 @@ public:
     void write(const std::string& data); // 主动发送数据
 
     // IDataCallback 接口实现
-    void on_data_received(int result) override;
+    void on_data_received(int result, int id) override;
     DataVariant& get_data() override;
 
     void set_transport_id(uint32_t id) {

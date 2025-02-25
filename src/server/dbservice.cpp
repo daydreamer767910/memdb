@@ -60,17 +60,15 @@ DBService::~DBService() {
 }
 
 void DBService::on_msg(const std::shared_ptr<DBVariantMsg> msg) {
-	//static std::atomic<uint32_t> msg_id(0);
 	std::visit([this](auto&& message) {
 		std::lock_guard<std::mutex> lock(mutex_);
-        auto [jsonDatas, port_id] = message;
+        auto [jsonDatas, port_id, msg_id] = message;
 		auto it = tasks_.find(port_id);
 		if (it != tasks_.end()) {
 			// 显式捕获 msg_id 和 jsonDatas
-            boost::asio::post(io_, [task = it->second, jsonDatas]() {
-                task->handle_task(jsonDatas);
+            boost::asio::post(io_, [task = it->second, jsonDatas,msg_id]() {
+                task->handle_task(jsonDatas,msg_id);
             });
-			//msg_id++;
 		}
     }, *msg);
 }

@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cstdint>
 #include <netinet/in.h> // htons, htonl, ntohs, ntohl
+#include <zlib.h>
 #include "transport.hpp"
 #include "util/util.hpp"
 
@@ -56,7 +57,7 @@ void Transport::on_send() {
                             int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
                             if (len > 0) {
                                 //printf("output len:%d port:%d\n",len, this->id_);
-                                callback_ptr->on_data_received(len);
+                                callback_ptr->on_data_received(len,0);
                             }
                             else break;
                         } 
@@ -84,13 +85,14 @@ void Transport::on_input() {
             std::visit([this, callback_ptr](auto&& data) {
                 using T = std::decay_t<decltype(data)>;
                 if constexpr (std::is_same_v<T, appMsg>) {
-                    auto [json_data, max_cache_size, port_id] = data;
+                    auto [app_data, max_cache_size, port_id] = data;
                     //std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
                     if (port_id == 0xffffffff || port_id == this->id_) {
                         //把传输层数据一次收整 
-                        int len = this->read(*json_data, max_cache_size, std::chrono::milliseconds(100));
+                        uint32_t id;
+                        int len = this->read(*app_data,id, max_cache_size, std::chrono::milliseconds(100));
                         if (len > 0) {
-                            callback_ptr->on_data_received(len);
+                            callback_ptr->on_data_received(len,id);
                         }
                     }
                 }
@@ -209,7 +211,15 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
 
 
 int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout) {
-	size_t total_size = data.size();
+    std::vector<unsigned char> originalData(data.begin(), data.end());
+    std::vector<unsigned char> compressedData;
+    int compressResult = compressData(originalData, compressedData);
+    if (compressResult != Z_OK) {
+        std::cerr << "Compression failed! Error code: " << compressResult << std::endl;
+        return -2;
+    }
+	//size_t total_size = data.size();
+    size_t total_size = compressedData.size();
 	size_t segment_id = 0;
 	//std::cout << "app Send:" << data << std::endl;
 	size_t offset = 0;
@@ -228,28 +238,35 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
             msg.header.flag |= FLAG_ENCRYPTED;
             chunk_size = std::min(total_size - offset, 
                 segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-encrypt_size_increment_);
-            msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
+            msg.payload.assign(compressedData.begin() + offset, compressedData.begin() + offset + chunk_size);
             std::vector<unsigned char> encrypted_segment;
             encryptData(sessionKey_tx_, msg.payload, encrypted_segment);
             // 计算加密后的 segment 长度（包含加密后的数据和 MAC 校验码等）
             size_t encrypted_size = encrypted_segment.size();
             msg.header.length = encrypted_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-encrypt_size_increment_)) {
+            /*if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-encrypt_size_increment_)) {
                 msg.header.flag &= ~FLAG_SEGMENTED; //last segment
             } else {
                 msg.header.flag |= FLAG_SEGMENTED;
-            }
+            }*/
             // 将加密后的数据赋值给 msg.payload
+            msg.payload.clear();  // 避免意外情况
             msg.payload = std::move(encrypted_segment);
         } else {
             chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
             msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-            if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
+            /*if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
                 msg.header.flag &= ~FLAG_SEGMENTED; //last segment
             } else {
                 msg.header.flag |= FLAG_SEGMENTED;
-            }
-            msg.payload.assign(data.begin() + offset, data.begin() + offset + chunk_size);
+            }*/
+            msg.payload.assign(compressedData.begin() + offset, compressedData.begin() + offset + chunk_size);
+        }
+        // **修正 FLAG_SEGMENTED**
+        if (offset + chunk_size >= total_size) {
+            msg.header.flag &= ~FLAG_SEGMENTED;  // 最后一片
+        } else {
+            msg.header.flag |= FLAG_SEGMENTED;
         }
 
 		msg.footer.checksum = calculateChecksum(msg.payload);
@@ -311,8 +328,9 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
     return ret;
 }
 
-int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
-    size_t max_cache_size, // 缓存的最大消息数量
+int Transport::read(std::vector<uint8_t>& data,  // 存储已完成的消息
+    uint32_t& msg_id,
+    size_t size, // 缓存
     std::chrono::milliseconds timeout) 
 {
     while (true) {
@@ -321,31 +339,27 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
             auto& buffer = it->second;
             if (buffer.is_complete) {
                 // 重组消息
-                std::string reconstructed_data;
+                std::vector<uint8_t> reconstructed_data;
                 reconstructed_data.reserve(buffer.total_size);
                 for (const auto& [segment_id, segment_data] : buffer.segments) {
-                    reconstructed_data.append(segment_data.begin(),segment_data.end());
+                    reconstructed_data.insert(reconstructed_data.end(), segment_data.begin(), segment_data.end());
                 }
-				try {
-					// 解析 JSON 并加入结果
-                    json j = json::parse(reconstructed_data);
-                    j["_msg_id"] = it->first;
-                	json_datas.push_back(j);
-				} catch (...) {
-					std::cout << "json parse fail:\n" << reconstructed_data << std::endl;
-				}
-                
-                // 清理已完成的消息
-                it = message_cache.erase(it);
+                std::vector<unsigned char> decompressedData;
+                int decompressResult = decompressData(reconstructed_data, decompressedData);
+                if (decompressResult != Z_OK) {
+                    std::cerr << "Decompression failed! Error code: " << decompressResult << std::endl;
+                    it = message_cache.erase(it);
+                } else {
+                    msg_id = it->first;  // 记录消息 ID
+                    data = std::move(decompressedData);
+                    // 清理已完成的消息
+                    it = message_cache.erase(it);
+                    // 如果有完成的消息，退出循环
+                    return data.size(); // 返回数据大小
+                }
             } else {
                 ++it;
             }
-        }
-
-        // 如果有完成的消息，退出循环
-        if (!json_datas.empty()) {
-            //std::cout << "APP IN :" << std::this_thread::get_id() << std::endl;
-            return json_datas.size(); // 返回成功条数
         }
 
         // 读取消息长度
@@ -404,8 +418,12 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
         buffer.total_size += msg.payload.size();
 
         // 检查总大小限制
-        if (buffer.total_size > max_message_size_) {
-            std::cout << "Message too large, msg_id: " << msg.header.msg_id << " size: " << buffer.total_size << std::endl;
+        if (buffer.total_size > max_message_size_ || buffer.total_size > size) {
+            std::cerr << "Message too large, msg_id: " << msg.header.msg_id 
+                << " size: " << buffer.total_size 
+                << " buffer size: " << size
+                << " max size: " << max_message_size_
+                << std::endl;
             message_cache.erase(msg.header.msg_id); // 丢弃超大消息
             continue;
         }
@@ -422,7 +440,7 @@ int Transport::read(std::vector<json>& json_datas,  // 存储已完成的消息
         }
 
         // 检查缓存大小限制
-        if (message_cache.size() > max_cache_size) {
+        if (message_cache.size() > max_cache_size_) {
             std::cout << "Cache size exceeded, removing oldest entry" << std::endl;
             auto oldest = std::min_element(
                 message_cache.begin(),

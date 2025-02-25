@@ -88,7 +88,7 @@ public:
     // 3. TCP 缓存到上行 CircularBuffer
     int input(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    int read(std::vector<json>& json_datas, size_t size, std::chrono::milliseconds timeout);
+    int read(std::vector<uint8_t>& data, uint32_t& msg_id, size_t size, std::chrono::milliseconds timeout);
 
 	void reset(ChannelType type) {
         if (ChannelType::ALL == type) {
@@ -102,6 +102,7 @@ public:
 	}
 
 private:
+    static constexpr size_t max_cache_size_ = 8;
     static constexpr size_t segment_size_ = 1024; // 分段大小
     static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
     static constexpr size_t encrypt_size_increment_ = AES_GCM_nonce_len + AES_GCM_tag_len;

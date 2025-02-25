@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <string>
 #include <stdexcept>
-
+#include <zlib.h>
 
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair() {
     std::vector<unsigned char> publicKey, secretKey;
@@ -507,4 +507,52 @@ bool verifyPassword(const std::string& password, const std::string& stored_hash)
     }
 
     return computed_hash == expected_hash;
+}
+
+int compressData(const std::vector<unsigned char>& data, std::vector<unsigned char>& compressed) {
+    uLongf compressedSize = compressBound(data.size());  // 计算最大可能的压缩大小
+    compressed.resize(sizeof(uint32_t) + compressedSize);  // 预留4字节存储原始数据大小
+
+    // 存储原始数据大小（前 4 字节）
+    uint32_t originalSize = static_cast<uint32_t>(data.size());
+    std::memcpy(compressed.data(), &originalSize, sizeof(uint32_t));
+
+    // 执行压缩
+    int result = compress2(compressed.data() + sizeof(uint32_t), &compressedSize,
+                           reinterpret_cast<const Bytef*>(data.data()), data.size(), Z_BEST_COMPRESSION);
+
+    if (result != Z_OK) {
+        std::cerr << "Compression failed! Error code: " << result << std::endl;
+        return result;
+    }
+
+    // 调整 `compressed` 容量到真实大小
+    compressed.resize(sizeof(uint32_t) + compressedSize);
+    return Z_OK;
+}
+
+int decompressData(const std::vector<unsigned char>& compressed, std::vector<unsigned char>& decompressed) {
+    if (compressed.size() < sizeof(uint32_t)) {
+        std::cerr << "Invalid compressed data" << std::endl;
+        return Z_DATA_ERROR;
+    }
+
+    // 读取原始数据大小
+    uint32_t originalSize;
+    std::memcpy(&originalSize, compressed.data(), sizeof(uint32_t));
+
+    // 修正：转换类型
+    uLongf decompressedSize = static_cast<uLongf>(originalSize);
+
+    decompressed.resize(decompressedSize);  // 预分配解压缓冲区
+
+    int result = uncompress(decompressed.data(), &decompressedSize,
+                            reinterpret_cast<const Bytef*>(compressed.data() + sizeof(uint32_t)),
+                            compressed.size() - sizeof(uint32_t));
+
+    if (result != Z_OK) {
+        std::cerr << "Decompression failed! Error code: " << result << std::endl;
+    }
+
+    return result;
 }

@@ -43,21 +43,18 @@ void mdb_quit() {
 }
 
 int mdb_recv(char* buffer, int size, int timeout) {
-	std::vector<json> json_datas;
-	int ret = client_ptr->recv(json_datas, 1, timeout);
-	if (ret>0) {
-		std::string json_strdata;
-		for (auto json_data : json_datas) {
-			json_strdata += json_data.dump();
-		}
-		if (size < json_strdata.size()) {
-			std::cerr << "recv buffer size is too small!!\n";
-			return -5;
-		}
-		ret = std::min(size_t(size),json_strdata.size());
-		memcpy(buffer, json_strdata.c_str(), ret);
-	}
-	return ret;
+    static thread_local std::vector<uint8_t> data;
+    data.resize(size);  // 只修改 size，不重新分配内存
+
+    uint32_t msg_id;
+    int ret = client_ptr->recv(data, msg_id, data.size(), timeout);
+
+    if (ret > 0) {
+		ret = std::min(size_t(size),size_t(ret));
+        memcpy(buffer, data.data(), ret);
+    }
+
+    return ret;
 }
 
 int mdb_send(const char* json_strdata, int msg_id, int timeout) {

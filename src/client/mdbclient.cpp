@@ -19,7 +19,7 @@ uint32_t MdbClient::get_transportid() {
 
 int MdbClient::Ecdh() {
     auto clientKxPair = generateKxKeypair();
-
+	uint32_t msg_id = 0;
     json jsonData;
     //jsonData["fields"] = json::array({ "nested.details.author", "nested.value" });
     jsonData["action"] = "ECDH";
@@ -30,21 +30,26 @@ int MdbClient::Ecdh() {
     
     // 写操作，支持超时
     int ret = 0;
-    ret = this->send(jsonConfig,0, 1000);
+    ret = this->send(jsonConfig,msg_id, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
     }
     
     // 读操作，支持超时
-    std::vector<json> json_datas;
-    ret = this->recv(json_datas, 1 , 3000);
-    if (ret<0) {
+    std::vector<uint8_t> pack_data(1024*5);
+    ret = this->recv(pack_data,msg_id, pack_data.size() , 3000);
+    if (ret<0 || msg_id!= 0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         return ret;
     }
-
-    jsonData = json_datas.at(0);
+	try {
+		jsonData = json::parse(std::string(pack_data.begin(), pack_data.end()));
+	} catch (...) {
+		std::cout << "json parse fail:\n" << std::string(pack_data.begin(), pack_data.end()) << std::endl;
+		return -3;
+	}
+	
 	#ifdef DEBUG
     std::cout << jsonData.dump(2) << std::endl;
 	#endif
@@ -76,14 +81,19 @@ int MdbClient::Ecdh() {
         return ret;
     }
     // 读操作，支持超时
-    json_datas.clear();
-    ret = this->recv(json_datas, 1 , 3000);
-    if (ret<0) {
+	pack_data.clear();
+	pack_data.resize(1024*5);
+    ret = this->recv(pack_data,msg_id, pack_data.size() , 3000);
+    if (ret<0 || msg_id!=0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         return ret;
     }
-
-    jsonData = json_datas.at(0);
+	try {
+		jsonData = json::parse(std::string(pack_data.begin(), pack_data.end()));
+	} catch (...) {
+		std::cout << "json parse fail:\n" << std::string(pack_data.begin(), pack_data.end()) << std::endl;
+		return -3;
+	}
 	#ifdef DEBUG
     std::cout << jsonData.dump(2) << std::endl;
 	#endif
@@ -155,7 +165,7 @@ void MdbClient::stop() {
 	close();
 }
 
-void MdbClient::on_data_received(int result) {
+void MdbClient::on_data_received(int result,int) {
 	//printf("port to tcp\n");
 	//std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
 	if (result > 0) {
@@ -183,8 +193,8 @@ int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) 
     }
 }
 
-int MdbClient::recv(std::vector<json>& json_datas, size_t size,uint32_t timeout) {
-	return transport_->read(json_datas,size,std::chrono::milliseconds(timeout));
+int MdbClient::recv(std::vector<uint8_t>& pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
+	return transport_->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
 }
 
 void MdbClient::handle_read(const boost::system::error_code& error, std::size_t nread) {

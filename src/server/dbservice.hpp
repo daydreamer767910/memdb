@@ -21,7 +21,7 @@
 #include "keymng/crypt.hpp"
 #include "dbtask.hpp"
 
-using DBMsg = std::tuple<std::shared_ptr<std::vector<json>>,uint32_t>;
+using DBMsg = std::tuple<std::shared_ptr<json>,uint32_t,uint32_t>;
 using DBVariantMsg = std::variant<DBMsg>;
 class DBService : public ThreadBase<DBMsg>, public ITransportObserver{
 public:

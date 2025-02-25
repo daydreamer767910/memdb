@@ -40,7 +40,7 @@ void TcpConnection::write(const std::string& data) {
     }
 }
 
-void TcpConnection::on_data_received(int result) {
+void TcpConnection::on_data_received(int result, int ) {
 	//std::cout << "PORT->TCP :" << std::this_thread::get_id() << std::endl;
     if (result > 0) {
         write(std::string(write_buffer_, result));
