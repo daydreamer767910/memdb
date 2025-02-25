@@ -26,7 +26,10 @@ void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
     auto sendResponse = [&](const uint32_t msg_id, const json& response) {
         auto port = TransportSrv::get_instance()->get_port(port_id_);
         if (port) {
-            int ret = port->send(response.dump(), msg_id, std::chrono::milliseconds(100));
+            std::string strResp = response.dump();
+            int ret = port->send(reinterpret_cast<const uint8_t*>(strResp.data()), 
+                            strResp.size(),
+                            msg_id, std::chrono::milliseconds(100));
             if (ret < 0) {
                 std::cerr << "APP SEND err: " << ret << std::endl;
             }

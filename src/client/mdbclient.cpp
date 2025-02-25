@@ -184,7 +184,10 @@ void MdbClient::on_data_received(int result,int) {
 
 int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) {
 	try {
-        int ret= transport_->send(data,msg_id,std::chrono::milliseconds(timeout));
+        int ret= transport_->send(reinterpret_cast<const uint8_t*>(data.data()),
+						data.size(),
+						msg_id,
+						std::chrono::milliseconds(timeout));
 		//if(ret>0)
 		//std::cout << "send to transport:" << ret << std::endl;
 		return ret;

@@ -47,6 +47,6 @@ std::vector<uint8_t> generateSalt(size_t length = 16);
 std::string hashPassword(const std::string& password);
 bool verifyPassword(const std::string& password, const std::string& stored_hash);
 
-int compressData(const std::vector<unsigned char>& data, std::vector<unsigned char>& compressed);
+int compressData(const uint8_t* data, size_t size, std::vector<unsigned char>& compressed);
 int decompressData(const std::vector<unsigned char>& compressed, std::vector<unsigned char>& decompressed);
 #endif

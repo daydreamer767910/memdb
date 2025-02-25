@@ -13,6 +13,7 @@
 #include <string>
 #include <stdexcept>
 #include <zlib.h>
+#include <netinet/in.h>
 
 std::pair<std::vector<unsigned char>, std::vector<unsigned char>> generateKxKeypair() {
     std::vector<unsigned char> publicKey, secretKey;
@@ -509,17 +510,20 @@ bool verifyPassword(const std::string& password, const std::string& stored_hash)
     return computed_hash == expected_hash;
 }
 
-int compressData(const std::vector<unsigned char>& data, std::vector<unsigned char>& compressed) {
-    uLongf compressedSize = compressBound(data.size());  // 计算最大可能的压缩大小
+int compressData(const uint8_t* data, size_t size, std::vector<unsigned char>& compressed) {
+    uLongf compressedSize = compressBound(size);  // 计算最大可能的压缩大小
     compressed.resize(sizeof(uint32_t) + compressedSize);  // 预留4字节存储原始数据大小
 
     // 存储原始数据大小（前 4 字节）
-    uint32_t originalSize = static_cast<uint32_t>(data.size());
-    std::memcpy(compressed.data(), &originalSize, sizeof(uint32_t));
+    // 使用网络字节序写入原始数据大小
+    uint32_t originalSize = static_cast<uint32_t>(size);
+    uint32_t networkOrderSize = htonl(originalSize);  // 转换为大端字节序
+    std::memcpy(compressed.data(), &networkOrderSize, sizeof(uint32_t));
+
 
     // 执行压缩
     int result = compress2(compressed.data() + sizeof(uint32_t), &compressedSize,
-                           reinterpret_cast<const Bytef*>(data.data()), data.size(), Z_BEST_COMPRESSION);
+                           reinterpret_cast<const Bytef*>(data), size, Z_BEST_COMPRESSION);
 
     if (result != Z_OK) {
         std::cerr << "Compression failed! Error code: " << result << std::endl;
@@ -538,8 +542,10 @@ int decompressData(const std::vector<unsigned char>& compressed, std::vector<uns
     }
 
     // 读取原始数据大小
-    uint32_t originalSize;
-    std::memcpy(&originalSize, compressed.data(), sizeof(uint32_t));
+    // 读取原始数据大小并转换回主机字节序
+    uint32_t networkOrderSize;
+    std::memcpy(&networkOrderSize, compressed.data(), sizeof(uint32_t));
+    uint32_t originalSize = ntohl(networkOrderSize);  // 转换回主机字节序
 
     // 修正：转换类型
     uLongf decompressedSize = static_cast<uLongf>(originalSize);

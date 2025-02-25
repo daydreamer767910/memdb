@@ -211,23 +211,24 @@ Msg Transport::deserializeMsg(const std::vector<char>& buffer) {
 }
 
 
-int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout) {
-    std::vector<unsigned char> originalData(data.begin(), data.end());
-    std::vector<unsigned char> compressedData;
+int Transport::send(const uint8_t* data, size_t size, uint32_t msg_id, std::chrono::milliseconds timeout) {
+    std::vector<uint8_t> compressedData;
+    const uint8_t* dataToSend = data;
+    size_t total_size = size;
+    size_t segment_id = 0;
+    size_t offset = 0;
+
     if (compressFlag_) {
-        int compressResult = compressData(originalData, compressedData);
+        //std::vector<unsigned char> dataVector(data, data + size);
+        int compressResult = compressData(data, size, compressedData);
         if (compressResult != Z_OK) {
             std::cerr << "Compression failed! Error code: " << compressResult << std::endl;
             return -2;
         }
-    } else {
-        compressedData = std::move(originalData);
+        dataToSend = compressedData.data();
+        total_size = compressedData.size();
     }
-	//size_t total_size = data.size();
-    size_t total_size = compressedData.size();
-	size_t segment_id = 0;
-	//std::cout << "app Send:" << data << std::endl;
-	size_t offset = 0;
+
 	while (offset < total_size) {
         size_t chunk_size;
         Msg msg;
@@ -246,29 +247,19 @@ int Transport::send(const std::string& data, uint32_t msg_id, std::chrono::milli
             msg.header.flag |= FLAG_ENCRYPTED;
             chunk_size = std::min(total_size - offset, 
                 segment_size_-sizeof(MsgHeader)-sizeof(MsgFooter)-encrypt_size_increment_);
-            msg.payload.assign(compressedData.begin() + offset, compressedData.begin() + offset + chunk_size);
+            msg.payload.assign(dataToSend + offset, dataToSend + offset + chunk_size);
             std::vector<unsigned char> encrypted_segment;
             encryptData(sessionKey_tx_, msg.payload, encrypted_segment);
             // 计算加密后的 segment 长度（包含加密后的数据和 MAC 校验码等）
             size_t encrypted_size = encrypted_segment.size();
             msg.header.length = encrypted_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-            /*if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter)-encrypt_size_increment_)) {
-                msg.header.flag &= ~FLAG_SEGMENTED; //last segment
-            } else {
-                msg.header.flag |= FLAG_SEGMENTED;
-            }*/
             // 将加密后的数据赋值给 msg.payload
             msg.payload.clear();  // 避免意外情况
             msg.payload = std::move(encrypted_segment);
         } else {
             chunk_size = std::min(total_size - offset, segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter));
             msg.header.length = chunk_size + sizeof(MsgHeader) + sizeof(MsgFooter);
-            /*if ((total_size - offset) <= (segment_size_-sizeof(MsgHeader) - sizeof(MsgFooter))) {
-                msg.header.flag &= ~FLAG_SEGMENTED; //last segment
-            } else {
-                msg.header.flag |= FLAG_SEGMENTED;
-            }*/
-            msg.payload.assign(compressedData.begin() + offset, compressedData.begin() + offset + chunk_size);
+            msg.payload.assign(dataToSend + offset, dataToSend + offset + chunk_size);
         }
         // **修正 FLAG_SEGMENTED**
         if (offset + chunk_size >= total_size) {

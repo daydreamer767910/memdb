@@ -157,7 +157,7 @@ void testCompression() {
 
     // 2. 压缩数据
     std::vector<unsigned char> compressedData;
-    int compressResult = compressData(originalData, compressedData);
+    int compressResult = compressData(originalData.data(), originalData.size(), compressedData);
     assert(compressResult == Z_OK);
     std::cout << "Compression successful! Original size: " << originalData.size()
               << ", Compressed size: " << compressedData.size() << std::endl;

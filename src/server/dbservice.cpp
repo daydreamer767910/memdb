@@ -82,7 +82,10 @@ void DBService::keep_alive() {
 		jsonData["timeout"] = keep_alv_timer/1000;
 		auto port = TransportSrv::get_instance()->get_port(port_id);
 		if (port) {
-			int ret = port->send(jsonData.dump(), 0xffffffff ,std::chrono::milliseconds(100));
+			std::string strData = jsonData.dump();
+			int ret = port->send( reinterpret_cast<const uint8_t*>(strData.data()), 
+								strData.size(),
+								0xffffffff ,std::chrono::milliseconds(100));
 			if (ret<0) {
 				std::cout << "APP SEND err:" << ret <<  std::endl;
 			}

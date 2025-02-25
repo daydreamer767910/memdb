@@ -88,7 +88,7 @@ public:
     }
 
     // 1. APP 缓存到下行 CircularBuffer
-    int send(const std::string& data, uint32_t msg_id, std::chrono::milliseconds timeout);
+    int send(const uint8_t* data, size_t size, uint32_t msg_id, std::chrono::milliseconds timeout);
     // 2. TCP 读取下行 CircularBuffer
     int output(char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 3. TCP 缓存到上行 CircularBuffer
