@@ -39,11 +39,12 @@ int MdbClient::Ecdh() {
     
     // 读操作，支持超时
     std::vector<uint8_t> pack_data(1024*5);
-    ret = this->recv(pack_data,msg_id, pack_data.size() , 3000);
+    ret = this->recv(pack_data.data(),msg_id, pack_data.size() , 3000);
     if (ret<0 || msg_id!= 0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         return ret;
     }
+	pack_data.resize(ret);
 	try {
 		jsonData = json::parse(std::string(pack_data.begin(), pack_data.end()));
 	} catch (...) {
@@ -84,11 +85,12 @@ int MdbClient::Ecdh() {
     // 读操作，支持超时
 	pack_data.clear();
 	pack_data.resize(1024*5);
-    ret = this->recv(pack_data,msg_id, pack_data.size() , 3000);
+    ret = this->recv(pack_data.data(),msg_id, pack_data.size() , 3000);
     if (ret<0 || msg_id!=0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         return ret;
     }
+	pack_data.resize(ret);
 	try {
 		jsonData = json::parse(std::string(pack_data.begin(), pack_data.end()));
 	} catch (...) {
@@ -197,7 +199,7 @@ int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) 
     }
 }
 
-int MdbClient::recv(std::vector<uint8_t>& pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
+int MdbClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
 	return transport_->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
 }
 

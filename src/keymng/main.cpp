@@ -163,9 +163,11 @@ void testCompression() {
               << ", Compressed size: " << compressedData.size() << std::endl;
 
     // 3. 解压数据
-    std::vector<unsigned char> decompressedData;
-    int decompressResult = decompressData(compressedData, decompressedData);
-    assert(decompressResult == Z_OK);
+    std::vector<unsigned char> decompressedData(1024);
+    
+    int size = decompressData(compressedData, decompressedData.data(),decompressedData.size());
+    assert(size >= Z_OK);
+    decompressedData.resize(size);
 
     // 4. 校验解压后的数据是否与原始数据一致
     std::string decompressedText(decompressedData.begin(), decompressedData.end());

@@ -48,5 +48,5 @@ std::string hashPassword(const std::string& password);
 bool verifyPassword(const std::string& password, const std::string& stored_hash);
 
 int compressData(const uint8_t* data, size_t size, std::vector<unsigned char>& compressed);
-int decompressData(const std::vector<unsigned char>& compressed, std::vector<unsigned char>& decompressed);
+int decompressData(const std::vector<unsigned char>& compressed, uint8_t* decompressed, size_t max_size);
 #endif

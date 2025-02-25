@@ -43,17 +43,8 @@ void mdb_quit() {
 }
 
 int mdb_recv(char* buffer, int size, int timeout) {
-    static thread_local std::vector<uint8_t> data;
-    data.resize(size);  // 只修改 size，不重新分配内存
-
     uint32_t msg_id;
-    int ret = client_ptr->recv(data, msg_id, data.size(), timeout);
-
-    if (ret > 0) {
-		ret = std::min(size_t(size),size_t(ret));
-        memcpy(buffer, data.data(), ret);
-    }
-
+    int ret = client_ptr->recv(reinterpret_cast<uint8_t*>(buffer), msg_id, size, timeout);
     return ret;
 }
 

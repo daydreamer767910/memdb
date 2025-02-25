@@ -94,7 +94,7 @@ public:
     // 3. TCP 缓存到上行 CircularBuffer
     int input(const char* buffer, size_t size, std::chrono::milliseconds timeout);
     // 4. APP 读取上行 CircularBuffer
-    int read(std::vector<uint8_t>& data, uint32_t& msg_id, size_t size, std::chrono::milliseconds timeout);
+    int read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::milliseconds timeout);
 
 	void reset(ChannelType type) {
         if (ChannelType::ALL == type) {

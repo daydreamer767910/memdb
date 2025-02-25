@@ -91,7 +91,7 @@ void Transport::on_input() {
                     if (port_id == 0xffffffff || port_id == this->id_) {
                         //把传输层数据一次收整 
                         uint32_t id;
-                        int len = this->read(*app_data,id, max_cache_size, std::chrono::milliseconds(100));
+                        int len = this->read(app_data->data(),id, max_cache_size, std::chrono::milliseconds(100));
                         if (len > 0) {
                             callback_ptr->on_data_received(len,id);
                         }
@@ -327,20 +327,16 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
     return ret;
 }
 
-int Transport::read(std::vector<uint8_t>& data,  // 存储已完成的消息
-    uint32_t& msg_id,
-    size_t size, // 缓存
-    std::chrono::milliseconds timeout) 
-{
+int Transport::read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::milliseconds timeout) {
     while (true) {
         // 检查并处理已完成的消息
         for (auto it = message_cache.begin(); it != message_cache.end();) {
             auto& buffer = it->second;
+            int readSize = buffer.total_size;
             if (!buffer.is_complete) {
                 ++it;
                 continue;
             }
-        
             // 重组消息
             std::vector<uint8_t> reconstructed_data;
             reconstructed_data.reserve(buffer.total_size);
@@ -351,20 +347,18 @@ int Transport::read(std::vector<uint8_t>& data,  // 存储已完成的消息
             msg_id = it->first;  // 记录消息 ID
             
             if (buffer.is_compressed) {
-                int decompressResult = decompressData(reconstructed_data, data);
-                if (decompressResult != Z_OK) {
-                    std::cerr << "Decompression failed! Error code: " << decompressResult << std::endl;
+                readSize = decompressData(reconstructed_data, data, size);
+                if (readSize <= 0) {
+                    std::cerr << "Decompression failed! Error code: " << readSize << std::endl;
                     it = message_cache.erase(it);  // 清理损坏的消息
                     continue; // 继续处理下一个消息
                 }
-                //setCompressFlag(true); // 设置压缩模式
             } else {
-                data = std::move(reconstructed_data);
-                //setCompressFlag(false);
+                memcpy(data, reconstructed_data.data(), reconstructed_data.size());
             }
             // 清理已完成的消息
             it = message_cache.erase(it);
-            return data.size(); // 处理完成后返回
+            return readSize; // 处理完成后返回
         }
         
         // 读取消息长度

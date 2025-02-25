@@ -535,10 +535,10 @@ int compressData(const uint8_t* data, size_t size, std::vector<unsigned char>& c
     return Z_OK;
 }
 
-int decompressData(const std::vector<unsigned char>& compressed, std::vector<unsigned char>& decompressed) {
+int decompressData(const std::vector<unsigned char>& compressed, uint8_t* decompressed, size_t max_size) {
     if (compressed.size() < sizeof(uint32_t)) {
         std::cerr << "Invalid compressed data" << std::endl;
-        return Z_DATA_ERROR;
+        return -1;
     }
 
     // 读取原始数据大小
@@ -547,18 +547,24 @@ int decompressData(const std::vector<unsigned char>& compressed, std::vector<uns
     std::memcpy(&networkOrderSize, compressed.data(), sizeof(uint32_t));
     uint32_t originalSize = ntohl(networkOrderSize);  // 转换回主机字节序
 
+    if (originalSize > max_size) {
+        std::cerr << "decompressed too big" << std::endl;
+        return -2;
+    }
+
     // 修正：转换类型
     uLongf decompressedSize = static_cast<uLongf>(originalSize);
 
-    decompressed.resize(decompressedSize);  // 预分配解压缓冲区
+    //decompressed.resize(decompressedSize);  // 预分配解压缓冲区
 
-    int result = uncompress(decompressed.data(), &decompressedSize,
+    int result = uncompress(decompressed, &decompressedSize,
                             reinterpret_cast<const Bytef*>(compressed.data() + sizeof(uint32_t)),
                             compressed.size() - sizeof(uint32_t));
 
     if (result != Z_OK) {
         std::cerr << "Decompression failed! Error code: " << result << std::endl;
+        return -3;
     }
-
-    return result;
+    
+    return decompressedSize;
 }

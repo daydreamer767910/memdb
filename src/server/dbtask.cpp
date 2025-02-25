@@ -3,21 +3,25 @@
 #include "registry.hpp"
 
 void DbTask::on_data_received(int result, int id) {
-    //static std::atomic<uint32_t> msg_id(0);
     if (result > 0) {
         try {
-            // 解析 JSON 并加入结果
-            json j = json::parse(std::string(data_packet_.begin(), data_packet_.end()));
+            // 限制解析范围，避免解析额外无效数据
+            json j = json::parse(std::string(data_packet_.begin(), data_packet_.begin() + result));
+    
             auto jsonTask = std::make_shared<json>(j);
-            auto self = shared_from_this();  // 确保对象生命周期
-            boost::asio::post(io_context_, [self, this, jsonTask, id]() {
-                this->handle_task(jsonTask, id);
-            });
+            if (auto self = shared_from_this()) {  
+                boost::asio::post(io_context_, [self, this, jsonTask, id]() {  
+                    this->handle_task(jsonTask, id);
+                });
+            }
         } catch (...) {
-            std::cout << "json parse fail:\n" << std::string(data_packet_.begin(), data_packet_.end()) << std::endl;
+            std::cout << "json parse fail:\n" 
+                      << std::string(data_packet_.begin(), data_packet_.begin() + result) 
+                      << std::endl;
         }
-        data_packet_.clear();
-    }
+        // 移除已处理的数据（避免不必要的 clear + resize）
+        data_packet_.erase(data_packet_.begin(), data_packet_.begin() + result);
+    }    
 }
 
 void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
