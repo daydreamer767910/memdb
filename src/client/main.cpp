@@ -17,7 +17,7 @@ extern "C" {
     void mdb_quit();
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
-    int mdb_recv(char* buffer, int size, int timeout);
+    int mdb_recv(char* buffer, int size, int &msg_id, int timeout);
     int mdb_send(const char* json_strdata, int msg_id, int timeout);
 }
 
@@ -33,7 +33,7 @@ int test(const std::string jsonConfig) {
     // 写操作，支持超时
     int ret = 0;
     
-    ret = mdb_send(jsonConfig.c_str(),msgid++, 1000);
+    ret = mdb_send(jsonConfig.c_str(),msgid, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         if (ret == -2) {
@@ -50,8 +50,10 @@ int test(const std::string jsonConfig) {
     }
     
     // 读操作，支持超时
-    char buffer[1024*500] = {};
-    ret = mdb_recv(buffer, sizeof(buffer) , 3000);
+    //char buffer[1024*10] = {}; // 10M,和传输层一致
+    std::vector<uint8_t> str_buff;
+    str_buff.resize(1024*1024*10);
+    ret = mdb_recv(reinterpret_cast<char*>(str_buff.data()), str_buff.size(), msgid, 3000);
     if (ret<0) {
         std::cerr << "Read operation failed:" << ret << std::endl;
         if (ret == -2) {
@@ -64,9 +66,10 @@ int test(const std::string jsonConfig) {
     if (ret>0) {
         //printf("APP RECV[%d]:\r\n",ret);
         //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
-        json jsonData = json::parse(buffer);
+        json jsonData = json::parse(std::string(str_buff.begin(),str_buff.begin()+ret));
         std::cout << jsonData.dump(2) << std::endl;
     }
+    msgid++;
     return ret;
     
 }
@@ -178,7 +181,7 @@ void update_collection(std::string& name) {
     test(jsonConfig);
 }
 void get_collection(std::string& name) {
-    int limit = 80; 
+    int limit = 20; 
     std::string json_str = R"({
         "conditions": [
             {
@@ -257,7 +260,7 @@ void insert_collection(std::string& name) {
     // 将字符串解析为 JSON 对象
     //json j = json::parse(rawJson);
     json j = json::array();
-    for (int k=0; k< 120; ++k) {
+    for (int k=0; k< 1000; ++k) {
         // 生成随机数
         std::random_device rd;
         std::mt19937 gen(rd());

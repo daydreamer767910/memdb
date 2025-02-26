@@ -42,9 +42,10 @@ void mdb_quit() {
 	client_ptr->quit();
 }
 
-int mdb_recv(char* buffer, int size, int timeout) {
-    uint32_t msg_id;
-    int ret = client_ptr->recv(reinterpret_cast<uint8_t*>(buffer), msg_id, size, timeout);
+int mdb_recv(char* buffer, int size, int &msg_id, int timeout) {
+	uint32_t id;
+    int ret = client_ptr->recv(reinterpret_cast<uint8_t*>(buffer), id, size, timeout);
+	if (ret > 0 ) msg_id = id;
     return ret;
 }
 

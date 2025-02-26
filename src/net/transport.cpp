@@ -55,7 +55,7 @@ void Transport::on_send() {
                     if (port_id == this->id_) {
                         //APP有可能发大数据 有segmentation 需要多次发
                         while (true) {
-                            int len = this->output(buffer,buffer_size,std::chrono::milliseconds(100));
+                            int len = this->output(buffer,buffer_size,std::chrono::milliseconds(50));
                             if (len > 0) {
                                 //printf("output len:%d port:%d\n",len, this->id_);
                                 callback_ptr->on_data_received(len,0);
@@ -89,11 +89,14 @@ void Transport::on_input() {
                     auto [app_data, max_cache_size, port_id] = data;
                     //std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
                     if (port_id == 0xffffffff || port_id == this->id_) {
-                        //把传输层数据一次收整 
-                        uint32_t id;
-                        int len = this->read(app_data->data(),id, max_cache_size, std::chrono::milliseconds(100));
-                        if (len > 0) {
-                            callback_ptr->on_data_received(len,id);
+                        //当TCP层的数据缓冲大于传输层,需要多次收 
+                        while (true) {
+                            uint32_t id;
+                            int len = this->read(app_data->data(),id, max_cache_size, std::chrono::milliseconds(50));
+                            if (len > 0) {
+                                callback_ptr->on_data_received(len,id);
+                            }
+                            else break;
                         }
                     }
                 }
@@ -218,12 +221,17 @@ int Transport::send(const uint8_t* data, size_t size, uint32_t msg_id, std::chro
     size_t segment_id = 0;
     size_t offset = 0;
 
+    if (total_size > max_message_size_) {
+        std::cerr << "Message size : " << total_size << " too big than buffer size: " << max_message_size_ << std::endl;
+        return -3;
+    }
+
     if (compressFlag_) {
         //std::vector<unsigned char> dataVector(data, data + size);
         int compressResult = compressData(data, size, compressedData);
         if (compressResult != Z_OK) {
             std::cerr << "Compression failed! Error code: " << compressResult << std::endl;
-            return -2;
+            return -4;
         }
         dataToSend = compressedData.data();
         total_size = compressedData.size();

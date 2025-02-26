@@ -26,10 +26,10 @@
 
 class DbTask: public IDataCallback {
 public:
-	DbTask(uint32_t port_id, boost::asio::io_context& io_context)
+	DbTask(uint32_t port_id, size_t msg_size, boost::asio::io_context& io_context)
 		: port_id_(port_id), io_context_(io_context){
-			cached_data_ = std::make_tuple(&data_packet_, max_cache_size, port_id_);
-			data_packet_.resize(max_cache_size);  // 预分配缓存大小
+			cached_data_ = std::make_tuple(&data_packet_, msg_size, port_id_);
+			data_packet_.resize(msg_size);  // 预分配缓存大小
 	}
 	
 	~DbTask() {
@@ -48,7 +48,7 @@ public:
 private:
 	std::vector<uint8_t> data_packet_;//the container to read msg from transport layer
 	uint32_t port_id_;
-	static constexpr size_t max_cache_size = 64*1024;  
+	//static constexpr size_t max_cache_size = 64*1024;  
 	DataVariant cached_data_;
 	boost::asio::io_context& io_context_;
 };

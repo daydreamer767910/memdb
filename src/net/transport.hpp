@@ -65,6 +65,10 @@ public:
         callbacks_.push_back(callback);
     }
 
+    size_t getMessageSize() const {
+        return max_message_size_;
+    }
+
     void setEncryptMode(const bool& mode) {
         encryptMode_ = mode;
     }

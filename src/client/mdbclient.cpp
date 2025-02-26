@@ -7,7 +7,7 @@ MdbClient::ptr MdbClient::my_instance = nullptr;
 
 void MdbClient::set_transport(trans_pair& port_info) {
 	transport_ = port_info.second;
-	//transport_->setCompressFlag(true);
+	transport_->setCompressFlag(true);
 	transport_id_ = port_info.first;
 	//Crypt::NoiseKeypair clntNKP;
 	//crypt_.loadKeys(user_, clntNKP);

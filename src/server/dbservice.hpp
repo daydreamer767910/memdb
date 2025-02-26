@@ -46,7 +46,7 @@ public:
 	void on_new_transport(const std::shared_ptr<Transport>& transport) override {
 		std::lock_guard<std::mutex> lock(mutex_);
 		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
-		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
+		auto dbtask = std::make_shared<DbTask>(transport->get_id(),transport->getMessageSize(),io_);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
 		transport->setCompressFlag(true);

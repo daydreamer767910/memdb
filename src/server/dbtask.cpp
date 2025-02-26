@@ -31,6 +31,14 @@ void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
         auto port = TransportSrv::get_instance()->get_port(port_id_);
         if (port) {
             std::string strResp = response.dump();
+            if (strResp.size() > port->getMessageSize()) {
+                json jErr;
+                jErr["error"] = "Response message too big, please adjust request parameters";
+                jErr["size"] = strResp.size();
+                jErr["max size"] = port->getMessageSize();
+                jErr["status"] = "503";
+                strResp = jErr.dump();
+            }
             int ret = port->send(reinterpret_cast<const uint8_t*>(strResp.data()), 
                             strResp.size(),
                             msg_id, std::chrono::milliseconds(100));
