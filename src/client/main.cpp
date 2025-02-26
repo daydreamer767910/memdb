@@ -266,7 +266,7 @@ void insert_collection(std::string& name) {
 
         j.push_back({
             {"id", id++},
-            //{"_id", id},
+            //{"_id", id+100000},
             {"version", 1},
             {"title", "oumass Document " + std::to_string(id)},
             {"value", randomValue*(id+3)},

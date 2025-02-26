@@ -548,7 +548,7 @@ int decompressData(const std::vector<unsigned char>& compressed, uint8_t* decomp
     uint32_t originalSize = ntohl(networkOrderSize);  // 转换回主机字节序
 
     if (originalSize > max_size) {
-        std::cerr << "decompressed too big" << std::endl;
+        std::cerr << "originalSize size :" << originalSize << " bigger than buffer size: " << max_size << std::endl;
         return -2;
     }
 

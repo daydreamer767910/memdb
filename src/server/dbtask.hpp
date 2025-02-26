@@ -48,7 +48,7 @@ public:
 private:
 	std::vector<uint8_t> data_packet_;//the container to read msg from transport layer
 	uint32_t port_id_;
-	static constexpr size_t max_cache_size = 32*1024;  
+	static constexpr size_t max_cache_size = 64*1024;  
 	DataVariant cached_data_;
 	boost::asio::io_context& io_context_;
 };

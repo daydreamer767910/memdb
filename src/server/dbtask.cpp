@@ -20,7 +20,7 @@ void DbTask::on_data_received(int result, int id) {
                       << std::endl;
         }
         // 移除已处理的数据（避免不必要的 clear + resize）
-        data_packet_.erase(data_packet_.begin(), data_packet_.begin() + result);
+        //data_packet_.erase(data_packet_.begin(), data_packet_.begin() + result);
     }    
 }
 
