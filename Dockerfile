@@ -19,7 +19,7 @@ RUN mkdir -pv \
         /mdb/build
 
 # 配置时区
-RUN apt-get update && apt-get install -y --no-install-recommends tzdata && \
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata libjemalloc2 libargon2-1 && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone && \
     dpkg-reconfigure --frontend noninteractive tzdata && \
@@ -94,13 +94,6 @@ COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /mdb/build/lib/ /mdb/lib 
 
-COPY --chown=$DOCKER_USER:$DOCKER_USER \
-     --from=build \
-     /usr/lib/x86_64-linux-gnu/libargon2.so* /mdb/lib
-
-COPY --chown=$DOCKER_USER:$DOCKER_USER \
-     --from=build \
-     /usr/lib/x86_64-linux-gnu/libjemalloc.so* /mdb/lib
 
 #ENTRYPOINT ["/mdb/entrypoint.sh"]
 ENTRYPOINT ["mdbsrv"]
