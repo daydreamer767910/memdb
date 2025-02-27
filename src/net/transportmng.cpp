@@ -1,10 +1,5 @@
 #include "transportmng.hpp"
 
-
-std::atomic<uint32_t> TransportMng::ports_count(0);
-uint32_t TransportMng::unique_id(0);
-
-
 TransportMng::~TransportMng() {
     // 遍历并清理所有连接
     {
@@ -19,7 +14,7 @@ TransportMng::~TransportMng() {
 
 
 void TransportMng::on_new_connection(const std::shared_ptr<IConnection>& connection) {
-    auto port = open_port();
+    auto port = open_port(connection->get_id());
     port->add_callback(connection);
     connection->set_transport(port);
     this->notify_new_transport(port);
@@ -74,27 +69,24 @@ std::shared_ptr<Transport> TransportMng::get_port(uint32_t port_id) {
     return port->second;
 }
 
-std::shared_ptr<Transport> TransportMng::open_port() {
+std::shared_ptr<Transport> TransportMng::open_port(uint32_t id) {
 	std::lock_guard<std::mutex> lock(mutex_);
-	ports_count++;
-	unique_id++;
     std::vector<boost::asio::io_context*> io_contexts = { &io_[0], &io_[1] };
-    auto port = std::make_shared<Transport>(transport_buff_szie, io_contexts, unique_id);
-	ports_.emplace(unique_id, port);
+    auto port = std::make_shared<Transport>(transport_buff_szie, io_contexts, id);
+	ports_.emplace(id, port);
 	return port;
 }
 
-void TransportMng::close_port(uint32_t port_id) {
+void TransportMng::close_port(uint32_t id) {
 	std::lock_guard<std::mutex> lock(mutex_);
     
 	// 使用 unordered_map 的 find 方法快速查找
-    auto it = ports_.find(port_id);
+    auto it = ports_.find(id);
     if (it != ports_.end()) {
         it->second->stop();
         #ifdef DEBUG
-        std::cout << "transport[" << port_id << "] erased from list" << std::endl;
+        std::cout << "transport[" << id << "] erased from list" << std::endl;
         #endif
         ports_.erase(it);  // 从容器中移除
-        --ports_count;     // 更新端口计数
     }
 }

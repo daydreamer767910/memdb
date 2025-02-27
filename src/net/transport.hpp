@@ -60,7 +60,7 @@ public:
         return id_;
     }
     // 添加回调
-    void add_callback(const std::shared_ptr<IDataCallback>& callback) {
+    void add_callback(const std::shared_ptr<IConnection>& callback) {
         //std::cout << "add callback" << std::endl;
         callbacks_.push_back(callback);
     }
@@ -131,7 +131,7 @@ private:
     std::vector<unsigned char> sessionKey_rx_, sessionKey_rx_new_;
     std::vector<unsigned char> sessionKey_tx_, sessionKey_tx_new_;
     
-    std::vector<std::shared_ptr<IDataCallback>> callbacks_; // 存储回调的容器
+    std::vector<std::weak_ptr<IConnection>> callbacks_; // 存储回调的容器
 
     void triger_event(ChannelType type);
     void on_send();

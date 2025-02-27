@@ -2,13 +2,14 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 
-TcpConnection::TcpConnection(boost::asio::io_context& io_context, tcp::socket socket)
+TcpConnection::TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id)
     : io_context_(io_context), 
       socket_(std::move(socket)),
-      is_idle_(false) {
+      is_idle_(false),
+      id_(id) {
     memset(read_buffer_, 0, sizeof(read_buffer_));
     memset(write_buffer_, 0, sizeof(write_buffer_));
-    
+    cached_data_ = std::make_tuple(write_buffer_, sizeof(write_buffer_), id_);
 }
 
 TcpConnection::~TcpConnection() {
@@ -40,10 +41,10 @@ void TcpConnection::write(const std::string& data) {
     }
 }
 
-void TcpConnection::on_data_received(int result, int ) {
+void TcpConnection::on_data_received(int len, int ) {
 	//std::cout << "PORT->TCP :" << std::this_thread::get_id() << std::endl;
-    if (result > 0) {
-        write(std::string(write_buffer_, result));
+    if (len > 0) {
+        write(std::string(write_buffer_, len));
     }
 }
 
@@ -74,7 +75,7 @@ void TcpConnection::do_write() {
 	//std::cout << "tcp write :" << std::this_thread::get_id() << std::endl;
 #ifdef DEBUG
 	std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
-        << "]TCP[" << transport_id_ << "] SEND[" << data.size() << "]: \n";
+        << "]TCP[" << id_ << "] SEND[" << data.size() << "]: \n";
 	print_packet(reinterpret_cast<const uint8_t*>(data.c_str()),data.size());
 #endif
 }
@@ -88,7 +89,7 @@ void TcpConnection::handle_read(const boost::system::error_code& ec, size_t byte
 
 #ifdef DEBUG
 	std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
-		<< transport_id_ << "]RECV[" << bytes_transferred << "]:\n";
+		<< id_ << "]RECV[" << bytes_transferred << "]:\n";
     print_packet(reinterpret_cast<const uint8_t*>(read_buffer_), bytes_transferred);
 #endif
 //std::cout << "tcp read :" << std::this_thread::get_id() << std::endl;

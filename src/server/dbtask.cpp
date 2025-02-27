@@ -1,23 +1,23 @@
 #include "dbtask.hpp"
 #include "dbservice.hpp"
 #include "registry.hpp"
-#include "net/transport.hpp"
 
-void DbTask::on_data_received(int result, int id) {
-    if (result > 0) {
+
+void DbTask::on_data_received(int len, int msg_id) {
+    if (len > 0) {
         try {
             // 限制解析范围，避免解析额外无效数据
-            json j = json::parse(std::string(data_packet_.begin(), data_packet_.begin() + result));
+            json j = json::parse(std::string(data_packet_.begin(), data_packet_.begin() + len));
     
             auto jsonTask = std::make_shared<json>(j);
             if (auto self = shared_from_this()) {  
-                boost::asio::post(io_context_, [self, this, jsonTask, id]() {  
-                    this->handle_task(jsonTask, id);
+                boost::asio::post(io_context_, [self, this, jsonTask, msg_id]() {  
+                    this->handle_task(jsonTask, msg_id);
                 });
             }
         } catch (...) {
             std::cout << "json parse fail:\n" 
-                      << std::string(data_packet_.begin(), data_packet_.begin() + result) 
+                      << std::string(data_packet_.begin(), data_packet_.begin() + len) 
                       << std::endl;
         }
         // 移除已处理的数据（避免不必要的 clear + resize）
@@ -29,7 +29,7 @@ void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
     //std::cout << "handle_task in, the memory info:\n";
     //print_memory_usage();
     auto sendResponse = [&](const uint32_t msg_id, const json& response) {
-        auto port = TransportMng::get_instance()->get_port(port_id_);
+        auto port = transport_.lock();
         if (port) {
             std::string strResp = response.dump();
             if (strResp.size() > port->getMessageSize()) {
@@ -54,7 +54,7 @@ void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
     try {
         auto db = DBService::getInstance()->getDb();
         auto handler = ActionRegistry::getInstance().getHandler((*json_data)["action"]);
-        handler->port_id_ = port_id_;
+        handler->port_id_ = id_;
         handler->handle(*json_data, db, jsonResp);
     } catch (const std::exception& e) {
         jsonResp["error"] = e.what();

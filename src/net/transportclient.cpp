@@ -152,11 +152,11 @@ void TransportClient::stop() {
 	close();
 }
 
-void TransportClient::on_data_received(int result,int) {
+void TransportClient::on_data_received(int len,int) {
 	//printf("port to tcp\n");
 	//std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
-	if (result > 0) {
-		int ret = this->write_with_timeout(write_buf,result,50);
+	if (len > 0) {
+		int ret = this->write_with_timeout(write_buf,len,50);
 		if ( ret == -2 ) {
 			close();
 			reconnect();

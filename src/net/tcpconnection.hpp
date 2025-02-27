@@ -14,7 +14,7 @@ using tcp = boost::asio::ip::tcp; // 简化命名空间
 class TcpConnection : public IConnection {
     friend class TcpServer;
 public:
-    TcpConnection(boost::asio::io_context& io_context, tcp::socket socket);
+    TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id);
     ~TcpConnection();
 
     void start();    // 启动连接
@@ -22,16 +22,15 @@ public:
     bool is_idle();  // 判断是否空闲
     void write(const std::string& data); // 主动发送数据
 
-    // IDataCallback 接口实现
-    void on_data_received(int result, int id) override;
-    DataVariant& get_data() override;
 
+    void on_data_received(int len, int ) override;
+    DataVariant& get_data() override;
     void set_transport(const std::shared_ptr<Transport>& transport) override {
         transport_ = transport;
-        transport_id_ = transport->get_id();
-        cached_data_ = std::make_tuple(write_buffer_, sizeof(write_buffer_), transport->get_id());
     }
-
+    uint32_t get_id() override{
+        return id_;
+    }
 private:
     void do_read();          // 异步读取数据
     void do_write();         // 异步写入数据
@@ -43,7 +42,7 @@ private:
     std::atomic<bool> is_idle_;
     std::mutex write_mutex_;
     std::deque<std::string> write_queue_;
-    uint32_t transport_id_;
+    uint32_t id_;
     std::weak_ptr<Transport> transport_;
     
     char read_buffer_[TCP_BUFFER_SIZE];     // 读缓冲区

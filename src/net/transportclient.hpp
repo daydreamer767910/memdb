@@ -28,8 +28,7 @@ public:
 		TcpClient(io_context),
 		user_(user), passwd_(pwd) {
 		tranportMng_ = TransportMng::get_instance();
-		//std::cout << "TransportClient created" << std::endl;
-		//crypt_.init(Database::getInstance(), passwd_);
+		id_ = 1;
 	}
 
 	~TransportClient() {
@@ -65,18 +64,22 @@ public:
 		memset(write_buf,0,sizeof(write_buf));
         return cached_data_;
     }
-	void on_data_received(int result,int id) override ;
+	void on_data_received(int len,int ) override ;
 	void set_transport(const std::shared_ptr<Transport>& transport) override {
         transport_ = transport;
         cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport->get_id());
 		transport_->setCompressFlag(true);
 		transport_->setEncryptMode(false);
     }
+	uint32_t get_id() override{
+        return id_;
+    }
 protected:
 	int Ecdh();
 	void handle_read(const boost::system::error_code& error, std::size_t nread) override;
 private:
 	boost::asio::io_context& io_context_;
+	uint32_t id_;
 	static ptr my_instance;
 	std::string host_;
 	std::string port_;

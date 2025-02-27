@@ -46,7 +46,7 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
         connection_count++;
         unique_id++;
         auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
-		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket));
+		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket), unique_id);
         connections_.emplace(unique_id, connection);
 		notify_new_connection(connection);
         connection->start();
@@ -75,7 +75,7 @@ void TcpServer::on_timer(std::thread::id /*id*/) {
     for (auto it = connections_.begin(); it != connections_.end();) {
         if (it->second->is_idle()) {
             connection_count--;
-			notify_close_connection(it->second->transport_id_);
+			notify_close_connection(it->second->get_id());
             it->second->stop();
             logger.log(Logger::LogLevel::INFO, "Connection [{}] removed due to inactivity", it->first);
             it = connections_.erase(it);

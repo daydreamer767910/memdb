@@ -39,7 +39,8 @@ void Transport::stop() {
 
 void Transport::on_send() {
 	//std::cout << "send signal\n";
-	for (auto& callback : callbacks_) {
+	for (auto& callback_weak : callbacks_) {
+        auto callback = callback_weak.lock();
         if (!callback) continue;
         try {
             // 确保捕获 shared_ptr
@@ -74,8 +75,9 @@ void Transport::on_send() {
 
 void Transport::on_input() {
 	//std::cout << "input signal\n";
-    for (auto& callback : callbacks_) {
+    for (auto& callback_weak : callbacks_) {
         //std::cout << "callback\n";
+        auto callback = callback_weak.lock();
         if (!callback) continue;
         try {
             // 确保捕获 shared_ptr

@@ -16,9 +16,7 @@
 #include "dbcore/database.hpp"
 #include "util/threadbase.hpp"
 #include "net/transport.hpp"
-#include "net/transportmng.hpp"
 #include "util/timer.hpp"
-#include "keymng/crypt.hpp"
 #include "dbtask.hpp"
 
 using DBMsg = std::tuple<std::shared_ptr<json>,uint32_t,uint32_t>;
@@ -46,10 +44,10 @@ public:
 	void on_new_transport(const std::shared_ptr<Transport>& transport) override {
 		std::lock_guard<std::mutex> lock(mutex_);
 		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
-		auto dbtask = std::make_shared<DbTask>(transport->get_id(),transport->getMessageSize(),io_);
+		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
+		dbtask->set_transport(transport);
 		tasks_.emplace(transport->get_id(), dbtask);
         transport->add_callback(dbtask);
-		transport->setCompressFlag(true);
     }
 
 	void on_close_transport(const uint32_t port_id) override {

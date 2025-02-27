@@ -54,19 +54,17 @@ private:
             observer->on_new_transport(transport);
         }
     }
-	void notify_close_transport(const uint32_t port_id) {
+	void notify_close_transport(const uint32_t id) {
         for (const auto& observer : observers_) {
-            observer->on_close_transport(port_id);
+            observer->on_close_transport(id);
         }
     }
 
-	std::shared_ptr<Transport> open_port();
-	void close_port(uint32_t port_id);
+	std::shared_ptr<Transport> open_port(uint32_t id);
+	void close_port(uint32_t id);
 
-	static constexpr size_t transport_buff_szie = 1024*9; //9K
+	static constexpr size_t transport_buff_szie = 1024*16; //16K
 	std::mutex mutex_;
-	static uint32_t unique_id;
-	static std::atomic<uint32_t> ports_count;  // 连接数
 	std::unordered_map<uint32_t, std::shared_ptr<Transport>> ports_;
 	boost::asio::io_context io_[2];
 	boost::asio::thread_pool thread_pool_;
