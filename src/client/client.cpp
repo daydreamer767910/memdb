@@ -3,35 +3,28 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "net/transportsrv.hpp"
+
 #include "util/util.hpp"
 #include "util/timer.hpp"
-
-#include "mdbclient.hpp"
+#include "net/transportclient.hpp"
 
 // 创建 TcpClient 对象
 
 boost::asio::io_context io_context;
-MdbClient::ptr client_ptr = nullptr;
+TransportClient::ptr client_ptr = nullptr;
 
 extern "C" {
 
 void mdb_init(const char* user, const char* pwd) {
-	client_ptr = MdbClient::get_instance(io_context,user,pwd);
+	client_ptr = TransportClient::get_instance(io_context,user,pwd);
 }
 
 int mdb_start(const char* ip, int port) {
-	int ret = client_ptr->start(std::string(ip), std::to_string(port));
-	if (ret<0) return ret;
-	client_ptr->setEncryptMode(false);
-	return client_ptr->Ecdh();
+	return client_ptr->start(std::string(ip), std::to_string(port));
 }
 
 int mdb_reconnect(const char* ip, int port) {
-	int ret = client_ptr->reconnect(std::string(ip), std::to_string(port));
-	if (ret<0) return ret;
-	client_ptr->setEncryptMode(false);
-	return client_ptr->Ecdh();
+	return client_ptr->reconnect(std::string(ip), std::to_string(port));
 }
 
 void mdb_stop() {
@@ -49,8 +42,8 @@ int mdb_recv(char* buffer, int size, int &msg_id, int timeout) {
     return ret;
 }
 
-int mdb_send(const char* json_strdata, int msg_id, int timeout) {
-	return client_ptr->send(std::string(json_strdata), msg_id, timeout);
+int mdb_send(const char* json_strdata, int size, int msg_id, int timeout) {
+	return client_ptr->send(reinterpret_cast<const uint8_t*>(json_strdata), size, msg_id, timeout);
 }
 
 }

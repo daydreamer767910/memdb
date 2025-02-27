@@ -57,8 +57,8 @@ extern "C" {
     void mdb_quit();
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
-    int mdb_recv(char* buffer, int size, int timeout);
-    int mdb_send(const char* json_strdata, int msg_id, int timeout);
+    int mdb_recv(char* buffer, int size, int &msg_id, int timeout);
+    int mdb_send(const char* json_strdata, int size, int msg_id, int timeout);
 }
 ```
 #### 对于js/typescript:
@@ -70,8 +70,8 @@ mdb_init: ["void", ["string","string"]],
 mdb_stop: ["void", []],
 mdb_start: ["int", ["string", "int"]],
 mdb_reconnect: ["int", ["string", "int"]],
-mdb_recv: ["int", ["pointer", "int", "int"]],
-mdb_send: ["int", ["string", "int", "int"]],
+mdb_recv: ["int", ["pointer", "int", "ref.refType(int)", "int"]],
+mdb_send: ["int", ["string", "int", "int", "int"]],
 });
 ```
 

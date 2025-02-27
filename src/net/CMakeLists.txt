@@ -6,9 +6,11 @@ pkg_check_modules(JEMALLOC REQUIRED jemalloc)
 # 定义源文件
 set(NET_SOURCES
     transport.cpp
-    transportsrv.cpp
+    transportmng.cpp
     tcpconnection.cpp
     tcpserver.cpp
+    transportclient.cpp
+    transportsrv.cpp
 )
 # 定义网络功能的库
 add_library(net STATIC ${NET_SOURCES})

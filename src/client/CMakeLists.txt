@@ -2,7 +2,6 @@
 # 定义源文件
 set(MDB_SOURCES
     client.cpp
-    mdbclient.cpp
 )
 
 # lib for other apps

@@ -1,6 +1,6 @@
 #include "dbservice.hpp"
 #include "log/logger.hpp"
-#include "net/transportsrv.hpp"
+#include "net/transportmng.hpp"
 #include "util/util.hpp"
 
 DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
@@ -74,13 +74,13 @@ void DBService::on_msg(const std::shared_ptr<DBVariantMsg> msg) {
 }
 
 void DBService::keep_alive() {
-	auto port_ids = TransportSrv::get_instance()->get_all_ports();
+	auto port_ids = TransportMng::get_instance()->get_all_ports();
 	std::cout << " Timer thread id: " << std::this_thread::get_id() <<std::endl;
 	json jsonData;
 	for (int port_id : port_ids) {
 		jsonData["type"] = "keep alive(s)";
 		jsonData["timeout"] = keep_alv_timer/1000;
-		auto port = TransportSrv::get_instance()->get_port(port_id);
+		auto port = TransportMng::get_instance()->get_port(port_id);
 		if (port) {
 			std::string strData = jsonData.dump();
 			int ret = port->send( reinterpret_cast<const uint8_t*>(strData.data()), 

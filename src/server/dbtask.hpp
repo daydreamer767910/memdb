@@ -20,10 +20,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/strand.hpp>
 #include "dbcore/database.hpp"
-#include "net/transport.hpp"
-
-
-
+#include "net/common.hpp"
 class DbTask: public IDataCallback {
 public:
 	DbTask(uint32_t port_id, size_t msg_size, boost::asio::io_context& io_context)

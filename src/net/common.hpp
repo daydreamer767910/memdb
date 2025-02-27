@@ -9,20 +9,20 @@
 #include <condition_variable>
 #include "util/util.hpp"
 
-template <typename T>
-class IObserver {
-public:
-    virtual void on_new_object(const std::shared_ptr<T>& object) = 0;
-    virtual void on_close_object(const uint32_t id) = 0;
-    virtual ~IObserver() = default;
-};
-
 class Transport;
 class ITransportObserver {
 public:
     virtual void on_new_transport(const std::shared_ptr<Transport>& transport) = 0;
 	virtual void on_close_transport(const uint32_t port_id) = 0;
     virtual ~ITransportObserver() = default;
+};
+
+class IConnection;
+class IConnectionObserver {
+public:
+    virtual void on_new_connection(const std::shared_ptr<IConnection>& connection) = 0;
+	virtual void on_close_connection(const uint32_t port_id) = 0;
+    virtual ~IConnectionObserver() = default;
 };
 
 
@@ -38,6 +38,12 @@ public:
     virtual void on_data_received(int result,int id) = 0;  // 回调处理逻辑
     virtual DataVariant& get_data() = 0;  // 获取数据缓存
     virtual ~IDataCallback() = default; // 虚析构函数
+};
+
+class IConnection : public IDataCallback {
+public:
+    virtual void set_transport(const std::shared_ptr<Transport>& transport) = 0;
+    virtual ~IConnection() = default;
 };
 
 #endif

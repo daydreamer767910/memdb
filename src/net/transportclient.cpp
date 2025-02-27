@@ -1,24 +1,11 @@
 #include <thread>
 #include <future>
 #include <csignal>
-#include "mdbclient.hpp"
+#include "transportclient.hpp"
 
-MdbClient::ptr MdbClient::my_instance = nullptr;
+TransportClient::ptr TransportClient::my_instance = nullptr;
 
-void MdbClient::set_transport(trans_pair& port_info) {
-	transport_ = port_info.second;
-	transport_->setCompressFlag(true);
-	transport_id_ = port_info.first;
-	//Crypt::NoiseKeypair clntNKP;
-	//crypt_.loadKeys(user_, clntNKP);
-	//transport_->setNoiseKeys(clntNKP.secretKey, clntNKP.publicKey);
-}
-
-uint32_t MdbClient::get_transportid() {
-	return transport_id_;
-}
-
-int MdbClient::Ecdh() {
+int TransportClient::Ecdh() {
     auto clientKxPair = generateKxKeypair();
 	uint32_t msg_id = 0;
     json jsonData;
@@ -27,11 +14,11 @@ int MdbClient::Ecdh() {
     jsonData["primitive"] = "HKDF";
     jsonData["pkc"] = toHexString(clientKxPair.first);
     // Convert JSON to string
-    std::string jsonConfig = jsonData.dump(1);
+    std::string jsonConfig = jsonData.dump();
     
     // 写操作，支持超时
     int ret = 0;
-    ret = this->send(jsonConfig,msg_id, 1000);
+    ret = this->send(reinterpret_cast<const uint8_t*>(jsonConfig.c_str()), jsonConfig.size(),msg_id, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
@@ -75,9 +62,9 @@ int MdbClient::Ecdh() {
     jsonData["primitive"] = "Argon2";
     jsonData["userid"] = this->user_;
 	jsonData["password"] = this->passwd_;
-    jsonConfig = jsonData.dump(1);
+    jsonConfig = jsonData.dump();
     
-	ret = this->send(jsonConfig,0, 1000);
+	ret = this->send(reinterpret_cast<const uint8_t*>(jsonConfig.c_str()), jsonConfig.size(),0, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         return ret;
@@ -115,20 +102,20 @@ int MdbClient::Ecdh() {
     return 0;
 }
 
-int MdbClient::reconnect(const std::string& host, const std::string& port) {
+int TransportClient::reconnect(const std::string& host, const std::string& port) {
 	host_ = host.empty() ? host_ : host;
 	port_ = port.empty() ? port_ : port;
 	if (!connect(host_, port_)) {
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
-	
-	transport_srv->get_port(transport_id_)->reset(Transport::ChannelType::ALL);
+	transport_->setEncryptMode(false);
+	transport_->reset(Transport::ChannelType::ALL);
 	set_async_read(this->read_buf,sizeof(this->read_buf));
-	return 0;
+	return this->Ecdh();
 }
 
-int MdbClient::start(const std::string& host, const std::string& port) {
+int TransportClient::start(const std::string& host, const std::string& port) {
 	static bool started = false;
 	if(started) {
 		stop();
@@ -144,13 +131,10 @@ int MdbClient::start(const std::string& host, const std::string& port) {
 	}
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
+		
+	tranportMng_->on_new_connection(my_instance);
 	
-	
-	auto port_info = transport_srv->open_port();
-	set_transport(port_info);
-	port_info.second->add_callback(my_instance);
-
-	transport_srv->start();
+	tranportMng_->start();
 
 	asio_eventLoopThread = std::thread([this]() {
         //std::cout << "asoi Event loop starting:" << std::this_thread::get_id() << std::endl;
@@ -161,14 +145,14 @@ int MdbClient::start(const std::string& host, const std::string& port) {
     });
 	
 	//std::cout << "mdb client started." << std::endl;
-	return 0;
+	return this->Ecdh();
 }
 
-void MdbClient::stop() {
+void TransportClient::stop() {
 	close();
 }
 
-void MdbClient::on_data_received(int result,int) {
+void TransportClient::on_data_received(int result,int) {
 	//printf("port to tcp\n");
 	//std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
 	if (result > 0) {
@@ -184,26 +168,15 @@ void MdbClient::on_data_received(int result,int) {
 	}
 }
 
-int MdbClient::send(const std::string& data, uint32_t msg_id, uint32_t timeout) {
-	try {
-        int ret= transport_->send(reinterpret_cast<const uint8_t*>(data.data()),
-						data.size(),
-						msg_id,
-						std::chrono::milliseconds(timeout));
-		//if(ret>0)
-		//std::cout << "send to transport:" << ret << std::endl;
-		return ret;
-    } catch (const std::exception& e) {
-        std::cerr << "Send error: " << e.what() << std::endl;
-        return -1;
-    }
+int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout) {
+	return transport_->send(data, size,msg_id,std::chrono::milliseconds(timeout));
 }
 
-int MdbClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
+int TransportClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
 	return transport_->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
 }
 
-void MdbClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
+void TransportClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
 	//std::cout << "tcp read thread ID: " << std::this_thread::get_id() << std::endl;
 	if (!error) {
 		//std::cout << "handle_read: " << nread << std::endl;

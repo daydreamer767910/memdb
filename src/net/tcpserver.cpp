@@ -1,7 +1,5 @@
 #include "tcpserver.hpp"
 #include "log/logger.hpp"
-#include "transport.hpp"
-#include "transportsrv.hpp"
 
 TcpServer::TcpServer()
     : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0) ,
@@ -50,7 +48,7 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
         auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
 		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket));
         connections_.emplace(unique_id, connection);
-		TransportSrv::get_instance()->on_new_connection(connection);
+		notify_new_connection(connection);
         connection->start();
         logger.log(Logger::LogLevel::INFO, "New connection [{}] established", unique_id.load());
     } else {
@@ -77,7 +75,7 @@ void TcpServer::on_timer(std::thread::id /*id*/) {
     for (auto it = connections_.begin(); it != connections_.end();) {
         if (it->second->is_idle()) {
             connection_count--;
-			TransportSrv::get_instance()->close_port(it->second->transport_id_);
+			notify_close_connection(it->second->transport_id_);
             it->second->stop();
             logger.log(Logger::LogLevel::INFO, "Connection [{}] removed due to inactivity", it->first);
             it = connections_.erase(it);

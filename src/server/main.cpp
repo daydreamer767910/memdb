@@ -11,22 +11,21 @@
 #include <nlohmann/json.hpp>
 #include "dbcore/table.hpp"
 #include "dbcore/database.hpp"
-#include "net/tcpserver.hpp"
+#include "net/transportsrv.hpp"
 #include "log/logger.hpp"
 #include "server/dbservice.hpp"
 
 
 DBService::ptr db_server = DBService::getInstance();
-TransportSrv::ptr tranport_server = TransportSrv::get_instance();
-auto server = TcpServer();
+
+auto transportSrv = TransportSrv();
 
 void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
         std::cout << "\nsignal " << signal << " received. Preparing to exit..." << std::endl;
         logger.terminate();
         db_server->terminate();
-        tranport_server->stop();
-        server.stop();
+        transportSrv.stop();
     }
 }
 
@@ -44,8 +43,8 @@ int main(int argc, char* argv[]) {
     logger.start();
     
     db_server->start();
-    tranport_server->add_observer(db_server);
-    tranport_server->start();
+    transportSrv.add_observer(db_server);
+    
     // 启动 TCP 服务器
     if (argc == 3) {
         // 如果有两个额外的参数传入
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
         if (envIP) srvIP = envIP;  // 如果环境变量存在，使用它
         if (envPort) srvPort = envPort;
     }
-    server.start(srvIP, std::stoi(srvPort));
+    transportSrv.start(srvIP, std::stoi(srvPort));
 
     std::cout << "Exiting program." << std::endl;
     return 0;

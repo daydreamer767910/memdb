@@ -11,7 +11,7 @@
 using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
-class TcpConnection : public IDataCallback {
+class TcpConnection : public IConnection {
     friend class TcpServer;
 public:
     TcpConnection(boost::asio::io_context& io_context, tcp::socket socket);
@@ -26,12 +26,10 @@ public:
     void on_data_received(int result, int id) override;
     DataVariant& get_data() override;
 
-    void set_transport_id(uint32_t id) {
-        transport_id_ = id;
-        cached_data_ = std::make_tuple(write_buffer_, sizeof(write_buffer_), id);
-    }
-    void set_transport(std::shared_ptr<Transport> transport) {
+    void set_transport(const std::shared_ptr<Transport>& transport) override {
         transport_ = transport;
+        transport_id_ = transport->get_id();
+        cached_data_ = std::make_tuple(write_buffer_, sizeof(write_buffer_), transport->get_id());
     }
 
 private:

@@ -1,5 +1,5 @@
-#ifndef MDBCLIENT_HPP
-#define MDBCLIENT_HPP
+#ifndef TransportClient_HPP
+#define TransportClient_HPP
 
 #include <iostream>
 #include <cstring>
@@ -8,38 +8,38 @@
 #include <unistd.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
-#include "net/transportsrv.hpp"
+#include "transportmng.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
-#include "net/tcpclient.hpp"
+#include "tcpclient.hpp"
 
 
-class MdbClient:public TcpClient , public IDataCallback {
+class TransportClient:public TcpClient , public IConnection {
 private:
-	MdbClient(const MdbClient&) = delete;
-    MdbClient& operator=(const MdbClient&) = delete;
+	TransportClient(const TransportClient&) = delete;
+    TransportClient& operator=(const TransportClient&) = delete;
 
 public:
-	using ptr = std::shared_ptr<MdbClient>;
+	using ptr = std::shared_ptr<TransportClient>;
 
-	MdbClient(boost::asio::io_context& io_context, const std::string& user, const std::string& pwd)
+	TransportClient(boost::asio::io_context& io_context, const std::string& user, const std::string& pwd)
 		: io_context_(io_context), 
 		work_guard_(boost::asio::make_work_guard(io_context)),
 		TcpClient(io_context),
 		user_(user), passwd_(pwd) {
-		transport_srv = TransportSrv::get_instance();
-		//std::cout << "MdbClient created" << std::endl;
+		tranportMng_ = TransportMng::get_instance();
+		//std::cout << "TransportClient created" << std::endl;
 		//crypt_.init(Database::getInstance(), passwd_);
 	}
 
-	~MdbClient() {
+	~TransportClient() {
 		
 	}
 
 	void quit() {
 		io_context_.stop();
-		transport_srv->close_port(this->transport_id_);
-		transport_srv->stop();
+		tranportMng_->on_close_connection(transport_->get_id());
+		tranportMng_->stop();
 		if (asio_eventLoopThread.joinable())
 			asio_eventLoopThread.join();
 		work_guard_.reset();
@@ -47,43 +47,41 @@ public:
 
 	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user, const std::string& pwd) {
 		if (my_instance == nullptr)
-        	my_instance = std::make_shared<MdbClient>(io_context,user,pwd);
+        	my_instance = std::make_shared<TransportClient>(io_context,user,pwd);
 		return my_instance;
     }
 
-	void set_transport(trans_pair& port_info);
-	void setEncryptMode(const int mode) {
-		transport_->setEncryptMode(mode);
-	}
-
-	uint32_t get_transportid();
-
 	int start(const std::string& host, const std::string& port);
+	int reconnect(const std::string& host = "", const std::string& port = "");
 	void stop();
-	int Ecdh();
-
+	
 	// 1. APP 缓存到下行 CircularBuffer
-    int send(const std::string& data, uint32_t msg_id, uint32_t timeout);
+    int send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout);
 	// 4. APP 读取上行 CircularBuffer
     int recv(uint8_t* pack_data,uint32_t& msg_id, size_t size, uint32_t timeout);
-	int reconnect(const std::string& host = "", const std::string& port = "");
+	
+	//for tcp client callback
 	DataVariant& get_data() override {
 		memset(write_buf,0,sizeof(write_buf));
-		cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport_id_);
         return cached_data_;
     }
 	void on_data_received(int result,int id) override ;
+	void set_transport(const std::shared_ptr<Transport>& transport) override {
+        transport_ = transport;
+        cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport->get_id());
+		transport_->setCompressFlag(true);
+		transport_->setEncryptMode(false);
+    }
 protected:
-	
+	int Ecdh();
 	void handle_read(const boost::system::error_code& error, std::size_t nread) override;
 private:
 	boost::asio::io_context& io_context_;
 	static ptr my_instance;
 	std::string host_;
 	std::string port_;
-	TransportSrv::ptr transport_srv;
+	TransportMng::ptr tranportMng_;
 	std::shared_ptr<Transport> transport_;
-	uint32_t transport_id_;
 	char read_buf[TCP_BUFFER_SIZE];
     char write_buf[TCP_BUFFER_SIZE];
     DataVariant cached_data_;

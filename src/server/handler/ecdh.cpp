@@ -1,6 +1,6 @@
 #include "../registry.hpp"
 #include "keymng/crypt.hpp"
-#include "net/transportsrv.hpp"
+#include "net/transportmng.hpp"
 
 class EcdhHandler : public ActionHandler {
 public:
@@ -15,7 +15,7 @@ public:
 			auto pk_C = hexStringToBytes(task["pkc"].get<std::string>());
 			auto serverKxPair = generateKxKeypair();
 			auto sessionKeys = generateServerSessionKeys(serverKxPair.first, serverKxPair.second, pk_C);
-			auto port = TransportSrv::get_instance()->get_port(this->port_id_);
+			auto port = TransportMng::get_instance()->get_port(this->port_id_);
 			if (port) {
 				port->setSessionKeys(sessionKeys.first, sessionKeys.second);
 				//std::cout << "Rx: ";
@@ -62,7 +62,7 @@ public:
 				//randombytes_buf(salt.data(), salt.size());  // 生成随机 salt
 				std::vector<uint8_t> shareKey_rx, shareKey_tx;
 				uint64_t keyid = std::hash<std::string>{}(userId);
-				auto port = TransportSrv::get_instance()->get_port(this->port_id_);
+				auto port = TransportMng::get_instance()->get_port(this->port_id_);
 				if (port) {
 					port->getSessionKeys(shareKey_rx, shareKey_tx);
 					//auto sessionK_rx = derive_key_with_argon2(shareKey_rx, passWd, salt);

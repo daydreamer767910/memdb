@@ -1,6 +1,7 @@
 #include "dbtask.hpp"
 #include "dbservice.hpp"
 #include "registry.hpp"
+#include "net/transport.hpp"
 
 void DbTask::on_data_received(int result, int id) {
     if (result > 0) {
@@ -28,7 +29,7 @@ void DbTask::handle_task(std::shared_ptr<json> json_data, uint32_t msg_id) {
     //std::cout << "handle_task in, the memory info:\n";
     //print_memory_usage();
     auto sendResponse = [&](const uint32_t msg_id, const json& response) {
-        auto port = TransportSrv::get_instance()->get_port(port_id_);
+        auto port = TransportMng::get_instance()->get_port(port_id_);
         if (port) {
             std::string strResp = response.dump();
             if (strResp.size() > port->getMessageSize()) {

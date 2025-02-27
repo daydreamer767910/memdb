@@ -4,12 +4,12 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <random>
-#include "net/transportsrv.hpp"
+
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
 #include "dbcore/field.hpp"
-#include "mdbclient.hpp"
+
 
 extern "C" {
     void mdb_init(const char* user,const char* pwd);
@@ -18,7 +18,7 @@ extern "C" {
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
     int mdb_recv(char* buffer, int size, int &msg_id, int timeout);
-    int mdb_send(const char* json_strdata, int msg_id, int timeout);
+    int mdb_send(const char* json_strdata, int size, int msg_id, int timeout);
 }
 
 
@@ -33,7 +33,7 @@ int test(const std::string jsonConfig) {
     // 写操作，支持超时
     int ret = 0;
     
-    ret = mdb_send(jsonConfig.c_str(),msgid, 1000);
+    ret = mdb_send(jsonConfig.c_str(), jsonConfig.size(),msgid, 1000);
     if (ret<0) {
         std::cerr << "Write operation failed:" << ret << std::endl;
         if (ret == -2) {
