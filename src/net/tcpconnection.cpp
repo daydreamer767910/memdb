@@ -1,6 +1,7 @@
 #include "tcpconnection.hpp"
 #include "log/logger.hpp"
 #include "util/util.hpp"
+#include "transport.hpp"
 
 TcpConnection::TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id)
     : io_context_(io_context), 

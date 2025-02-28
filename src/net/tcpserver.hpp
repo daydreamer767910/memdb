@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <mutex>
 #include "tcpconnection.hpp"
-#include "log/logger.hpp"
 #include "util/timer.hpp"
 
 #define MAX_CONNECTIONS 1000

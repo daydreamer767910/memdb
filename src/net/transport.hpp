@@ -12,7 +12,7 @@
 #include "util/msgbuffer.hpp"
 #include "util/timer.hpp"
 #include "common.hpp"
-#include "keymng/crypt.hpp"
+#include "crypt.hpp"
 
 constexpr uint32_t FLAG_SEGMENTED   = 0b0001; // 1 << 0 , 0: end, 1: not end
 constexpr uint32_t FLAG_ENCRYPTED   = 0b0010; // 1 << 1 , 0: 明文, 1: 加密

@@ -18,7 +18,6 @@
 #include <future>
 #include <boost/asio.hpp>
 #include "transport.hpp"
-#include "tcpconnection.hpp"
 
 class TransportMng {
 public:

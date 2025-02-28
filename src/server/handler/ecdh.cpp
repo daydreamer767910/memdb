@@ -1,5 +1,4 @@
 #include "../registry.hpp"
-#include "keymng/crypt.hpp"
 #include "net/transportmng.hpp"
 
 class EcdhHandler : public ActionHandler {

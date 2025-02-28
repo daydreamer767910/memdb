@@ -1,7 +1,6 @@
 #ifndef TransportSrv_HPP
 #define TransportSrv_HPP
 
-#include "transport.hpp"
 #include "transportmng.hpp"
 #include "tcpserver.hpp"
 class TransportSrv: public TcpServer {

@@ -8,7 +8,7 @@
 #include <zlib.h>
 #include <unistd.h>
 #include <random>
-#include "crypt.hpp"
+#include "net/crypt.hpp"
 #include "dbcore/database.hpp"
 
 Database::ptr& db = Database::getInstance();
