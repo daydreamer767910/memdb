@@ -27,7 +27,7 @@ public:
     void start(const std::string& ip, int port);
     void stop();
 protected:
-    virtual void on_new_connection(const std::shared_ptr<IConnection<Transport>>& connection, const uint32_t id) = 0;
+    virtual void on_new_connection(const std::shared_ptr<TcpConnection>& connection, const uint32_t id) = 0;
     virtual void on_close_connection(const uint32_t id) = 0;
 private:
     void on_accept(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);

@@ -31,12 +31,4 @@ public:
     virtual ~IDataCallback() = default; // 虚析构函数
 };
 
-template <typename T>
-class IConnection : public IDataCallback {
-public:
-    virtual void set_transport(const std::shared_ptr<T>& transport) = 0;
-    virtual ~IConnection() = default; // 虚析构函数
-};
-
-
 #endif

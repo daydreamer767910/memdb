@@ -14,7 +14,7 @@
 #include "tcpclient.hpp"
 
 
-class TransportClient:public TcpClient , public IConnection<Transport> {
+class TransportClient:public TcpClient, public IDataCallback {
 private:
 	TransportClient(const TransportClient&) = delete;
     TransportClient& operator=(const TransportClient&) = delete;
@@ -65,7 +65,7 @@ public:
         return cached_data_;
     }
 	void on_data_received(int len,int ) override ;
-	void set_transport(const std::shared_ptr<Transport>& transport) override {
+	void set_transport(const std::shared_ptr<Transport>& transport) {
         transport_ = transport;
         cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport->get_id());
 		transport_->setCompressFlag(true);

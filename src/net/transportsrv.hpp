@@ -25,7 +25,7 @@ private:
 			observer->on_close_item(id);
 		}
 	}
-	void on_new_connection(const std::shared_ptr<IConnection<Transport>>& connection, const uint32_t id) override;
+	void on_new_connection(const std::shared_ptr<TcpConnection>& connection, const uint32_t id) override;
 	void on_close_connection(const uint32_t id) override;
 	TransportMng::ptr tranportMng_;
 	std::vector<std::shared_ptr<IObserver<Transport>>> observers_;

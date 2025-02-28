@@ -11,7 +11,7 @@
 using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
-class TcpConnection : public IConnection<Transport>, public std::enable_shared_from_this<TcpConnection> {
+class TcpConnection : public IDataCallback, public std::enable_shared_from_this<TcpConnection> {
 public:
     TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id);
     ~TcpConnection();
@@ -24,7 +24,7 @@ public:
 
     void on_data_received(int len, int ) override;
     DataVariant& get_data() override;
-    void set_transport(const std::shared_ptr<Transport>& transport) override {
+    void set_transport(const std::shared_ptr<Transport>& transport) {
         transport_ = transport;
     }
     uint32_t get_id(){

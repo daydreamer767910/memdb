@@ -11,7 +11,7 @@ void TransportSrv::stop() {
 	TcpServer::stop();
 }
 
-void TransportSrv::on_new_connection(const std::shared_ptr<IConnection<Transport>>& connection, const uint32_t id) {
+void TransportSrv::on_new_connection(const std::shared_ptr<TcpConnection>& connection, const uint32_t id) {
 	auto port = tranportMng_->open_port(id);
     port->add_callback(connection);
     connection->set_transport(port);
