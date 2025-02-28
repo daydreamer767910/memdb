@@ -71,7 +71,7 @@ public:
 		transport_->setCompressFlag(true);
 		transport_->setEncryptMode(false);
     }
-	uint32_t get_id() override{
+	uint32_t get_id() {
         return id_;
     }
 protected:

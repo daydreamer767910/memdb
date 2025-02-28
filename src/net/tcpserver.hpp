@@ -34,14 +34,14 @@ private:
     void on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);
     void cleanup();
     void on_timer(std::thread::id id);
-    void notify_new_connection(const std::shared_ptr<IConnection>& connection) {
+    void notify_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
         for (const auto& observer : observers_) {
-            observer->on_new_connection(connection);
+            observer->on_new_connection(connection, id);
         }
     }
-	void notify_close_connection(const uint32_t port_id) {
+	void notify_close_connection(const uint32_t id) {
         for (const auto& observer : observers_) {
-            observer->on_close_connection(port_id);
+            observer->on_close_connection(id);
         }
     }
 

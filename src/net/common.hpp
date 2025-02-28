@@ -20,7 +20,7 @@ public:
 class IConnection;
 class IConnectionObserver {
 public:
-    virtual void on_new_connection(const std::shared_ptr<IConnection>& connection) = 0;
+    virtual void on_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) = 0;
 	virtual void on_close_connection(const uint32_t port_id) = 0;
     virtual ~IConnectionObserver() = default;
 };
@@ -33,12 +33,15 @@ using appMsg=std::tuple<std::vector<uint8_t>*,int, uint32_t>;
 using DataVariant = std::variant<tcpMsg, appMsg>;
 
 // 定义接口类
-class IConnection :public std::enable_shared_from_this<IConnection>{
+class IDataCallback {
 public:
     virtual void on_data_received(int len,int msg_id) = 0;  // 回调处理逻辑
     virtual DataVariant& get_data() = 0;  // 获取数据缓存
+    virtual ~IDataCallback() = default; // 虚析构函数
+};
+class IConnection : public IDataCallback {
+public:
     virtual void set_transport(const std::shared_ptr<Transport>& transport) = 0;
-    virtual uint32_t get_id() = 0;
     virtual ~IConnection() = default; // 虚析构函数
 };
 

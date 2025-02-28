@@ -45,8 +45,8 @@ public:
 		std::lock_guard<std::mutex> lock(mutex_);
 		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
 		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
-		dbtask->set_transport(transport);
-		tasks_.emplace(transport->get_id(), dbtask);
+		dbtask->initialize(transport);
+		tasks_.emplace(dbtask->get_id(), dbtask);
         transport->add_callback(dbtask);
     }
 

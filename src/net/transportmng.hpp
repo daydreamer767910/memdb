@@ -46,7 +46,7 @@ using ptr = std::shared_ptr<TransportMng>;
 
 	void start();
 	void stop();
-	void on_new_connection(const std::shared_ptr<IConnection>& connection) override;
+	void on_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) override;
 	void on_close_connection(const uint32_t port_id) override;
 private:
 	void notify_new_transport(const std::shared_ptr<Transport>& transport) {

@@ -13,8 +13,8 @@ TransportMng::~TransportMng() {
 }
 
 
-void TransportMng::on_new_connection(const std::shared_ptr<IConnection>& connection) {
-    auto port = open_port(connection->get_id());
+void TransportMng::on_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
+    auto port = open_port(id);
     port->add_callback(connection);
     connection->set_transport(port);
     this->notify_new_transport(port);

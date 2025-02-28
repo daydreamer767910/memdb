@@ -38,76 +38,59 @@ void Transport::stop() {
 
 
 void Transport::on_send() {
-	//std::cout << "send signal\n";
 	for (auto& callback_weak : callbacks_) {
-        auto callback = callback_weak.lock();
-        if (!callback) continue;
-        try {
-            // 确保捕获 shared_ptr
-            auto callback_ptr = callback->shared_from_this();
-            // 获取回调绑定的数据
-            DataVariant& variant = callback_ptr->get_data();
-            // 使用 std::visit 处理不同类型
-            std::visit([this, callback_ptr](auto&& data) {
-                using T = std::decay_t<decltype(data)>;
-                if constexpr (std::is_same_v<T, tcpMsg>) {
-                    auto [buffer,buffer_size, port_id] = data;
-                    //std::cout << "APP->PORT" << std::this_thread::get_id() << std::endl;
+        if (auto callback = callback_weak.lock()) {  // 直接解锁，不创建额外的 shared_ptr
+            try {
+                DataVariant& variant = callback->get_data();
+                // 仅在数据为 tcpMsg 时才处理
+                if (std::holds_alternative<tcpMsg>(variant)) {
+                    auto& [buffer, buffer_size, port_id] = std::get<tcpMsg>(variant);
+                    
                     if (port_id == this->id_) {
-                        //APP有可能发大数据 有segmentation 需要多次发
-                        while (true) {
-                            int len = this->output(buffer,buffer_size,std::chrono::milliseconds(50));
+                        do {
+                            int len = this->output(buffer, buffer_size, std::chrono::milliseconds(50));
                             if (len > 0) {
-                                //printf("output len:%d port:%d\n",len, this->id_);
-                                callback_ptr->on_data_received(len,0);
+                                callback->on_data_received(len, 0);
+                            } else {
+                                break;
                             }
-                            else break;
-                        } 
+                        } while (true);
                     }
                 }
-                // 如果未来有其他类型可以在这里扩展
-            }, variant);
-        } catch (const std::exception& e) {
-            std::cerr << "Callback processing error: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Callback processing error: " << e.what() << std::endl;
+            }
         }
-    }
+    }    
 }
 
 void Transport::on_input() {
-	//std::cout << "input signal\n";
     for (auto& callback_weak : callbacks_) {
-        //std::cout << "callback\n";
         auto callback = callback_weak.lock();
         if (!callback) continue;
         try {
-            // 确保捕获 shared_ptr
-            auto callback_ptr = callback->shared_from_this();
             // 获取回调绑定的数据
-            DataVariant& variant = callback_ptr->get_data();
-            // 使用 std::visit 处理不同类型
-            std::visit([this, callback_ptr](auto&& data) {
-                using T = std::decay_t<decltype(data)>;
-                if constexpr (std::is_same_v<T, appMsg>) {
-                    auto [app_data, max_cache_size, port_id] = data;
-                    //std::cout << "PORT->APP :" << std::this_thread::get_id() << std::endl;
-                    if (port_id == 0xffffffff || port_id == this->id_) {
-                        //当TCP层的数据缓冲大于传输层,需要多次收 
-                        while (true) {
-                            uint32_t id;
-                            int len = this->read(app_data->data(),id, max_cache_size, std::chrono::milliseconds(50));
-                            if (len > 0) {
-                                callback_ptr->on_data_received(len,id);
-                            }
-                            else break;
+            DataVariant& variant = callback->get_data();
+            if (std::holds_alternative<appMsg>(variant)) {
+                auto& data = std::get<appMsg>(variant);
+                auto [app_data, max_cache_size, port_id] = data;
+    
+                if (port_id == 0xffffffff || port_id == this->id_) {
+                    while (true) {
+                        uint32_t id;
+                        int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(50));
+                        if (len > 0) {
+                            callback->on_data_received(len, id);
+                        } else {
+                            break;
                         }
                     }
                 }
-            }, variant);
-
+            }
         } catch (const std::exception& e) {
             std::cerr << "Callback processing error: " << e.what() << std::endl;
         }
-    }
+    }    
 }
 
 void Transport::triger_event(ChannelType type) {

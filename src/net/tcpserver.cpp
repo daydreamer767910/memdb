@@ -48,7 +48,7 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
         auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
 		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket), unique_id);
         connections_.emplace(unique_id, connection);
-		notify_new_connection(connection);
+		notify_new_connection(connection, unique_id);
         connection->start();
         logger.log(Logger::LogLevel::INFO, "New connection [{}] established", unique_id.load());
     } else {

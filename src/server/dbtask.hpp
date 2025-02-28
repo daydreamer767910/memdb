@@ -20,7 +20,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/strand.hpp>
 #include "net/transport.hpp"
-class DbTask: public IConnection {
+class DbTask: public IDataCallback, public std::enable_shared_from_this<DbTask> {
 public:
 	DbTask(uint32_t id, boost::asio::io_context& io_context)
 		: id_(id), io_context_(io_context){
@@ -32,10 +32,10 @@ public:
 		std::cout << "DB task " << id_ << " destoryed" << std::endl;
 	#endif
 	}
-	uint32_t get_id() override{
+	uint32_t get_id() {
         return id_;
     }
-	void set_transport(const std::shared_ptr<Transport>& transport) override {
+	void initialize(const std::shared_ptr<Transport>& transport) {
         transport_ = transport;
 		id_ = transport->get_id();
 		cached_data_ = std::make_tuple(&data_packet_, transport->getMessageSize(), id_);
