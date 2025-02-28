@@ -11,6 +11,6 @@ void TransportSrv::stop() {
 	tcpSrv_.stop();
 }
 
-void TransportSrv::add_observer(const std::shared_ptr<ITransportObserver>& observer) {
+void TransportSrv::add_observer(const std::shared_ptr<IObserver<Transport>>& observer) {
 	tranportMng_->add_observer(observer);
 }

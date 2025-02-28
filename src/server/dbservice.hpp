@@ -21,7 +21,7 @@
 
 using DBMsg = std::tuple<std::shared_ptr<json>,uint32_t,uint32_t>;
 using DBVariantMsg = std::variant<DBMsg>;
-class DBService : public ThreadBase<DBMsg>, public ITransportObserver{
+class DBService : public ThreadBase<DBMsg>, public IObserver<Transport>{
 public:
 	DBService();
 	
@@ -41,16 +41,16 @@ public:
 		return DBService::getInstance()->db;
 	}
 
-	void on_new_transport(const std::shared_ptr<Transport>& transport) override {
+	void on_new_item(const std::shared_ptr<Transport>& transport, uint32_t id) override {
 		std::lock_guard<std::mutex> lock(mutex_);
 		//std::cout << "on_new_transport" << transport->get_id() << std::endl;
-		auto dbtask = std::make_shared<DbTask>(transport->get_id(),io_);
-		dbtask->initialize(transport);
-		tasks_.emplace(dbtask->get_id(), dbtask);
+		auto dbtask = std::make_shared<DbTask>(io_);
+		dbtask->initialize(transport, id);
+		tasks_.emplace(id, dbtask);
         transport->add_callback(dbtask);
     }
 
-	void on_close_transport(const uint32_t port_id) override {
+	void on_close_item(const uint32_t port_id) override {
 		std::lock_guard<std::mutex> lock(mutex_);
 		auto it = tasks_.find(port_id);
 		if (it != tasks_.end()) {

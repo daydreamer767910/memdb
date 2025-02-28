@@ -10,7 +10,7 @@ public:
 		tranportMng_ = TransportMng::get_instance();
 		tcpSrv_.add_observer(tranportMng_);
 	}
-	void add_observer(const std::shared_ptr<ITransportObserver>& observer);
+	void add_observer(const std::shared_ptr<IObserver<Transport>>& observer);
 	int start(std::string ip, uint32_t port);
 	void stop();
 private:

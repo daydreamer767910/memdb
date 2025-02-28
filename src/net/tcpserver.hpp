@@ -26,7 +26,7 @@ public:
     }
     void start(const std::string& ip, int port);
     void stop();
-    void add_observer(const std::shared_ptr<IConnectionObserver>& observer) {
+    void add_observer(const std::shared_ptr<IObserver<IConnection>>& observer) {
         observers_.push_back(observer);
     }
 
@@ -36,12 +36,12 @@ private:
     void on_timer(std::thread::id id);
     void notify_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
         for (const auto& observer : observers_) {
-            observer->on_new_connection(connection, id);
+            observer->on_new_item(connection, id);
         }
     }
 	void notify_close_connection(const uint32_t id) {
         for (const auto& observer : observers_) {
-            observer->on_close_connection(id);
+            observer->on_close_item(id);
         }
     }
 
@@ -53,7 +53,7 @@ private:
     std::atomic<uint32_t> unique_id;
     uint32_t max_connection_num = MAX_CONNECTIONS;
     Timer timer_;
-    std::vector<std::shared_ptr<IConnectionObserver>> observers_;
+    std::vector<std::shared_ptr<IObserver<IConnection>>> observers_;
 };
 
 #endif // TCPSERVER_HPP

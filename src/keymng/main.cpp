@@ -6,6 +6,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <unistd.h>
+#include <random>
 #include "crypt.hpp"
 #include "dbcore/database.hpp"
 
@@ -151,8 +153,45 @@ void test() {
 }*/
 
 void testCompression() {
+    json j = json::array();
+    for (int k=0; k< 20000; ++k) {
+        // 生成随机数
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(1000, 9999);  // 随机数范围
+        int randomValue = dis(gen);
+
+        j.push_back({
+            {"id", k++},
+            //{"_id", id+100000},
+            {"version", 1},
+            {"title", "oumass Document " + std::to_string(k)},
+            {"value", randomValue*(k+3)},
+            {"content", "https://github.com/daydreamer767910/memdb"},
+            {"details", {
+                {"title", "cmass"},
+                {"created_at", "${" + get_timestamp_sec() + "}"},
+                {"author", "anybody " + std::to_string(k)},
+                {"age", k%99+16},
+                {"email", std::to_string(k) + "xx@yy.zz"},
+                {"phone", "+10 123 456-" + std::to_string(randomValue)},
+                //{"password", "Sb123456#"},
+                {"status", {
+                    {"views", randomValue*k},
+                    {"likes", randomValue/(k+1)},
+                    {"shares", randomValue*(k+10)}
+                }}
+            }}
+        });
+    }
+    
+    json jsonData;
+    jsonData["action"] = "insert";
+    jsonData["name"] = "name";
+    jsonData["documents"] = j;
+
     // 1. 生成测试数据
-    std::string originalText = "This is a test string for compression. Let's see how well it compresses!";
+    std::string originalText = jsonData.dump(1);
     std::vector<unsigned char> originalData(originalText.begin(), originalText.end());
 
     // 2. 压缩数据
@@ -163,7 +202,7 @@ void testCompression() {
               << ", Compressed size: " << compressedData.size() << std::endl;
 
     // 3. 解压数据
-    std::vector<unsigned char> decompressedData(1024);
+    std::vector<unsigned char> decompressedData(originalText.size());
     
     int size = decompressData(compressedData, decompressedData.data(),decompressedData.size());
     assert(size >= Z_OK);

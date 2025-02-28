@@ -13,14 +13,14 @@ TransportMng::~TransportMng() {
 }
 
 
-void TransportMng::on_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
+void TransportMng::on_new_item(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
     auto port = open_port(id);
     port->add_callback(connection);
     connection->set_transport(port);
-    this->notify_new_transport(port);
+    this->notify_new_transport(port, id);
 }
 
-void TransportMng::on_close_connection(const uint32_t port_id) {
+void TransportMng::on_close_item(const uint32_t port_id) {
     close_port(port_id);
     this->notify_close_transport(port_id);
 }

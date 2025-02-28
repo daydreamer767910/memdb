@@ -37,7 +37,7 @@ public:
 
 	void quit() {
 		io_context_.stop();
-		tranportMng_->on_close_connection(transport_->get_id());
+		tranportMng_->on_close_item(transport_->get_id());
 		tranportMng_->stop();
 		if (asio_eventLoopThread.joinable())
 			asio_eventLoopThread.join();

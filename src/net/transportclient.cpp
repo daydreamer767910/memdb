@@ -132,7 +132,7 @@ int TransportClient::start(const std::string& host, const std::string& port) {
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
 		
-	tranportMng_->on_new_connection(my_instance, id_);
+	tranportMng_->on_new_item(my_instance, id_);
 	
 	tranportMng_->start();
 

@@ -22,8 +22,8 @@
 #include "net/transport.hpp"
 class DbTask: public IDataCallback, public std::enable_shared_from_this<DbTask> {
 public:
-	DbTask(uint32_t id, boost::asio::io_context& io_context)
-		: id_(id), io_context_(io_context){
+	DbTask(boost::asio::io_context& io_context)
+		: io_context_(io_context){
 			
 	}
 	
@@ -35,9 +35,9 @@ public:
 	uint32_t get_id() {
         return id_;
     }
-	void initialize(const std::shared_ptr<Transport>& transport) {
+	void initialize(const std::shared_ptr<Transport>& transport, uint32_t id) {
         transport_ = transport;
-		id_ = transport->get_id();
+		id_ = id;
 		cached_data_ = std::make_tuple(&data_packet_, transport->getMessageSize(), id_);
 		data_packet_.resize(transport->getMessageSize());  // 预分配缓存大小
 		transport->setCompressFlag(true);
