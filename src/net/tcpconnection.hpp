@@ -11,8 +11,7 @@
 using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
-class TcpConnection : public IConnection, public std::enable_shared_from_this<TcpConnection> {
-    friend class TcpServer;
+class TcpConnection : public IConnection<Transport>, public std::enable_shared_from_this<TcpConnection> {
 public:
     TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id);
     ~TcpConnection();
@@ -35,6 +34,7 @@ private:
     void do_read();          // 异步读取数据
     void do_write();         // 异步写入数据
     void handle_read(const boost::system::error_code& ec, size_t bytes_transferred);
+    
     void handle_write(const boost::system::error_code& ec, size_t bytes_transferred);
 
     boost::asio::io_context& io_context_;

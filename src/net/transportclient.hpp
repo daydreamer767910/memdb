@@ -14,7 +14,7 @@
 #include "tcpclient.hpp"
 
 
-class TransportClient:public TcpClient , public IConnection {
+class TransportClient:public TcpClient , public IConnection<Transport> {
 private:
 	TransportClient(const TransportClient&) = delete;
     TransportClient& operator=(const TransportClient&) = delete;
@@ -37,7 +37,7 @@ public:
 
 	void quit() {
 		io_context_.stop();
-		tranportMng_->on_close_item(transport_->get_id());
+		tranportMng_->close_port(transport_->get_id());
 		tranportMng_->stop();
 		if (asio_eventLoopThread.joinable())
 			asio_eventLoopThread.join();

@@ -131,8 +131,10 @@ int TransportClient::start(const std::string& host, const std::string& port) {
 	}
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
-		
-	tranportMng_->on_new_item(my_instance, id_);
+
+	auto transport = tranportMng_->open_port(id_);
+    transport->add_callback(my_instance);
+    set_transport(transport);
 	
 	tranportMng_->start();
 

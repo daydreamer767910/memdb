@@ -21,7 +21,7 @@ void TcpServer::start(const std::string& ip, int port) {
     logger.log(Logger::LogLevel::INFO, "TCP server listening on {}:{}", ip, port);
 
     acceptor_.async_accept([this](const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
-        on_new_connection(error, std::move(socket));
+        on_accept(error, std::move(socket));
     });
 	timer_.start();
     io_context_.run();
@@ -36,7 +36,7 @@ void TcpServer::stop() {
     #endif
 }
 
-void TcpServer::on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
+void TcpServer::on_accept(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
     if (error) {
         logger.log(Logger::LogLevel::ERROR, "New connection error: {}", error.message());
         return;
@@ -48,7 +48,7 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
         auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
 		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket), unique_id);
         connections_.emplace(unique_id, connection);
-		notify_new_connection(connection, unique_id);
+		on_new_connection(connection, unique_id);
         connection->start();
         logger.log(Logger::LogLevel::INFO, "New connection [{}] established", unique_id.load());
     } else {
@@ -57,7 +57,7 @@ void TcpServer::on_new_connection(const boost::system::error_code& error, boost:
 
     // Accept next connection
     acceptor_.async_accept([this](const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
-        on_new_connection(error, std::move(socket));
+        on_accept(error, std::move(socket));
     });
 }
 
@@ -75,7 +75,7 @@ void TcpServer::on_timer(std::thread::id /*id*/) {
     for (auto it = connections_.begin(); it != connections_.end();) {
         if (it->second->is_idle()) {
             connection_count--;
-			notify_close_connection(it->second->get_id());
+			on_close_connection(it->second->get_id());
             it->second->stop();
             logger.log(Logger::LogLevel::INFO, "Connection [{}] removed due to inactivity", it->first);
             it = connections_.erase(it);

@@ -26,24 +26,13 @@ public:
     }
     void start(const std::string& ip, int port);
     void stop();
-    void add_observer(const std::shared_ptr<IObserver<IConnection>>& observer) {
-        observers_.push_back(observer);
-    }
-
+protected:
+    virtual void on_new_connection(const std::shared_ptr<IConnection<Transport>>& connection, const uint32_t id) = 0;
+    virtual void on_close_connection(const uint32_t id) = 0;
 private:
-    void on_new_connection(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);
+    void on_accept(const boost::system::error_code& error, boost::asio::ip::tcp::socket socket);
     void cleanup();
     void on_timer(std::thread::id id);
-    void notify_new_connection(const std::shared_ptr<IConnection>& connection, const uint32_t id) {
-        for (const auto& observer : observers_) {
-            observer->on_new_item(connection, id);
-        }
-    }
-	void notify_close_connection(const uint32_t id) {
-        for (const auto& observer : observers_) {
-            observer->on_close_item(id);
-        }
-    }
 
     boost::asio::io_context io_context_;
     boost::asio::ip::tcp::acceptor acceptor_;
@@ -53,7 +42,6 @@ private:
     std::atomic<uint32_t> unique_id;
     uint32_t max_connection_num = MAX_CONNECTIONS;
     Timer timer_;
-    std::vector<std::shared_ptr<IObserver<IConnection>>> observers_;
 };
 
 #endif // TCPSERVER_HPP
