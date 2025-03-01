@@ -45,8 +45,8 @@ int test(const std::string jsonConfig) {
     if (ret>0) {
         //printf("APP SEND[%d]:\r\n",ret);
         //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
-        //json jsonData = json::parse(jsonConfig.c_str());
-        //std::cout << jsonData.dump(2) << std::endl;
+        json jsonData = json::parse(jsonConfig.c_str());
+        std::cout << jsonData.dump(2) << std::endl;
     }
     
     // 读操作，支持超时
@@ -66,8 +66,8 @@ int test(const std::string jsonConfig) {
     if (ret>0) {
         //printf("APP RECV[%d]:\r\n",ret);
         //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
-        //json jsonData = json::parse(std::string(str_buff.begin(),str_buff.begin()+ret));
-        //std::cout << jsonData.dump(2) << std::endl;
+        json jsonData = json::parse(std::string(str_buff.begin(),str_buff.begin()+ret));
+        std::cout << jsonData.dump(2) << std::endl;
     }
     msgid++;
     return ret;

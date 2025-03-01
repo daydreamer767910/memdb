@@ -173,8 +173,11 @@ void TransportClient::on_data_received(int len,int) {
 			//reconnect();
 		}
 		#ifdef DEBUG
-		if(ret>0)
-		print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
+		if(ret>0) {
+			std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
+			<< "]TCP[" << id_ << "] SEND[" << ret << "]: \n";
+			print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
+		}
 		#endif
 	}
 }
@@ -193,6 +196,13 @@ int TransportClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint3
 }
 
 void TransportClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
+	#ifdef DEBUG
+	if(nread>0) {
+		std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
+		<< id_ << "]RECV[" << nread << "]:\n";
+		print_packet(reinterpret_cast<const uint8_t*>(read_buf),nread);
+	}
+	#endif
 	auto port = transport_.lock();
 	if (!error && nread > 0 && port) {
 		//std::cout << "handle_read: " << nread << std::endl;
