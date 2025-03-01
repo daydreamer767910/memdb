@@ -140,13 +140,17 @@ public:
     // 关闭接口
     void close() {
         try {
-			socket_.cancel();
-        	timer_.cancel();
-			socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-			socket_.close();
-			std::cout << "Connection closed." << std::endl;
+			if (socket_.is_open()) {
+				socket_.cancel();
+				timer_.cancel();
+				socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+				socket_.close();
+				#ifdef DEBUG
+				std::cout << "Connection closed." << std::endl;
+				#endif
+			}
 		} catch (const std::exception& e) {
-			std::cerr << "Exception during lose: " << e.what() << std::endl;
+			std::cerr << "Exception during close: " << e.what() << std::endl;
 		}
     }
 

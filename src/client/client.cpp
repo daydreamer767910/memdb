@@ -24,6 +24,7 @@ int mdb_start(const char* ip, int port) {
 }
 
 int mdb_reconnect(const char* ip, int port) {
+	client_ptr->stop();
 	return client_ptr->reconnect(std::string(ip), std::to_string(port));
 }
 

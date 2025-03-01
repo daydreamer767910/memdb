@@ -28,7 +28,7 @@ int TransportClient::Ecdh() {
     std::vector<uint8_t> pack_data(1024*5);
     ret = this->recv(pack_data.data(),msg_id, pack_data.size() , 3000);
     if (ret<0 || msg_id!= 0) {
-        std::cerr << "Read operation failed:" << ret << std::endl;
+        std::cerr << "ECDH Read operation failed:" << ret << std::endl;
         return ret;
     }
 	pack_data.resize(ret);
@@ -48,8 +48,12 @@ int TransportClient::Ecdh() {
     }
     auto serverPk = hexStringToBytes(jsonData["pks"].get<std::string>());
     auto sessionKeys = generateClientSessionKeys(clientKxPair.first, clientKxPair.second, serverPk);
-    transport_->setSessionKeys(sessionKeys.first, sessionKeys.second, true);
-	transport_->setEncryptMode(true);
+	if (auto port = transport_.lock()) {
+		port->setSessionKeys(sessionKeys.first, sessionKeys.second, true);
+		port->setEncryptMode(true);
+	} else
+		return -5;
+    
 	//std::cout << "Rx: ";
 	//printHex(sessionKeys.first);
 	//std::cout << "Tx: ";
@@ -74,7 +78,7 @@ int TransportClient::Ecdh() {
 	pack_data.resize(1024*5);
     ret = this->recv(pack_data.data(),msg_id, pack_data.size() , 3000);
     if (ret<0 || msg_id!=0) {
-        std::cerr << "Read operation failed:" << ret << std::endl;
+        std::cerr << "ECDH Read operation failed:" << ret << std::endl;
         return ret;
     }
 	pack_data.resize(ret);
@@ -97,8 +101,10 @@ int TransportClient::Ecdh() {
 	uint64_t keyid = jsonData["keyid"];
 	auto sessionK_rx = derive_key_with_password(sessionKeys.first, keyid, this->passwd_);
     auto sessionK_tx = derive_key_with_password(sessionKeys.second, keyid, this->passwd_);
-    transport_->setSessionKeys(sessionK_rx, sessionK_tx, true);
-
+	if (auto port = transport_.lock())
+    	port->setSessionKeys(sessionK_rx, sessionK_tx, true);
+	else
+		return -5;
     return 0;
 }
 
@@ -109,8 +115,9 @@ int TransportClient::reconnect(const std::string& host, const std::string& port)
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
-	transport_->setEncryptMode(false);
-	transport_->reset(Transport::ChannelType::ALL);
+	auto transport = tranportMng_->open_port(id_++);
+    transport->add_callback(my_instance);
+    set_transport(transport);	
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	return this->Ecdh();
 }
@@ -121,7 +128,6 @@ int TransportClient::start(const std::string& host, const std::string& port) {
 		stop();
 		return reconnect(host,port);
 	}
-	started = true;
 	// 连接到服务器
 	host_ = host;
 	port_ = port;
@@ -129,10 +135,11 @@ int TransportClient::start(const std::string& host, const std::string& port) {
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
+	started = true;
 	set_async_read(this->read_buf,sizeof(this->read_buf));
 	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
 
-	auto transport = tranportMng_->open_port(id_);
+	auto transport = tranportMng_->open_port(id_++);
     transport->add_callback(my_instance);
     set_transport(transport);
 	
@@ -151,6 +158,8 @@ int TransportClient::start(const std::string& host, const std::string& port) {
 }
 
 void TransportClient::stop() {
+	if (auto port = transport_.lock())
+		tranportMng_->close_port(port->get_id());
 	close();
 }
 
@@ -160,8 +169,8 @@ void TransportClient::on_data_received(int len,int) {
 	if (len > 0) {
 		int ret = this->write_with_timeout(write_buf,len,50);
 		if ( ret == -2 ) {
-			close();
-			reconnect();
+			stop();
+			//reconnect();
 		}
 		#ifdef DEBUG
 		if(ret>0)
@@ -171,34 +180,41 @@ void TransportClient::on_data_received(int len,int) {
 }
 
 int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout) {
-	return transport_->send(data, size,msg_id,std::chrono::milliseconds(timeout));
+	if (auto port = transport_.lock())
+		return port->send(data, size,msg_id,std::chrono::milliseconds(timeout));
+	else
+		return -2;
 }
 
 int TransportClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
-	return transport_->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
+	if (auto port = transport_.lock())
+		return port->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
+	return -2;
 }
 
 void TransportClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
-	//std::cout << "tcp read thread ID: " << std::this_thread::get_id() << std::endl;
-	if (!error) {
+	auto port = transport_.lock();
+	if (!error && nread > 0 && port) {
 		//std::cout << "handle_read: " << nread << std::endl;
-		int ret = transport_->input(read_buf, nread,std::chrono::milliseconds(100));
+		int ret = port->input(read_buf, nread,std::chrono::milliseconds(100));
 		if (ret <= 0) {
 			std::cerr << "write CircularBuffer err, data discarded!" << std::endl;
 		}
 	} else {
-		std::cerr << "Error on receive: " << error.message() << std::endl;
-		if (error == boost::asio::error::eof || error == boost::asio::error::connection_reset
+		if (error == boost::asio::error::eof || error == boost::asio::error::operation_aborted
 			|| error == boost::asio::error::not_connected || error ==boost::asio::error::bad_descriptor){
-				close();
-				if (reconnect()<0)
+				stop();
+				//if (reconnect()<0)
 					return;
 		}
+		std::cerr << "Error on receive: " << error.message() << std::endl;
 	}
 	// 仅在连接成功后设置异步读取
     if (is_connected()) {
         set_async_read(this->read_buf, sizeof(this->read_buf));
     } else {
+		#ifdef DEBUG
         std::cerr << "Socket is closed, cannot set async read." << std::endl;
+		#endif
     }
 }

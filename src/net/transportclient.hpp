@@ -37,7 +37,9 @@ public:
 
 	void quit() {
 		io_context_.stop();
-		tranportMng_->close_port(transport_->get_id());
+		if (auto port = transport_.lock()) {
+			tranportMng_->close_port(port->get_id());
+		}
 		tranportMng_->stop();
 		if (asio_eventLoopThread.joinable())
 			asio_eventLoopThread.join();
@@ -68,8 +70,9 @@ public:
 	void set_transport(const std::shared_ptr<Transport>& transport) {
         transport_ = transport;
         cached_data_ = std::make_tuple(write_buf, sizeof(write_buf), transport->get_id());
-		transport_->setCompressFlag(true);
-		transport_->setEncryptMode(false);
+		transport->setCompressFlag(true);
+		transport->setEncryptMode(false);
+		transport->reset(Transport::ChannelType::ALL);
     }
 	uint32_t get_id() {
         return id_;
@@ -84,7 +87,7 @@ private:
 	std::string host_;
 	std::string port_;
 	TransportMng::ptr tranportMng_;
-	std::shared_ptr<Transport> transport_;
+	std::weak_ptr<Transport> transport_;
 	char read_buf[TCP_BUFFER_SIZE];
     char write_buf[TCP_BUFFER_SIZE];
     DataVariant cached_data_;

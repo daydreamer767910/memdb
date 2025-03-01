@@ -12,7 +12,7 @@ docker compose up
 ```
 sudo apt-get update
 sudo apt-get install -y \
-    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev libsodium-dev libjemalloc-dev && \
+    build-essential cmake nlohmann-json3-dev pkg-config libboost-all-dev libssl-dev libargon2-dev libjemalloc-dev && \
     rm -rf /var/lib/apt/lists/*
 
 ```
@@ -38,7 +38,9 @@ mdbsrv 或者运行 entrypoint.sh mdbsrv
 ### 重启server服务。
 
 ## client端使用说明
-### 从安装好的server端的/mdb/lib目录下,获取libmdb.so以及libsodium.so*，libjemalloc.so*放在自己的客户端目录内，设置环境变量LD_LIBRARY_PATH指向该目录，同时设置LD_PRELOAD指向libjemalloc.so.2。
+### 安装
+#### 预安装第三方库libjemalloc2和libargon2-1，设置环境变量LD_PRELOAD指向/usr/lib/x86_64-linux-gnu/libjemalloc.so.2。
+#### 从安装好的server端的/mdb/lib目录下,拷贝libmdb.so到本地lib，设置环境变量LD_LIBRARY_PATH指向该lib。
 
 ### 接口调用流程：
 #### 首先调用mdb_init接口：参数是配置阶段创建的用户名和密码
@@ -70,9 +72,63 @@ mdb_init: ["void", ["string","string"]],
 mdb_stop: ["void", []],
 mdb_start: ["int", ["string", "int"]],
 mdb_reconnect: ["int", ["string", "int"]],
-mdb_recv: ["int", ["pointer", "int", "ref.refType(int)", "int"]],
+mdb_recv: ["int", ["pointer", "int", "pointer", "int"]],
 mdb_send: ["int", ["string", "int", "int", "int"]],
 });
+const ip = "127.0.0.1";
+const port = 8900;
+const user = "xxx";
+const password = "yyy";
+// 初始化
+mdbLib.mdb_init(user, password);
+
+// 启动连接
+const startResult = mdbLib.mdb_start(ip, port);
+if (startResult === 0) {
+  console.log("Connection started successfully!");
+} else {
+  console.error("Failed to start connection.");
+}
+
+//查询test容器数据数量
+const jsonConfig = {
+  action: "count",
+  name: "test",
+};
+// 转换为 JSON 字符串
+const data = JSON.stringify(jsonConfig, null, 1);
+let msgId = 1;
+const timeout = 100;
+const sendResult2 = mdbLib.mdb_send(data, data.length, msgId, timeout);
+if (sendResult2 > 0) {
+  console.log("Message sent successfully!");
+} else {
+  console.error("Failed to send message.");
+}
+
+//获取返回结果
+const BUFFER_SIZE = 512;
+// 创建缓冲区
+const buffer = Buffer.alloc(BUFFER_SIZE);
+// 将 Buffer 声明为指针
+const bufferPtr = buffer as unknown as ref.Pointer<unknown>;
+
+const msgIdRef = ref.alloc("int");
+// 调用 mdb_recv
+const recvResult = mdbLib.mdb_recv(bufferPtr, BUFFER_SIZE, msgIdRef, timeout);
+msgId = msgIdRef.deref();
+if (recvResult > 0 && msgId == 1) {
+  const jsonResult = buffer.toString("utf8", 0, recvResult); // 提取接收的数据
+  const receivedData = JSON.parse(jsonResult);
+  console.log("Received data:", receivedData);
+} else if (recvResult === 0) {
+  console.log("No data received within the timeout.");
+} else {
+  console.error("Failed to receive data.");
+}
+
+// 停止并释放资源
+mdbLib.mdb_stop();
 ```
 
 ## json请求指令说明
