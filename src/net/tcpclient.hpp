@@ -140,11 +140,17 @@ public:
     // 关闭接口
     void close() {
         try {
-			if (socket_.is_open()) {
-				socket_.cancel();
-				timer_.cancel();
-				socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-				socket_.close();
+			if (!socket_.is_open()) return;  // 避免重复关闭
+
+			boost::system::error_code ec;
+			socket_.cancel(ec);  // 确保异步操作终止
+			timer_.cancel(ec);
+			socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+			socket_.close(ec);
+
+			if (ec) {
+				std::cerr << "Error closing socket: " << ec.message() << std::endl;
+			} else {
 				#ifdef DEBUG
 				std::cout << "Connection closed." << std::endl;
 				#endif

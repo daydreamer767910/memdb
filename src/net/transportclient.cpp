@@ -203,21 +203,26 @@ void TransportClient::handle_read(const boost::system::error_code& error, std::s
 		print_packet(reinterpret_cast<const uint8_t*>(read_buf),nread);
 	}
 	#endif
-	auto port = transport_.lock();
-	if (!error && nread > 0 && port) {
-		//std::cout << "handle_read: " << nread << std::endl;
-		int ret = port->input(read_buf, nread,std::chrono::milliseconds(100));
-		if (ret <= 0) {
-			std::cerr << "write CircularBuffer err, data discarded!" << std::endl;
+	if (!error && nread>0) {
+		auto port = transport_.lock();
+		if (port) {
+			int ret = port->input(read_buf, nread,std::chrono::milliseconds(100));
+			if (ret <= 0) {
+				std::cerr << "write CircularBuffer err, data discarded!" << std::endl;
+			}
+		} else {
+			std::cerr << "transport is unavialable, data discarded!" << std::endl;
 		}
 	} else {
-		if (error == boost::asio::error::eof || error == boost::asio::error::operation_aborted
+		if (error == boost::asio::error::operation_aborted
 			|| error == boost::asio::error::not_connected || error ==boost::asio::error::bad_descriptor){
-				stop();
-				//if (reconnect()<0)
-					return;
+			std::cerr << "Socket is closed locally." << std::endl;
+			
+		} else {
+			std::cerr << "Error on receive: " << error.message() << std::endl;
+			stop();
 		}
-		std::cerr << "Error on receive: " << error.message() << std::endl;
+		return;
 	}
 	// 仅在连接成功后设置异步读取
     if (is_connected()) {

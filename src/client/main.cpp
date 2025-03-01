@@ -622,7 +622,10 @@ int main(int argc, char* argv[]) {
     }else if (command == "drop") {
         drop_tbl(param);
     } else if (command == "show") {
-        show_tbl(param);
+        while (!exiting) {
+            show_tbl(param);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
     } else if (command == "count") {
         count(param);
     } else if (command == "create_idx") {
