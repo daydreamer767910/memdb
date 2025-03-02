@@ -30,7 +30,9 @@ public:
         try {
             boost::asio::ip::tcp::resolver resolver(io_context_);
             boost::asio::connect(socket_, resolver.resolve(host, port));
+			#ifdef DEBUG
             std::cout << "Connected to " << host << ":" << port << std::endl;
+			#endif
             return true;
         } catch (const std::exception& e) {
             std::cerr << "Error connecting to server: " << e.what() << std::endl;

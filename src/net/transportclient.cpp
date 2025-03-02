@@ -216,7 +216,9 @@ void TransportClient::handle_read(const boost::system::error_code& error, std::s
 	} else {
 		if (error == boost::asio::error::operation_aborted
 			|| error == boost::asio::error::not_connected || error ==boost::asio::error::bad_descriptor){
-			std::cerr << "Socket is closed locally." << std::endl;
+			#ifdef DEBUG
+			std::cout << "Socket is closed locally." << std::endl;
+			#endif
 			
 		} else {
 			std::cerr << "Error on receive: " << error.message() << std::endl;
