@@ -64,12 +64,11 @@ void TcpConnection::on_data_received(int len, int ) {
                     print_packet(reinterpret_cast<const uint8_t*>(write_buffer_),bytes_transferred);
                 #endif
                 } else {
+                    std::cerr << "Error on send: " << ec.message() << std::endl;
                     stop();
                 }
             }
         );
-        //std::cout << "tcp write :" << std::this_thread::get_id() << std::endl;
-    
     }
 }
 
