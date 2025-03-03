@@ -111,78 +111,48 @@ int TransportClient::Ecdh() {
 int TransportClient::reconnect(const std::string& host, const std::string& port) {
 	host_ = host.empty() ? host_ : host;
 	port_ = port.empty() ? port_ : port;
-	if (!connect(host_, port_)) {
+	stop();
+	auto socket = connect(host_, port_);
+	if (!socket) {
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
-	auto transport = tranportMng_->open_port(id_++);
-    transport->add_callback(my_instance);
-    set_transport(transport);	
-	set_async_read(this->read_buf,sizeof(this->read_buf));
+	id_++;
+	tcp_client_ = std::make_shared<TcpConnection>(io_context_, std::move(*socket), id_);
+	auto transport = tranportMng_->open_port(id_);
+    transport->add_callback(tcp_client_);
+	transport->setCompressFlag(true);
+	transport->setEncryptMode(false);
+	transport->reset(Transport::ChannelType::ALL);
+    tcp_client_->set_transport(transport);
+	transport_ = transport;
+	tcp_client_->start();
 	return this->Ecdh();
 }
 
 int TransportClient::start(const std::string& host, const std::string& port) {
 	static bool started = false;
-	if(started) {
-		stop();
-		return reconnect(host,port);
+	if (!started) {
+		started = true;
+		tranportMng_->start();
+		asio_eventLoopThread = std::thread([this]() {
+			io_context_.run();
+		});
 	}
-	// 连接到服务器
-	host_ = host;
-	port_ = port;
-	if (!connect(host_, port_)) {
-		std::cerr << "mdb client connect to server fail" << std::endl;
-		return -1;
-	}
-	started = true;
-	set_async_read(this->read_buf,sizeof(this->read_buf));
-	//std::cout << "Main thread ID: " << std::this_thread::get_id() << std::endl;
-
-	auto transport = tranportMng_->open_port(id_++);
-    transport->add_callback(my_instance);
-    set_transport(transport);
 	
-	tranportMng_->start();
-
-	asio_eventLoopThread = std::thread([this]() {
-        //std::cout << "asoi Event loop starting:" << std::this_thread::get_id() << std::endl;
-        // Run the loop
-        io_context_.run();
-        // Clean up
-        //std::cout << "asoi Event loop stopped." << std::endl;
-    });
-	
-	//std::cout << "mdb client started." << std::endl;
-	return this->Ecdh();
+	return reconnect(host, port);
 }
 
 void TransportClient::stop() {
 	if (auto port = transport_.lock())
 		tranportMng_->close_port(port->get_id());
-	close();
-}
-
-void TransportClient::on_data_received(int len,int) {
-	//printf("port to tcp\n");
-	//std::cout << "port2tcp thread ID: " << std::this_thread::get_id() << std::endl;
-	if (len > 0) {
-		int ret = this->write_with_timeout(write_buf,len,50);
-		if ( ret == -2 ) {
-			stop();
-			//reconnect();
-		}
-		#ifdef DEBUG
-		if(ret>0) {
-			std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
-			<< "]TCP[" << id_ << "] SEND[" << ret << "]: \n";
-			print_packet(reinterpret_cast<const uint8_t*>(write_buf),ret);
-		}
-		#endif
-	}
+	if (tcp_client_)
+		tcp_client_->stop();
+	tcp_client_ = nullptr;
 }
 
 int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout) {
+	if (!tcp_client_ || tcp_client_->is_idle()) return -2;
 	if (auto port = transport_.lock())
 		return port->send(data, size,msg_id,std::chrono::milliseconds(timeout));
 	else
@@ -190,48 +160,8 @@ int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uin
 }
 
 int TransportClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
+	if (!tcp_client_ || tcp_client_->is_idle()) return -2;
 	if (auto port = transport_.lock())
 		return port->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
 	return -2;
-}
-
-void TransportClient::handle_read(const boost::system::error_code& error, std::size_t nread) {
-	#ifdef DEBUG
-	if(nread>0) {
-		std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
-		<< id_ << "]RECV[" << nread << "]:\n";
-		print_packet(reinterpret_cast<const uint8_t*>(read_buf),nread);
-	}
-	#endif
-	if (!error && nread>0) {
-		auto port = transport_.lock();
-		if (port) {
-			int ret = port->input(read_buf, nread,std::chrono::milliseconds(100));
-			if (ret <= 0) {
-				std::cerr << "write CircularBuffer err, data discarded!" << std::endl;
-			}
-		} else {
-			std::cerr << "transport is unavialable, data discarded!" << std::endl;
-		}
-	} else {
-		if (error == boost::asio::error::operation_aborted
-			|| error == boost::asio::error::not_connected || error ==boost::asio::error::bad_descriptor){
-			#ifdef DEBUG
-			std::cout << "Socket is closed locally." << std::endl;
-			#endif
-			
-		} else {
-			std::cerr << "Error on receive: " << error.message() << std::endl;
-			stop();
-		}
-		return;
-	}
-	// 仅在连接成功后设置异步读取
-    if (is_connected()) {
-        set_async_read(this->read_buf, sizeof(this->read_buf));
-    } else {
-		#ifdef DEBUG
-        std::cerr << "Socket is closed, cannot set async read." << std::endl;
-		#endif
-    }
 }

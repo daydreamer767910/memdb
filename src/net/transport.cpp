@@ -50,6 +50,9 @@ void Transport::on_send() {
                         do {
                             int len = this->output(buffer, buffer_size, std::chrono::milliseconds(50));
                             if (len > 0) {
+                                #ifdef DEBUG
+                                //std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
+                                #endif
                                 callback->on_data_received(len, 0);
                             } else {
                                 break;
@@ -80,6 +83,9 @@ void Transport::on_input() {
                         uint32_t id;
                         int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(50));
                         if (len > 0) {
+                            #ifdef DEBUG
+                            //std::cout << std::dec << get_timestamp() << " : PORT->APP :" << std::this_thread::get_id() << std::endl;
+                            #endif
                             callback->on_data_received(len, id);
                         } else {
                             break;
@@ -283,8 +289,10 @@ int Transport::send(const uint8_t* data, size_t size, uint32_t msg_id, std::chro
             }
             triger_event(ChannelType::UP_LOW);
 		}
-		//std::cout << "APP->PORT :" << std::this_thread::get_id() << std::endl;
+        #ifdef DEBUG
+		//std::cout << get_timestamp() << " APP->PORT :" << std::this_thread::get_id() << std::endl;
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
+        #endif
 		offset += chunk_size;
 	}
 	return total_size;
