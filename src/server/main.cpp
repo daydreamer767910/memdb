@@ -15,9 +15,8 @@
 #include "log/logger.hpp"
 #include "server/dbservice.hpp"
 
-
+bool exiting = false;
 DBService::ptr db_server = DBService::getInstance();
-
 auto transportSrv = TransportSrv::get_instance();
 
 void signal_handler(int signal) {
@@ -26,6 +25,7 @@ void signal_handler(int signal) {
         logger.terminate();
         db_server->terminate();
         transportSrv->stop();
+        exiting = true;
     }
 }
 
@@ -59,7 +59,9 @@ int main(int argc, char* argv[]) {
         if (envPort) srvPort = envPort;
     }
     transportSrv->start(srvIP, std::stoi(srvPort));
-
+    while (!exiting) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
     std::cout << "Exiting program." << std::endl;
     return 0;
 }

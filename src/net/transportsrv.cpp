@@ -1,7 +1,9 @@
 #include "transportsrv.hpp"
 
 TransportSrv::TransportSrv()
-    : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0) {
+    : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0), 
+	thread_pool_(thread_pool_size),
+	work_guard_(io_context_.get_executor()) {
     tranportMng_ = TransportMng::get_instance();
 }
 
@@ -19,11 +21,14 @@ void TransportSrv::tcp_start(const std::string& ip, int port) {
     acceptor_.async_accept([this](const boost::system::error_code& error, boost::asio::ip::tcp::socket socket) {
         on_accept(error, std::move(socket));
     });
-
-    io_context_.run();
 }
 void TransportSrv::start(const std::string& ip, int port) {
-    tranportMng_->start();
+	for (int i = 0; i < thread_pool_size ; ++i) {
+		boost::asio::post(thread_pool_, [this]() {
+			io_context_.run();
+		});
+	}
+	tranportMng_->start();
 	tcp_start(ip, port);
 }
 
@@ -31,6 +36,10 @@ void TransportSrv::stop() {
     io_context_.stop();
     cleanup();
     tranportMng_->stop();
+	thread_pool_.stop();
+	work_guard_.reset();
+	// 等待线程池中的所有线程完成任务
+    thread_pool_.join();
     #ifdef DEBUG
     std::cout << "TransportSrv stopped." << std::endl;
     #endif

@@ -65,6 +65,9 @@ private:
     std::atomic<uint32_t> unique_id;
     uint32_t max_connection_num = MAX_CONNECTIONS;
     TransportMng::ptr tranportMng_;
+	boost::asio::thread_pool thread_pool_;
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
+    static constexpr size_t thread_pool_size = 2;
 };
 
 #endif
