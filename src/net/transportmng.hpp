@@ -23,10 +23,10 @@ class TransportMng {
 public:
 using ptr = std::shared_ptr<TransportMng>;
 
-    static ptr& get_instance(){
-		static ptr instance(new TransportMng());
+	static ptr& get_instance() {
+		static ptr instance = std::make_shared<TransportMng>();
 		return instance;
-	};
+	}
 	TransportMng() :thread_pool_(2),
 		work_guard_{boost::asio::make_work_guard(io_[0]), boost::asio::make_work_guard(io_[1]) } {
 #ifdef DEBUG
@@ -44,7 +44,7 @@ using ptr = std::shared_ptr<TransportMng>;
 	std::shared_ptr<Transport> open_port(uint32_t id);
 	void close_port(uint32_t id);
 private:
-	static constexpr size_t transport_buff_szie = 1024*16; //16K
+	static constexpr size_t transport_buff_size = 1024*16; //16K
 	std::mutex mutex_;
 	std::unordered_map<uint32_t, std::shared_ptr<Transport>> ports_;
 	boost::asio::io_context io_[2];

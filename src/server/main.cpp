@@ -18,14 +18,14 @@
 
 DBService::ptr db_server = DBService::getInstance();
 
-auto transportSrv = TransportSrv();
+auto transportSrv = TransportSrv::get_instance();
 
 void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
         std::cout << "\nsignal " << signal << " received. Preparing to exit..." << std::endl;
         logger.terminate();
         db_server->terminate();
-        transportSrv.stop();
+        transportSrv->stop();
     }
 }
 
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     logger.start();
     
     db_server->start();
-    transportSrv.add_observer(db_server);
+    transportSrv->add_observer(db_server);
     
     // 启动 TCP 服务器
     if (argc == 3) {
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
         if (envIP) srvIP = envIP;  // 如果环境变量存在，使用它
         if (envPort) srvPort = envPort;
     }
-    transportSrv.start(srvIP, std::stoi(srvPort));
+    transportSrv->start(srvIP, std::stoi(srvPort));
 
     std::cout << "Exiting program." << std::endl;
     return 0;

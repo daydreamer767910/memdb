@@ -119,13 +119,7 @@ int TransportClient::reconnect(const std::string& host, const std::string& port)
 	}
 	id_++;
 	tcp_client_ = std::make_shared<TcpConnection>(io_context_, std::move(*socket), id_);
-	auto transport = tranportMng_->open_port(id_);
-    transport->add_callback(tcp_client_);
-	transport->setCompressFlag(true);
-	transport->setEncryptMode(false);
-	transport->reset(Transport::ChannelType::ALL);
-    tcp_client_->set_transport(transport);
-	transport_ = transport;
+	tcp_client_->add_observer(shared_from_this());
 	tcp_client_->start();
 	return this->Ecdh();
 }
@@ -152,7 +146,6 @@ void TransportClient::stop() {
 }
 
 int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout) {
-	if (!tcp_client_ || tcp_client_->is_idle()) return -2;
 	if (auto port = transport_.lock())
 		return port->send(data, size,msg_id,std::chrono::milliseconds(timeout));
 	else
@@ -160,7 +153,6 @@ int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uin
 }
 
 int TransportClient::recv(uint8_t* pack_data,uint32_t& msg_id, size_t size,uint32_t timeout) {
-	if (!tcp_client_ || tcp_client_->is_idle()) return -2;
 	if (auto port = transport_.lock())
 		return port->read(pack_data,msg_id,size,std::chrono::milliseconds(timeout));
 	return -2;

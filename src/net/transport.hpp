@@ -8,7 +8,7 @@
 #include <mutex>
 #include <array>
 #include <thread>
-
+#include <boost/asio.hpp>
 #include "util/msgbuffer.hpp"
 #include "util/timer.hpp"
 #include "common.hpp"

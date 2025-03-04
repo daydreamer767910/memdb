@@ -11,7 +11,6 @@ set(NET_SOURCES
     transport.cpp
     transportmng.cpp
     tcpconnection.cpp
-    tcpserver.cpp
     transportclient.cpp
     transportsrv.cpp
 )

@@ -12,14 +12,14 @@ using tcp = boost::asio::ip::tcp; // 简化命名空间
 #define TCP_BUFFER_SIZE 1460
 
 class Transport;
-class TcpConnection : public IDataCallback, public std::enable_shared_from_this<TcpConnection> {
+class TcpConnection : public IDataCallback, public Subject<TcpConnection>, public std::enable_shared_from_this<TcpConnection> {
 public:
     TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id);
     ~TcpConnection();
     
     void start();    // 启动连接
     void stop();     // 停止连接
-    bool is_idle();  // 判断是否空闲
+    //bool is_idle();  // 判断是否空闲
     //void write(const std::string& data); // 主动发送数据
 
 
@@ -40,7 +40,7 @@ private:
 
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
-    std::atomic<bool> is_idle_;
+    //std::atomic<bool> is_idle_;
     uint32_t id_;
     std::weak_ptr<Transport> transport_;
     

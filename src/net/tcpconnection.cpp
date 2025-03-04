@@ -6,7 +6,7 @@
 TcpConnection::TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id)
     : io_context_(io_context), 
       socket_(std::move(socket)),
-      is_idle_(false),
+      //is_idle_(false),
       id_(id) {
     memset(read_buffer_, 0, sizeof(read_buffer_));
     memset(write_buffer_, 0, sizeof(write_buffer_));
@@ -18,15 +18,15 @@ TcpConnection::~TcpConnection() {
 }
 
 void TcpConnection::start() {
-	is_idle_ = false;
+    notify_new_item(shared_from_this(), id_);
+	//is_idle_ = false;
     do_read(); // 启动读取
 }
 
 void TcpConnection::stop() {
-	is_idle_ = true;
+	//is_idle_ = true;
+    if (!socket_.is_open()) return;  // 避免重复关闭
     try {
-        if (!socket_.is_open()) return;  // 避免重复关闭
-
         boost::system::error_code ec;
         socket_.cancel(ec);  // 确保异步操作终止
         socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
@@ -42,10 +42,7 @@ void TcpConnection::stop() {
     } catch (const std::exception& e) {
         std::cerr << "Exception during close: " << e.what() << std::endl;
     }
-}
-
-bool TcpConnection::is_idle() {
-    return is_idle_.load();
+    notify_close_item(id_);
 }
 
 void TcpConnection::on_data_received(int len, int ) {
@@ -100,7 +97,9 @@ void TcpConnection::handle_read(const boost::system::error_code& error, std::siz
 			int ret = port->input(read_buffer_, nread,std::chrono::milliseconds(100));
 			if (ret <= 0) {
 				std::cerr << "write CircularBuffer err, data discarded!" << std::endl;
-			}
+			} else {
+                //std::cout << "TCP->CircularBuffer: " << nread << "bytes\n";
+            }
 		} else {
 			std::cerr << "transport is unavialable, data discarded!" << std::endl;
 		}

@@ -14,7 +14,7 @@
 #include "tcpconnection.hpp"
 
 
-class TransportClient {
+class TransportClient: public IObserver<TcpConnection>,public std::enable_shared_from_this<TransportClient> {
 private:
 	TransportClient(const TransportClient&) = delete;
     TransportClient& operator=(const TransportClient&) = delete;
@@ -34,6 +34,20 @@ public:
 	~TransportClient() {
 		
 	}
+	void on_new_item(const std::shared_ptr<TcpConnection>& connection, uint32_t id) override {
+		auto transport = tranportMng_->open_port(id_);
+    	transport->add_callback(tcp_client_);
+		transport->setCompressFlag(true);
+		transport->setEncryptMode(false);
+		transport->reset(Transport::ChannelType::ALL);
+		connection->set_transport(transport);
+		transport_ = transport;
+    }
+
+	void on_close_item(const uint32_t id) override {
+        tranportMng_->close_port(id);
+		tcp_client_ = nullptr;
+    }
 	//for tcp client
     std::optional<tcp::socket> connect(const std::string& host, const std::string& port) {
         try {

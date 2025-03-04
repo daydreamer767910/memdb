@@ -51,7 +51,7 @@ void Transport::on_send() {
                             int len = this->output(buffer, buffer_size, std::chrono::milliseconds(50));
                             if (len > 0) {
                                 #ifdef DEBUG
-                                //std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
+                                std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
                                 #endif
                                 callback->on_data_received(len, 0);
                             } else {
@@ -77,14 +77,13 @@ void Transport::on_input() {
             if (std::holds_alternative<appMsg>(variant)) {
                 auto& data = std::get<appMsg>(variant);
                 auto [app_data, max_cache_size, port_id] = data;
-    
                 if (port_id == 0xffffffff || port_id == this->id_) {
                     while (true) {
                         uint32_t id;
                         int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(50));
                         if (len > 0) {
                             #ifdef DEBUG
-                            //std::cout << std::dec << get_timestamp() << " : PORT->APP :" << std::this_thread::get_id() << std::endl;
+                            std::cout << std::dec << get_timestamp() << " : PORT->APP :" << std::this_thread::get_id() << std::endl;
                             #endif
                             callback->on_data_received(len, id);
                         } else {
@@ -104,6 +103,12 @@ void Transport::triger_event(ChannelType type) {
     if (ChannelType::ALL == type) {
         timer_[0].start();
         timer_[1].start();
+        /*boost::asio::post(*io_context_[0], [this]() {
+            this->on_send();
+        });
+        boost::asio::post(*io_context_[1], [this]() {
+            this->on_input();
+        });*/
     } else if (ChannelType::UP_LOW == type) {
         /*boost::asio::post(*io_context_[0], [this]() {
             this->on_send();

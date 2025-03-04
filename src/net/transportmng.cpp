@@ -59,7 +59,7 @@ std::shared_ptr<Transport> TransportMng::get_port(uint32_t port_id) {
 std::shared_ptr<Transport> TransportMng::open_port(uint32_t id) {
 	std::lock_guard<std::mutex> lock(mutex_);
     std::vector<boost::asio::io_context*> io_contexts = { &io_[0], &io_[1] };
-    auto port = std::make_shared<Transport>(transport_buff_szie, io_contexts, id);
+    auto port = std::make_shared<Transport>(transport_buff_size, io_contexts, id);
 	ports_.emplace(id, port);
 	return port;
 }
