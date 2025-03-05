@@ -5,6 +5,28 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 
+template <typename T>
+T get_env_var(const std::string& env_var, T default_value) {
+    const char* value = std::getenv(env_var.c_str());
+    if (value) {
+        try {
+            // 使用 std::istringstream 将字符串转换为目标类型 T
+            std::istringstream iss(value);
+            T result;
+            iss >> result;
+
+            if (iss.fail()) {
+                throw std::invalid_argument("Failed to convert value");
+            }
+            return result;
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid value for environment variable " << env_var << ": " << value << std::endl;
+            return default_value;
+        }
+    }
+    return default_value;  // 如果环境变量没有设置，返回默认值
+}
+
 using json = nlohmann::json;
 std::string encodeBase64(const std::vector<uint8_t>& data);
 std::vector<uint8_t> decodeBase64(const std::string& encoded_string);

@@ -1,5 +1,15 @@
 #include "transportmng.hpp"
 
+size_t TransportMng::thread_pool_size_ = get_env_var("TRANSPORT_POOL_SIZE", size_t(4));
+size_t TransportMng::transport_buff_size = get_env_var("TRANSPORT_BUFFER_SIZE", size_t(16*1024));
+
+TransportMng::TransportMng() :thread_pool_(thread_pool_size_),
+    work_guard_{boost::asio::make_work_guard(io_[0]), boost::asio::make_work_guard(io_[1]) } {
+#ifdef DEBUG
+    std::cout << "TransportMng start" << std::endl;
+#endif
+};
+
 TransportMng::~TransportMng() {
     // 遍历并清理所有连接
     {
@@ -13,10 +23,17 @@ TransportMng::~TransportMng() {
 }
 
 void TransportMng::start() {
-    for (int i = 0; i < 2 ; ++i) {
-		boost::asio::post(thread_pool_, [this,i]() {
-			io_[i].run();
-		});
+    assert(thread_pool_size_>=2);
+    for (int i = 0; i < thread_pool_size_ ; ++i) {
+        if (i < thread_pool_size_ * 3 / 4) {  // 75% 线程给 RX
+            boost::asio::post(thread_pool_, [this]() {
+                io_[1].run();
+            });
+        } else {  // 25% 线程给 TX
+            boost::asio::post(thread_pool_, [this]() {
+                io_[0].run();
+            });
+        }
 	}
 }
 

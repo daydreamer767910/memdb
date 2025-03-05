@@ -1,8 +1,10 @@
 #include "transportsrv.hpp"
 
+int TransportSrv::thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(3));
+
 TransportSrv::TransportSrv()
     : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0), 
-	thread_pool_(thread_pool_size),
+	thread_pool_(thread_pool_size_),
 	work_guard_(io_context_.get_executor()) {
     tranportMng_ = TransportMng::get_instance();
 }
@@ -23,7 +25,7 @@ void TransportSrv::tcp_start(const std::string& ip, int port) {
     });
 }
 void TransportSrv::start(const std::string& ip, int port) {
-	for (int i = 0; i < thread_pool_size ; ++i) {
+	for (int i = 0; i < thread_pool_size_ ; ++i) {
 		boost::asio::post(thread_pool_, [this]() {
 			io_context_.run();
 		});

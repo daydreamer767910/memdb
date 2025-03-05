@@ -3,7 +3,9 @@
 #include "net/transportmng.hpp"
 #include "util/util.hpp"
 
-DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
+size_t DBService::thread_pool_size_ = get_env_var("DB_SERVICE_POOL_SIZE", int(4));
+
+DBService::DBService() :thread_pool_(thread_pool_size_),
 	io_(),
 	db(Database::getInstance()),
 	timer(io_, keep_alv_timer, true, [this](int tick, int time, std::thread::id id) {
@@ -20,13 +22,11 @@ DBService::DBService() :thread_pool_(std::thread::hardware_concurrency()/2),
 	// 启动事件循环
 	//std::cout << "DBService thread pool started with " << std::thread::hardware_concurrency()/2 << " threads." << std::endl;
 	// 在线程池中运行 io_context
-	for (std::size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
+	for (std::size_t i = 0; i < thread_pool_size_; ++i) {
 		boost::asio::post(thread_pool_, [this]() {
 			io_.run();
 		});
 	}
-	
-	
 }
 
 DBService::~DBService() {

@@ -45,13 +45,13 @@ void Transport::on_send() {
                 // 仅在数据为 tcpMsg 时才处理
                 if (std::holds_alternative<tcpMsg>(variant)) {
                     auto& [buffer, buffer_size, port_id] = std::get<tcpMsg>(variant);
-                    
                     if (port_id == this->id_) {
+                        std::lock_guard<std::mutex> lock(mutex_[0]);
                         do {
                             int len = this->output(buffer, buffer_size, std::chrono::milliseconds(50));
                             if (len > 0) {
                                 #ifdef DEBUG
-                                std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
+                                //std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
                                 #endif
                                 callback->on_data_received(len, 0);
                             } else {
@@ -78,12 +78,13 @@ void Transport::on_input() {
                 auto& data = std::get<appMsg>(variant);
                 auto [app_data, max_cache_size, port_id] = data;
                 if (port_id == 0xffffffff || port_id == this->id_) {
+                    std::lock_guard<std::mutex> lock(mutex_[1]);
                     while (true) {
                         uint32_t id;
                         int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(50));
                         if (len > 0) {
                             #ifdef DEBUG
-                            std::cout << std::dec << get_timestamp() << " : PORT->APP :" << std::this_thread::get_id() << std::endl;
+                            //std::cout << std::dec << get_timestamp() << " : PORT[" << port_id << "]->APP :" << std::this_thread::get_id() << std::endl;
                             #endif
                             callback->on_data_received(len, id);
                         } else {

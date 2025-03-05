@@ -117,6 +117,7 @@ private:
     static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
     static constexpr size_t encrypt_size_increment_ = AES_GCM_nonce_len + AES_GCM_tag_len;
     
+    std::mutex mutex_[2];
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据

@@ -33,6 +33,7 @@ public:
 
     // 获取单例实例
     static ptr& getInstance() {
+		thread_pool_size_ = get_env_var("DB_SERVICE_POOL_SIZE", int(4));
         static ptr instance(new DBService());
         return instance;
     }
@@ -69,6 +70,7 @@ private:
 	void load_db();
 	void load_users(std::string& admin, std::string& pwd);
 private:
+	static size_t thread_pool_size_;
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::io_context io_;
 	Database::ptr& db;

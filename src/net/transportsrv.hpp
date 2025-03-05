@@ -16,6 +16,7 @@ class TransportSrv: public IObserver<TcpConnection>, public Subject<Transport>, 
 public:
     using ptr = std::shared_ptr<TransportSrv>;
     static ptr& get_instance() {
+		thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(3));
 		static ptr instance = std::make_shared<TransportSrv>();
 		return instance;
 	}
@@ -67,7 +68,7 @@ private:
     TransportMng::ptr tranportMng_;
 	boost::asio::thread_pool thread_pool_;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-    static constexpr size_t thread_pool_size = 2;
+    static int thread_pool_size_;
 };
 
 #endif
