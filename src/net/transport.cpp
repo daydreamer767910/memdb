@@ -7,6 +7,9 @@
 #include "transport.hpp"
 #include "util/util.hpp"
 
+size_t Transport::max_message_size_ = get_env_var("MAX_MESSAGE_SIZE", size_t(10*1024*1024));
+size_t Transport::message_timeout_ = get_env_var("TRANSPORT_TIMEOUT", size_t(100));
+
 Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id)
     : app_to_tcp_(buffer_size),
       tcp_to_app_(buffer_size),
@@ -20,6 +23,7 @@ Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_conte
     sessionKey_tx_.resize(SESSION_KEY_SIZE);
     sessionKey_rx_new_.resize(SESSION_KEY_SIZE);
     sessionKey_tx_new_.resize(SESSION_KEY_SIZE);
+    //std::cout << "transport max_message_size " << max_message_size_ << std::endl;
 }
 
 
@@ -48,7 +52,7 @@ void Transport::on_send() {
                     if (port_id == this->id_) {
                         std::lock_guard<std::mutex> lock(mutex_[0]);
                         do {
-                            int len = this->output(buffer, buffer_size, std::chrono::milliseconds(50));
+                            int len = this->output(buffer, buffer_size, std::chrono::milliseconds(0));
                             if (len > 0) {
                                 #ifdef DEBUG
                                 //std::cout << std::dec << get_timestamp() << " : PORT->TCP :" << std::this_thread::get_id() << std::endl;
@@ -81,7 +85,7 @@ void Transport::on_input() {
                     std::lock_guard<std::mutex> lock(mutex_[1]);
                     while (true) {
                         uint32_t id;
-                        int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(50));
+                        int len = this->read(app_data->data(), id, max_cache_size, std::chrono::milliseconds(0));
                         if (len > 0) {
                             #ifdef DEBUG
                             //std::cout << std::dec << get_timestamp() << " : PORT[" << port_id << "]->APP :" << std::this_thread::get_id() << std::endl;
@@ -384,7 +388,7 @@ int Transport::read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::m
         std::vector<char> temp_buffer(dataLen);
         // 读取完整分包
         if (tcp_to_app_.read(temp_buffer.data(), dataLen, timeout) < 0) {
-            std::cout << "Read timeout\n";
+            //std::cout << "Read timeout\n";
             return -1; // 超时
         }
 
@@ -420,7 +424,9 @@ int Transport::read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::m
 
         // 查找或创建缓存项
         auto& buffer = message_cache[msg.header.msg_id];
-        buffer.last_update = std::chrono::steady_clock::now();
+        if (buffer.last_update == std::chrono::steady_clock::time_point::min()) {
+            buffer.last_update = std::chrono::steady_clock::now();
+        }
         buffer.is_compressed = msg.header.flag & FLAG_COMPRESSED;
 
         // 累计总大小
@@ -463,7 +469,7 @@ int Transport::read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::m
         // 超时清理未完成消息
         auto now = std::chrono::steady_clock::now();
         for (auto it = message_cache.begin(); it != message_cache.end();) {
-            if (now - it->second.last_update > timeout) {
+            if (now - it->second.last_update > std::chrono::milliseconds(message_timeout_)) {
                 std::cout << "Message timeout, msg_id: " << it->first << std::endl;
                 it = message_cache.erase(it);
             } else {

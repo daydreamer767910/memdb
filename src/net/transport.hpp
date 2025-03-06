@@ -42,7 +42,7 @@ struct MessageBuffer {
     size_t total_size = 0;                   // 当前消息的总大小
     bool is_complete = false;                // 是否已完成
     bool is_compressed = false;              // 是否压缩
-    std::chrono::steady_clock::time_point last_update; // 最近更新的时间
+    std::chrono::steady_clock::time_point last_update = std::chrono::steady_clock::time_point::min();; // 最近更新的时间
 };
 
 
@@ -114,7 +114,8 @@ public:
 private:
     static constexpr size_t max_cache_size_ = 8;
     static constexpr size_t segment_size_ = 1024; // 分段大小
-    static constexpr size_t max_message_size_ = 10 * 1024*1024; // 限制最大消息大小为 10 MB
+    static size_t max_message_size_;// = 10 * 1024*1024; // 限制最大消息大小为 10 MB
+    static uint64_t message_timeout_; // = 200; // 200ms
     static constexpr size_t encrypt_size_increment_ = AES_GCM_nonce_len + AES_GCM_tag_len;
     
     std::mutex mutex_[2];

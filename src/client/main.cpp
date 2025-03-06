@@ -45,8 +45,8 @@ int test(const std::string jsonConfig) {
     if (ret>0) {
         //printf("APP SEND[%d]:\r\n",ret);
         //print_packet(reinterpret_cast<const uint8_t*>(buffer),ret);
-        json jsonData = json::parse(jsonConfig.c_str());
-        std::cout << jsonData.dump(2) << std::endl;
+        //json jsonData = json::parse(jsonConfig.c_str());
+        //std::cout << jsonData.dump(2) << std::endl;
     }
     
     // 读操作，支持超时
@@ -260,7 +260,7 @@ void insert_collection(std::string& name) {
     // 将字符串解析为 JSON 对象
     //json j = json::parse(rawJson);
     json j = json::array();
-    for (int k=0; k< 20000; ++k) {
+    for (int k=0; k< 15000; ++k) {
         // 生成随机数
         std::random_device rd;
         std::mt19937 gen(rd());
