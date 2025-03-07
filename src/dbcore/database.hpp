@@ -4,6 +4,7 @@
 #include "datacontainer.hpp"
 #include "table.hpp"
 #include "collection.hpp"
+#include "util/version.hpp"
 class Database {
 private:
     std::unordered_map<std::string, DataContainer::ptr> containers_;
@@ -11,7 +12,7 @@ private:
 
 private:
     Database() {
-        std::cout << "database created!" << std::endl;
+        std::cout << "database " << PROJECT_VERSION << " created!" << std::endl;
     }
 
     // 禁止拷贝构造和赋值操作

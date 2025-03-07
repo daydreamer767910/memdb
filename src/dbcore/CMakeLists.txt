@@ -18,7 +18,11 @@ pkg_check_modules(JEMALLOC REQUIRED jemalloc)
 
 # 定义核心功能的库
 add_library(dbcore SHARED ${DBCORE_SOURCES})
-
+# 添加调试宏和编译选项
+target_compile_definitions(dbcore PRIVATE 
+    PROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    PROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    PROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 # 如果有依赖其他模块，进行链接
 target_link_libraries(dbcore PUBLIC util -lstdc++fs ${JEMALLOC_LIBRARIES})
 

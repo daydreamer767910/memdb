@@ -1,4 +1,5 @@
 #include "transportmng.hpp"
+#include "util/version.hpp"
 
 size_t TransportMng::thread_pool_size_ = get_env_var("TRANSPORT_POOL_SIZE", size_t(4));
 size_t TransportMng::transport_buff_size = get_env_var("TRANSPORT_BUFFER_SIZE", size_t(16*1024));
@@ -6,7 +7,7 @@ size_t TransportMng::transport_buff_size = get_env_var("TRANSPORT_BUFFER_SIZE", 
 TransportMng::TransportMng() :thread_pool_(thread_pool_size_),
     work_guard_{boost::asio::make_work_guard(io_[0]), boost::asio::make_work_guard(io_[1]) } {
 #ifdef DEBUG
-    std::cout << "TransportMng start" << std::endl;
+    std::cout << "TransportMng " << PROJECT_VERSION << " start" << std::endl;
 #endif
 };
 

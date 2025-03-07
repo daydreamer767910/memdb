@@ -8,6 +8,7 @@
 #include "log/logger.hpp"
 #include "util/util.hpp"
 #include "util/timer.hpp"
+#include "util/version.hpp"
 #include "dbcore/field.hpp"
 
 
@@ -615,7 +616,9 @@ int main(int argc, char* argv[]) {
     std::string command = argv[1];
     std::string param = argv[2];
     
-    if (command == "create") {
+    if (command == "-v") {
+        std::cout << "mdb client " << PROJECT_VERSION << std::endl;
+    } else if (command == "create") {
         create_tbl(param);
     } else if (command == "createc") {
         create_collection(param);

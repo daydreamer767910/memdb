@@ -14,6 +14,7 @@
 #include "net/transportsrv.hpp"
 #include "log/logger.hpp"
 #include "server/dbservice.hpp"
+#include "util/version.hpp"
 
 bool exiting = false;
 DBService::ptr db_server = DBService::getInstance();
@@ -53,6 +54,7 @@ int main(int argc, char* argv[]) {
         srvPort = std::stoi(argv[2]);
     }
     transportSrv->start(srvIP, srvPort);
+    std::cout << "mdbsrv " << PROJECT_VERSION << " is running." << std::endl;
     while (!exiting) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }

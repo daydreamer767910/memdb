@@ -17,6 +17,11 @@ set(NET_SOURCES
 # 定义网络功能的库
 add_library(net STATIC ${NET_SOURCES})
 
+# 添加调试宏和编译选项
+target_compile_definitions(net PRIVATE 
+    PROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    PROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    PROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 # 如果有依赖其他模块，进行链接
 target_link_libraries(net PUBLIC util log pthread ${Boost_LIBRARIES} ${JEMALLOC_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto argon2 ZLIB::ZLIB)
 
