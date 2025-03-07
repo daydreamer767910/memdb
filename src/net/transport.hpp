@@ -53,7 +53,7 @@ public:
         LOW_UP,
         ALL
     };
-    Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id);
+    Transport(/*boost::asio::io_context& io_ctx_rx, boost::asio::io_context& io_ctx_tx, */uint32_t id);
     ~Transport();
     void stop();
     uint32_t get_id() {
@@ -113,17 +113,18 @@ public:
 
 private:
     static constexpr size_t max_cache_size_ = 8;
-    static constexpr size_t segment_size_ = TCP_BUFFER_SIZE; // 分段大小
-    static size_t max_message_size_;// = 10 * 1024*1024; // 限制最大消息大小为 10 MB
-    static uint64_t message_timeout_; // = 200; // 200ms
+    static constexpr size_t segment_size_ = TCP_BUFFER_SIZE;// 分段大小
     static constexpr size_t encrypt_size_increment_ = AES_GCM_nonce_len + AES_GCM_tag_len;
+    static size_t max_message_size_;// = 10 * 1024*1024; // 限制最大消息大小为 10 MB
+    static constexpr size_t circular_buffer_size_ = 32*1024; //32k
+    static uint32_t message_timeout_; // = 200; // 200ms
     
     std::mutex mutex_[2];
     std::map<uint32_t, MessageBuffer> message_cache; // 缓存容器
     CircularBuffer app_to_tcp_; // 缓存上层发送的数据
     CircularBuffer tcp_to_app_; // 缓存下层接收的数据
-    boost::asio::io_context* io_context_[2];
-    Timer timer_[2];
+    //boost::asio::io_context* io_context_[2];
+    //Timer timer_[2];
     uint32_t id_;
     bool encryptMode_;
     bool updateKey_;

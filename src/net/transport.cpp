@@ -8,14 +8,14 @@
 #include "util/util.hpp"
 
 size_t Transport::max_message_size_ = get_env_var("MAX_MESSAGE_SIZE", size_t(10*1024*1024));
-size_t Transport::message_timeout_ = get_env_var("TRANSPORT_TIMEOUT", size_t(100));
+uint32_t Transport::message_timeout_ = get_env_var("TRANSPORT_TIMEOUT", uint32_t(100));
 
-Transport::Transport(size_t buffer_size, const std::vector<boost::asio::io_context*>& io_contexts, uint32_t id)
-    : app_to_tcp_(buffer_size),
-      tcp_to_app_(buffer_size),
-      io_context_{io_contexts[0], io_contexts[1]},  // 初始化指针数组
-      timer_{ Timer(*io_context_[0], 0, false, [this](int, int, std::thread::id) { this->on_send(); }),
-              Timer(*io_context_[1], 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
+Transport::Transport(/*boost::asio::io_context& io_ctx_rx, boost::asio::io_context& io_ctx_tx,*/ uint32_t id)
+    : app_to_tcp_(circular_buffer_size_),
+      tcp_to_app_(circular_buffer_size_),
+      //io_context_{io_contexts[0], io_contexts[1]},  // 初始化指针数组
+      //timer_{ Timer(io_ctx_tx, 0, false, [this](int, int, std::thread::id) { this->on_send(); }),
+              //Timer(io_ctx_rx, 0, false, [this](int, int, std::thread::id) { this->on_input(); }) },
       id_(id),
       encryptMode_(false),
       compressFlag_(false) {
@@ -106,8 +106,8 @@ void Transport::on_input() {
 void Transport::triger_event(ChannelType type) {
     
     if (ChannelType::ALL == type) {
-        timer_[0].start();
-        timer_[1].start();
+        //timer_[0].start();
+        //timer_[1].start();
         /*boost::asio::post(*io_context_[0], [this]() {
             this->on_send();
         });
@@ -118,9 +118,9 @@ void Transport::triger_event(ChannelType type) {
         /*boost::asio::post(*io_context_[0], [this]() {
             this->on_send();
         });*/
-        timer_[0].start();
+        //timer_[0].start();
     } else if (ChannelType::LOW_UP == type) {
-        timer_[1].start();
+        //timer_[1].start();
         /*boost::asio::post(*io_context_[1], [this]() {
             this->on_input();
         });*/
@@ -286,8 +286,9 @@ int Transport::send(const uint8_t* data, size_t size, uint32_t msg_id, std::chro
 
 		std::vector<char> network_data = serializeMsg(msg);
         int ret = app_to_tcp_.write(network_data.data(), network_data.size(), timeout);
-        triger_event(ChannelType::UP_LOW);
 		if (ret<0) {
+            on_send();
+            //triger_event(ChannelType::UP_LOW);
             //retry 1 time
             #ifdef DEBUG
             std::cout << "app -> CircularBuffer fail and retry" << std::endl;
@@ -297,8 +298,8 @@ int Transport::send(const uint8_t* data, size_t size, uint32_t msg_id, std::chro
                 std::cerr << "app -> CircularBuffer fail" << std::endl;
                 return -1; // 写入超时
             }
-            triger_event(ChannelType::UP_LOW);
 		}
+        on_send();
         #ifdef DEBUG
 		//std::cout << get_timestamp() << " APP->PORT :" << std::this_thread::get_id() << std::endl;
 		//print_packet(reinterpret_cast<const uint8_t*>(network_data.data()), network_data.size());
@@ -323,8 +324,9 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
 	//std::cout << "Transport::input: \n";
 	//print_packet(reinterpret_cast<const uint8_t*>(buffer),size);
 	int ret = tcp_to_app_.write(buffer, size, timeout);
-    triger_event(ChannelType::LOW_UP);
     if (ret < 0) {
+        //triger_event(ChannelType::LOW_UP);
+        on_input();
         #ifdef DEBUG
         std::cout << "tcp -> CircularBuffer fail and retry" << std::endl;
         #endif
@@ -333,8 +335,9 @@ int Transport::input(const char* buffer, size_t size, std::chrono::milliseconds 
         if (ret < 0 ) {
             std::cerr << "tcp -> CircularBuffer fail" << std::endl;
         }
-        triger_event(ChannelType::LOW_UP);
-    } 
+    }
+    on_input();
+    //triger_event(ChannelType::LOW_UP);
     return ret;
 }
 

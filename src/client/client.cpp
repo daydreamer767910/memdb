@@ -25,15 +25,11 @@ int mdb_start(const char* ip, int port) {
 
 int mdb_reconnect(const char* ip, int port) {
 	client_ptr->stop();
-	return client_ptr->reconnect(std::string(ip), std::to_string(port));
+	return client_ptr->start(std::string(ip), std::to_string(port));;
 }
 
 void mdb_stop() {
 	client_ptr->stop();
-}
-
-void mdb_quit() {
-	client_ptr->quit();
 }
 
 int mdb_recv(char* buffer, int size, int &msg_id, int timeout) {

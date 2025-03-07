@@ -14,7 +14,7 @@ using tcp = boost::asio::ip::tcp; // 简化命名空间
 class Transport;
 class TcpConnection : public IDataCallback, public Subject<TcpConnection>, public std::enable_shared_from_this<TcpConnection> {
 public:
-    TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id);
+    TcpConnection(tcp::socket socket, uint32_t id);
     ~TcpConnection();
     
     void start();    // 启动连接
@@ -38,9 +38,7 @@ private:
     
     //void handle_write(const boost::system::error_code& ec, size_t bytes_transferred);
 
-    boost::asio::io_context& io_context_;
     tcp::socket socket_;
-    //std::atomic<bool> is_idle_;
     uint32_t id_;
     std::weak_ptr<Transport> transport_;
     

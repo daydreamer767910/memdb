@@ -1,6 +1,6 @@
 #include "transportsrv.hpp"
 
-int TransportSrv::thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(3));
+int TransportSrv::thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(6));
 
 TransportSrv::TransportSrv()
     : io_context_(), acceptor_(io_context_), connection_count(0), unique_id(0), 
@@ -56,8 +56,8 @@ void TransportSrv::on_accept(const boost::system::error_code& error, boost::asio
     if (connection_count < max_connection_num) {
         connection_count++;
         unique_id++;
-        auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
-		auto connection = std::make_shared<TcpConnection>(io_context, std::move(socket), unique_id);
+        //auto& io_context = static_cast<boost::asio::io_context&>(acceptor_.get_executor().context());
+		auto connection = std::make_shared<TcpConnection>(std::move(socket), unique_id);
         connection->add_observer(shared_from_this());
         connection->start();
     } else {

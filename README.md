@@ -17,9 +17,21 @@ sudo apt-get install -y \
 
 ```
 #### 设置环境变量：
+```
 NODE_ENV=production，
 MALLOC_CONF="narenas:32,dirty_decay_ms:500,muzzy_decay_ms:10000"
+LOG_FILE_PATH=/mdb/log/mdbsrv.log
 COMM_PORT=7900
+#thread pool size
+DB_SERVICE_POOL_SIZE=6
+TCP_SERVER_POOL_SIZE=6
+
+#TRANSPORT_TIMEOUT is for segmentation network delay(ms)
+TRANSPORT_TIMEOUT=200
+
+#MAX_MESSAGE_SIZE is for application layer message size
+MAX_MESSAGE_SIZE=10485760
+```
 #### clone到本地后执行：
 ```
 cd src
@@ -48,15 +60,13 @@ mdbsrv 或者运行 entrypoint.sh mdbsrv
 #### json指令通过mdb_send发送，msg_id是指令编号必须是唯一，timeout是超时设置，单位ms。返回值>0成功，<0失败。
 #### json指令通过mdb_recv接收，timeout是超时设置，单位ms。返回值>0成功，<0失败。
 #### 发送或者接受失败时，通过mdb_reconnect重新连接server，返回0表示成功连接，<0表示失败。
-#### mdb_stop表示关闭收发通道。
-#### mdb_quit表示结束client端并且释放资源。
+#### mdb_stop表示关闭收发通道并且释放资源。
 
 #### 对于c/c++：
 ```
 extern "C" {
     void mdb_init(const char* user,const char* pwd);
     void mdb_stop();
-    void mdb_quit();
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
     int mdb_recv(char* buffer, int size, int &msg_id, int timeout);

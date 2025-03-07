@@ -16,7 +16,7 @@ class TransportSrv: public IObserver<TcpConnection>, public Subject<Transport>, 
 public:
     using ptr = std::shared_ptr<TransportSrv>;
     static ptr& get_instance() {
-		thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(3));
+		thread_pool_size_ = get_env_var("TCP_SERVER_POOL_SIZE", int(6));
 		static ptr instance = std::make_shared<TransportSrv>();
 		return instance;
 	}

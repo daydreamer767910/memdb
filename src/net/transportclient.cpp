@@ -108,41 +108,47 @@ int TransportClient::Ecdh() {
     return 0;
 }
 
-int TransportClient::reconnect(const std::string& host, const std::string& port) {
-	host_ = host.empty() ? host_ : host;
-	port_ = port.empty() ? port_ : port;
-	stop();
+int TransportClient::connect() {
 	auto socket = connect(host_, port_);
 	if (!socket) {
 		std::cerr << "mdb client connect to server fail" << std::endl;
 		return -1;
 	}
+	tranportMng_->start();
+	if (io_context_.stopped()) {
+        io_context_.restart();  // 重新启动 io_context
+    }
+	work_guard_ = std::make_shared<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_.get_executor());
+	asio_eventLoopThread = std::thread([this]() {
+		io_context_.run();
+	});
+
 	id_++;
-	tcp_client_ = std::make_shared<TcpConnection>(io_context_, std::move(*socket), id_);
+	tcp_client_ = std::make_shared<TcpConnection>(std::move(*socket), id_);
 	tcp_client_->add_observer(shared_from_this());
 	tcp_client_->start();
 	return this->Ecdh();
 }
 
 int TransportClient::start(const std::string& host, const std::string& port) {
-	static bool started = false;
-	if (!started) {
-		started = true;
-		tranportMng_->start();
-		asio_eventLoopThread = std::thread([this]() {
-			io_context_.run();
-		});
-	}
+	host_ = host.empty() ? host_ : host;
+	port_ = port.empty() ? port_ : port;
 	
-	return reconnect(host, port);
+	return connect();
 }
 
 void TransportClient::stop() {
-	if (auto port = transport_.lock())
-		tranportMng_->close_port(port->get_id());
+	tranportMng_->stop();
 	if (tcp_client_)
 		tcp_client_->stop();
 	tcp_client_ = nullptr;
+	io_context_.stop();
+
+	if (asio_eventLoopThread.joinable())
+		asio_eventLoopThread.join();
+	if (work_guard_) {
+		work_guard_->reset();  // 释放 work_guard
+	}
 }
 
 int TransportClient::send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout) {

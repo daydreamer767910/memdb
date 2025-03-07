@@ -25,7 +25,6 @@ public:
 
 	TransportClient(boost::asio::io_context& io_context, const std::string& user, const std::string& pwd)
 		: io_context_(io_context), 
-		work_guard_(boost::asio::make_work_guard(io_context)),
 		user_(user), passwd_(pwd) {
 		tranportMng_ = TransportMng::get_instance();
 		id_ = 0;
@@ -49,6 +48,24 @@ public:
         tranportMng_->close_port(id);
 		tcp_client_ = nullptr;
     }
+	
+
+	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user, const std::string& pwd) {
+		if (my_instance == nullptr)
+        	my_instance = std::make_shared<TransportClient>(io_context,user,pwd);
+		return my_instance;
+    }
+
+	int start(const std::string& host, const std::string& port);
+	
+	void stop();
+	
+	// 1. APP 缓存到下行 CircularBuffer
+    int send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout);
+	// 4. APP 读取上行 CircularBuffer
+    int recv(uint8_t* pack_data,uint32_t& msg_id, size_t size, uint32_t timeout);
+	
+protected:
 	//for tcp client
     std::optional<tcp::socket> connect(const std::string& host, const std::string& port) {
         try {
@@ -68,34 +85,7 @@ public:
             return std::nullopt;  // 返回空值表示连接失败
         }
     }
-
-	void quit() {
-		io_context_.stop();
-		if (auto port = transport_.lock()) {
-			tranportMng_->close_port(port->get_id());
-		}
-		tranportMng_->stop();
-		if (asio_eventLoopThread.joinable())
-			asio_eventLoopThread.join();
-		work_guard_.reset();
-	}
-
-	static ptr& get_instance(boost::asio::io_context& io_context,const std::string& user, const std::string& pwd) {
-		if (my_instance == nullptr)
-        	my_instance = std::make_shared<TransportClient>(io_context,user,pwd);
-		return my_instance;
-    }
-
-	int start(const std::string& host, const std::string& port);
-	int reconnect(const std::string& host = "", const std::string& port = "");
-	void stop();
-	
-	// 1. APP 缓存到下行 CircularBuffer
-    int send(const uint8_t* data, size_t size, uint32_t msg_id, uint32_t timeout);
-	// 4. APP 读取上行 CircularBuffer
-    int recv(uint8_t* pack_data,uint32_t& msg_id, size_t size, uint32_t timeout);
-	
-protected:
+	int connect();
 	int Ecdh();
 private:
 	static ptr my_instance;
@@ -105,7 +95,7 @@ private:
 	TransportMng::ptr tranportMng_;
 	uint32_t id_;
 	std::thread asio_eventLoopThread;
-	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
+	std::shared_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
 	std::string user_;
 	std::string passwd_;
 	std::shared_ptr<TcpConnection> tcp_client_;

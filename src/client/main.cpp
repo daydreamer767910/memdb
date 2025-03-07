@@ -15,7 +15,6 @@
 extern "C" {
     void mdb_init(const char* user,const char* pwd);
     void mdb_stop();
-    void mdb_quit();
     int mdb_start(const char* ip, int port);
     int mdb_reconnect(const char* ip, int port);
     int mdb_recv(char* buffer, int size, int &msg_id, int timeout);
@@ -673,6 +672,6 @@ int main(int argc, char* argv[]) {
     
     // 关闭连接
     mdb_stop();
-    mdb_quit();
+
     return 0;
 }

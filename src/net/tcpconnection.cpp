@@ -3,10 +3,8 @@
 #include "util/util.hpp"
 #include "transport.hpp"
 
-TcpConnection::TcpConnection(boost::asio::io_context& io_context, tcp::socket socket, uint32_t id)
-    : io_context_(io_context), 
-      socket_(std::move(socket)),
-      //is_idle_(false),
+TcpConnection::TcpConnection(tcp::socket socket, uint32_t id)
+    : socket_(std::move(socket)),
       id_(id) {
     memset(read_buffer_, 0, sizeof(read_buffer_));
     memset(write_buffer_, 0, sizeof(write_buffer_));
@@ -56,8 +54,8 @@ void TcpConnection::on_data_received(int len, int ) {
             [this, self](boost::system::error_code ec, size_t bytes_transferred) {
                 if (!ec) {
                 #ifdef DEBUG
-                    //std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
-                        //<< "]TCP[" << id_ << "] SEND[" << bytes_transferred << "]: \n";
+                    std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
+                        << "]TCP[" << id_ << "] SEND[" << bytes_transferred << "]: \n";
                     //print_packet(reinterpret_cast<const uint8_t*>(write_buffer_),bytes_transferred);
                 #endif
                 } else {
@@ -86,8 +84,8 @@ void TcpConnection::do_read() {
 void TcpConnection::handle_read(const boost::system::error_code& error, std::size_t nread) {
 	#ifdef DEBUG
 	if(nread>0) {
-		//std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
-		//<< id_ << "]RECV[" << nread << "]:\n";
+		std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
+		<< id_ << "]RECV[" << nread << "]:\n";
 		//print_packet(reinterpret_cast<const uint8_t*>(read_buffer_),nread);
 	}
 	#endif
