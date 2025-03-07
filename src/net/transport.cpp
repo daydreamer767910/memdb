@@ -424,9 +424,9 @@ int Transport::read(uint8_t* data, uint32_t& msg_id, size_t size, std::chrono::m
 
         // 查找或创建缓存项
         auto& buffer = message_cache[msg.header.msg_id];
-        if (buffer.last_update == std::chrono::steady_clock::time_point::min()) {
+        //if (buffer.last_update == std::chrono::steady_clock::time_point::min()) {
             buffer.last_update = std::chrono::steady_clock::now();
-        }
+        //}
         buffer.is_compressed = msg.header.flag & FLAG_COMPRESSED;
 
         // 累计总大小

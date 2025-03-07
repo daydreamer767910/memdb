@@ -113,7 +113,7 @@ public:
 
 private:
     static constexpr size_t max_cache_size_ = 8;
-    static constexpr size_t segment_size_ = 1024; // 分段大小
+    static constexpr size_t segment_size_ = TCP_BUFFER_SIZE; // 分段大小
     static size_t max_message_size_;// = 10 * 1024*1024; // 限制最大消息大小为 10 MB
     static uint64_t message_timeout_; // = 200; // 200ms
     static constexpr size_t encrypt_size_increment_ = AES_GCM_nonce_len + AES_GCM_tag_len;

@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include "util/util.hpp"
 
+#define TCP_BUFFER_SIZE 1460
 template <typename T>
 class IObserver {
 public:

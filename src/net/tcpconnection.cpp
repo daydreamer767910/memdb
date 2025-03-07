@@ -56,9 +56,9 @@ void TcpConnection::on_data_received(int len, int ) {
             [this, self](boost::system::error_code ec, size_t bytes_transferred) {
                 if (!ec) {
                 #ifdef DEBUG
-                    std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
-                        << "]TCP[" << id_ << "] SEND[" << bytes_transferred << "]: \n";
-                    print_packet(reinterpret_cast<const uint8_t*>(write_buffer_),bytes_transferred);
+                    //std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() 
+                        //<< "]TCP[" << id_ << "] SEND[" << bytes_transferred << "]: \n";
+                    //print_packet(reinterpret_cast<const uint8_t*>(write_buffer_),bytes_transferred);
                 #endif
                 } else {
                     std::cerr << "Error on send: " << ec.message() << std::endl;
@@ -86,9 +86,9 @@ void TcpConnection::do_read() {
 void TcpConnection::handle_read(const boost::system::error_code& error, std::size_t nread) {
 	#ifdef DEBUG
 	if(nread>0) {
-		std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
-		<< id_ << "]RECV[" << nread << "]:\n";
-		print_packet(reinterpret_cast<const uint8_t*>(read_buffer_),nread);
+		//std::cout << std::dec << "PID[" << std::this_thread::get_id() << "]["  << get_timestamp() << "]TCP[" 
+		//<< id_ << "]RECV[" << nread << "]:\n";
+		//print_packet(reinterpret_cast<const uint8_t*>(read_buffer_),nread);
 	}
 	#endif
 	if (!error && nread>0) {
